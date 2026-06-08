@@ -1,5 +1,7 @@
 import xarray as xr
+
 from qpi_driver.executors.base import Executor
+
 
 class QbloxExecutor(Executor):
     """Executor subclass for interacting with Qblox instruments and modules."""

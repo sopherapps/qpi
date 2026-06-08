@@ -1,0 +1,125 @@
+name: CI/CD Workflow
+
+on:
+  push:
+    branches: [ main, master ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main, master ]
+
+env:
+  PUBLISH_TO_PYPI: ${{ vars.PUBLISH_TO_PYPI || 'false' }}
+  PUBLISH_GO_APP: ${{ vars.PUBLISH_GO_APP || 'false' }}
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go-version: ['1.22.x', '1.23.x', '1.24.x', '1.25.x', '1.26.x']
+        python-version: ['3.12', '3.13', '3.14']
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ matrix.go-version }}
+        cache-dependency-path: 'qpi-interface/go.sum'
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: 'pip'
+        cache-dependency-path: 'qpi-driver/pyproject.toml'
+
+    - name: Install dependencies & formatting tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ./qpi-driver[cli,aer,test]
+        sudo apt-get update && sudo apt-get install -y zip
+
+    - name: Audit Go Code Formatting
+      run: |
+        if [ -n "$(gofmt -l qpi-interface)" ]; then
+          echo "Go formatting errors found:"
+          gofmt -d qpi-interface
+          exit 1
+        fi
+
+    - name: Vet Go Code
+      run: cd qpi-interface && go vet ./...
+
+    - name: Audit Python Code Formatting & Style
+      run: |
+        ruff format --check qpi-driver/
+        ruff check qpi-driver/
+
+    - name: Run Go Unit Tests
+      run: cd qpi-interface && go test -v ./...
+
+    - name: Run Python Unit Tests
+      run: pytest qpi-driver/tests/
+
+    - name: Run E2E Integration Tests
+      run: ./e2e/run_tests.sh
+
+  publish-pypi:
+    needs: lint-and-test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && env.PUBLISH_TO_PYPI == 'true'
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Install build dependencies
+      run: python -m pip install build
+
+    - name: Build Package
+      run: python -m build qpi-driver/
+
+    - name: Publish package distributions to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        packages-dir: qpi-driver/dist/
+
+  publish-go-release:
+    needs: lint-and-test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && env.PUBLISH_GO_APP == 'true'
+    permissions:
+      contents: write
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.26.x'
+
+    - name: Install zip utility
+      run: sudo apt-get update && sudo apt-get install -y zip
+
+    - name: Build Packages
+      run: |
+        VERSION=${{ github.ref_name }}
+        make package VERSION=${VERSION#v}
+
+    - name: Upload Binaries to Release
+      uses: softprops/action-gh-release@v2
+      with:
+        files: bin/dist/*
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

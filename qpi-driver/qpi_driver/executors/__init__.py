@@ -1,10 +1,11 @@
 from typing import Any
+
 from qpi_driver.executors.base import Executor
 from qpi_driver.executors.mock import MockExecutor
+from qpi_driver.executors.presto import PrestoExecutor
+from qpi_driver.executors.qblox import QbloxExecutor
 from qpi_driver.executors.qiskit_aer import QiskitAerExecutor
 from qpi_driver.executors.quantify import QuantifyExecutor
-from qpi_driver.executors.qblox import QbloxExecutor
-from qpi_driver.executors.presto import PrestoExecutor
 
 BUILTIN_EXECUTORS: dict[str, type[Executor]] = {
     "mock": MockExecutor,
@@ -13,6 +14,7 @@ BUILTIN_EXECUTORS: dict[str, type[Executor]] = {
     "qblox": QbloxExecutor,
     "presto": PrestoExecutor,
 }
+
 
 def resolve_executor(
     executor: str | type[Executor] | Executor,
@@ -27,7 +29,7 @@ def resolve_executor(
             - A string key corresponding to a built-in or custom executor
             - A subclass of Executor
         custom_executors: Optional dictionary of custom executors to consider when resolving string keys
-        **kwargs: Additional keyword arguments to pass to the executor constructor 
+        **kwargs: Additional keyword arguments to pass to the executor constructor
             if instantiation is needed
 
     Returns:
@@ -39,7 +41,7 @@ def resolve_executor(
     """
     if isinstance(executor, Executor):
         return executor
-        
+
     if isinstance(executor, type) and issubclass(executor, Executor):
         return executor(**kwargs)
 
@@ -50,14 +52,13 @@ def resolve_executor(
 
         cls = None
         try:
-            cls =registry[executor]
+            cls = registry[executor]
         except KeyError as exp:
             raise ValueError(
                 f"Unknown executor name '{executor}'. Registered executors: {list(registry.keys())}"
             ) from exp
-            
+
         return cls(**kwargs)
-        
 
     raise TypeError(
         f"Invalid executor type: {type(executor)}. "

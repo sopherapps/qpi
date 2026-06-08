@@ -118,17 +118,17 @@ func NewFromFlags(cmd *cobra.Command) *AppConfig {
 				Extra        map[string]any `json:"extra" yaml:"extra"`
 			}
 			var fileCfg struct {
-				CollectionQPUs           *string                      `json:"qpusCollection" yaml:"qpusCollection"`
-				CollectionTimeSlots      *string                      `json:"timeslotsCollection" yaml:"timeslotsCollection"`
-				CollectionQuantumJobs    *string                      `json:"jobsCollection" yaml:"jobsCollection"`
-				IdleThreshold            *string                      `json:"idleThreshold" yaml:"idleThreshold"`
-				RecoveryInterval         *string                      `json:"recoveryInterval" yaml:"recoveryInterval"`
-				JobTimeout               *string                      `json:"jobTimeout" yaml:"jobTimeout"`
-				DispatchPollInterval     *string                      `json:"dispatchPollInterval" yaml:"dispatchPollInterval"`
-				PortRangeStart           *int                         `json:"portRangeStart" yaml:"portRangeStart"`
-				PortRangeEnd             *int                         `json:"portRangeEnd" yaml:"portRangeEnd"`
-				DisableEmailPasswordAuth *bool                        `json:"disableEmailPasswordAuth" yaml:"disableEmailPasswordAuth"`
-				OAuth2Providers          []oauth2ProviderConfigLocal  `json:"oauth2Providers" yaml:"oauth2Providers"`
+				CollectionQPUs           *string                     `json:"qpusCollection" yaml:"qpusCollection"`
+				CollectionTimeSlots      *string                     `json:"timeslotsCollection" yaml:"timeslotsCollection"`
+				CollectionQuantumJobs    *string                     `json:"jobsCollection" yaml:"jobsCollection"`
+				IdleThreshold            *string                     `json:"idleThreshold" yaml:"idleThreshold"`
+				RecoveryInterval         *string                     `json:"recoveryInterval" yaml:"recoveryInterval"`
+				JobTimeout               *string                     `json:"jobTimeout" yaml:"jobTimeout"`
+				DispatchPollInterval     *string                     `json:"dispatchPollInterval" yaml:"dispatchPollInterval"`
+				PortRangeStart           *int                        `json:"portRangeStart" yaml:"portRangeStart"`
+				PortRangeEnd             *int                        `json:"portRangeEnd" yaml:"portRangeEnd"`
+				DisableEmailPasswordAuth *bool                       `json:"disableEmailPasswordAuth" yaml:"disableEmailPasswordAuth"`
+				OAuth2Providers          []oauth2ProviderConfigLocal `json:"oauth2Providers" yaml:"oauth2Providers"`
 			}
 
 			var parseErr error

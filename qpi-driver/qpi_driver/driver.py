@@ -1,12 +1,13 @@
-from typing import Any
-from dataclasses import dataclass
 import json
 import logging
 import multiprocessing
 import os
 import time
-import requests
+from dataclasses import dataclass
+from typing import Any
+
 import pynng
+import requests
 
 from qpi_driver.executors import Executor
 
@@ -29,6 +30,7 @@ class HandshakeInfo:
         nng_result_port: Port allocated for NNG result collection.
         auth_token: Static authorization token assigned to the QPU.
     """
+
     nng_command_port: int
     nng_result_port: int
     auth_token: str
@@ -59,12 +61,15 @@ def do_handshake(host: str, port: int, token: str, name: str) -> HandshakeInfo:
     resp = requests.post(register_url, json=payload, timeout=10)
     resp.raise_for_status()
     data = resp.json()
-    log.info("Handshake OK — cmd_port=%s  res_port=%s",
-             data["nng_command_port"], data["nng_result_port"])
+    log.info(
+        "Handshake OK — cmd_port=%s  res_port=%s",
+        data["nng_command_port"],
+        data["nng_result_port"],
+    )
     return HandshakeInfo(
         nng_command_port=int(data["nng_command_port"]),
         nng_result_port=int(data["nng_result_port"]),
-        auth_token=data.get("auth_token", "")
+        auth_token=data.get("auth_token", ""),
     )
 
 
@@ -74,7 +79,7 @@ def execute_job(
     executor: str | type[Executor] | Executor,
     custom_executors: dict[str, type[Executor]] | None,
     data_dir: str,
-    **executor_options: Any
+    **executor_options: Any,
 ) -> None:
     """
     Worker process: pulls job dicts from job_queue, executes them using the resolved
@@ -100,10 +105,14 @@ def execute_job(
     from qpi_driver.executors import resolve_executor
 
     try:
-        executor_instance = resolve_executor(executor, custom_executors, **executor_options)
+        executor_instance = resolve_executor(
+            executor, custom_executors, **executor_options
+        )
     except Exception as exc:
         w_log.error("Failed to resolve executor: %s", exc)
-        result_queue.put({"job_id": "init_error", "error": f"Failed to resolve executor: {exc}"})
+        result_queue.put(
+            {"job_id": "init_error", "error": f"Failed to resolve executor: {exc}"}
+        )
         return
 
     os.makedirs(data_dir, exist_ok=True)
@@ -133,7 +142,9 @@ def execute_job(
                 dataset.to_netcdf(filepath, engine="scipy")
 
                 result_queue.put({"job_id": job_id, "filepath": filepath})
-                w_log.info("Worker process completed job %s, saved to %s", job_id, filepath)
+                w_log.info(
+                    "Worker process completed job %s, saved to %s", job_id, filepath
+                )
             except Exception as exc:
                 w_log.error("Worker process failed job %s: %s", job_id, exc)
                 result_queue.put({"job_id": job_id, "error": str(exc)})
@@ -144,9 +155,7 @@ def execute_job(
 
 
 def process_results(
-    result_queue: multiprocessing.Queue,
-    res_port: int,
-    host: str
+    result_queue: multiprocessing.Queue, res_port: int, host: str
 ) -> None:
     """Translator process: pulls results from result_queue, loads xarray.Dataset from disk,
 
@@ -166,7 +175,7 @@ def process_results(
     t_log = logging.getLogger("translator")
     t_log.info("Translator process started")
 
-	# Import dependencies locally
+    # Import dependencies locally
     import xarray as xr
     from qiskit.result import Result
     from qiskit.result.models import ExperimentResult, ExperimentResultData
@@ -258,7 +267,11 @@ def process_results(
                         msg_dict = {"job_id": job_id, "results": qiskit_data}
                         t_log.info("Sending results for job %s", job_id)
                     except Exception as exc:
-                        t_log.error("Failed to load/translate dataset for job %s: %s", job_id, exc)
+                        t_log.error(
+                            "Failed to load/translate dataset for job %s: %s",
+                            job_id,
+                            exc,
+                        )
                         msg_dict = {"job_id": job_id, "results": {"error": str(exc)}}
                         if os.path.exists(filepath):
                             try:
@@ -282,7 +295,7 @@ def run_driver(
     name: str,
     executor: str | type[Executor] | Executor = "mock",
     custom_executors: dict[str, type[Executor]] | None = None,
-    data_dir: str = "bin/data"
+    data_dir: str = "bin/data",
 ) -> None:
     """Run the QPI Python hardware driver.
 
@@ -309,7 +322,7 @@ def run_driver(
         target=execute_job,
         args=(job_queue, result_queue, executor, custom_executors, data_dir),
         name="QPI-Worker",
-        daemon=True
+        daemon=True,
     )
     worker.start()
 
@@ -318,7 +331,7 @@ def run_driver(
         target=process_results,
         args=(result_queue, res_port, host),
         name="QPI-Translator",
-        daemon=True
+        daemon=True,
     )
     translator.start()
 

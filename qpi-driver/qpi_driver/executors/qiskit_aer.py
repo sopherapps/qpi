@@ -1,5 +1,7 @@
 import xarray as xr
+
 from qpi_driver.executors.base import Executor
+
 
 class QiskitAerExecutor(Executor):
     def execute(self, payload: dict) -> xr.Dataset:
@@ -16,8 +18,8 @@ class QiskitAerExecutor(Executor):
             ValueError: If the provided QASM circuit cannot be loaded.
         """
         try:
-            from qiskit_aer import AerSimulator
             from qiskit import QuantumCircuit, transpile
+            from qiskit_aer import AerSimulator
         except ImportError as exc:
             raise ImportError(
                 "qiskit-aer is not installed. Install the [aer] extra to use QiskitAerExecutor."
@@ -29,10 +31,15 @@ class QiskitAerExecutor(Executor):
         # Support dynamically passing the circuit in the payload as a QASM string.
         # If not provided or if it's just a simple name, fall back to the default Bell state.
         qasm_str = payload.get("circuit_qasm") or payload.get("circuit")
-        if qasm_str and isinstance(qasm_str, str) and ("OPENQASM" in qasm_str or "qreg" in qasm_str or "include" in qasm_str):
+        if (
+            qasm_str
+            and isinstance(qasm_str, str)
+            and ("OPENQASM" in qasm_str or "qreg" in qasm_str or "include" in qasm_str)
+        ):
             try:
                 if "OPENQASM 3" in qasm_str or "OPENQASM 3.0" in qasm_str:
                     import qiskit.qasm3 as qasm3
+
                     qc = qasm3.loads(qasm_str)
                 else:
                     qc = QuantumCircuit.from_qasm_str(qasm_str)
@@ -58,15 +65,11 @@ class QiskitAerExecutor(Executor):
         return xr.Dataset(
             {
                 "counts": xr.DataArray(
-                    list(counts.values()), 
-                    dims=["state"],
-                    coords={"state": states}
+                    list(counts.values()), dims=["state"], coords={"state": states}
                 ),
                 "frequencies": xr.DataArray(
-                    freqs, 
-                    dims=["state"],
-                    coords={"state": states}
-                )
+                    freqs, dims=["state"], coords={"state": states}
+                ),
             },
-            attrs={"shots": shots, "n_qubits": n_qubits, "backend": "qiskit_aer"}
+            attrs={"shots": shots, "n_qubits": n_qubits, "backend": "qiskit_aer"},
         )

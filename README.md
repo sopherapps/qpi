@@ -1,5 +1,8 @@
 # QPI: Quantum Processing Interface
 
+[![CI/CD Workflow](https://github.com/sopherapps/qpi/actions/workflows/ci.yml/badge.svg)](https://github.com/sopherapps/qpi/actions/workflows/ci.yml)
+[![PyPI version](https://badge.fury.io/py/qpi-driver.svg)](https://badge.fury.io/py/qpi-driver)
+
 QPI is a distributed quantum control stack architecture designed to control multiple Quantum Processing Units (QPUs).
 
 ## Prerequisites
@@ -53,6 +56,25 @@ graph TD
 * **Session-Based Booking with Opportunistic FIFO:** Dispatches jobs prioritizing users who have booked the current time slot. Fallback mechanism allows other users' pending jobs to execute if the slot booker is idle.
 * **Auto-Schema Migration & Port Allocation:** Automatically creates required database collections (`qpus`, `time_slots`, `quantum_jobs`) and dynamically allocates race-free TCP ports for registered QPUs.
 * **Stale Job Recovery:** A background ticking routine monitors running jobs and resets them to `pending` if their driver hangs or disconnects (timeout default: 20 seconds).
+
+### Orchestrator Configuration Options
+
+The Go orchestrator can be configured via CLI flags, environment variables, or a configuration file (JSON or YAML, specified via `--config-file` or `QPI_CONFIG_FILE`). The precedence hierarchy is: CLI Flag > Env Var > Config File > Default.
+
+| CLI Option | Environment Variable | Default | Description |
+|---|---|---|---|
+| `--config-file` | `QPI_CONFIG_FILE` | | Path to JSON or YAML configuration file. |
+| `--qpus-collection` | `QPI_QPUS_COLLECTION` | `qpus` | Collection name for QPUs. |
+| `--timeslots-collection` | `QPI_TIMESLOTS_COLLECTION` | `time_slots` | Collection name for Reservation Time Slots. |
+| `--jobs-collection` | `QPI_JOBS_COLLECTION` | `quantum_jobs` | Collection name for Quantum Jobs. |
+| `--idle-threshold` | `QPI_IDLE_THRESHOLD` | `5s` | Time to wait before running fallback FIFO jobs. |
+| `--recovery-interval` | `QPI_RECOVERY_INTERVAL` | `10s` | Interval for resetting hung/stale jobs. |
+| `--job-timeout` | `QPI_JOB_TIMEOUT` | `20s` | Max execution time before a job is reset. |
+| `--dispatch-poll-interval` | `QPI_DISPATCH_POLL_INTERVAL` | `1s` | Frequency of checking queue for pending jobs. |
+| `--port-range-start` | `QPI_PORT_RANGE_START` | `6000` | NNG port range start. |
+| `--port-range-end` | `QPI_PORT_RANGE_END` | `7000` | NNG port range end. |
+| `--disable-email-password-auth` | `QPI_DISABLE_EMAIL_PASSWORD_AUTH` | `false` | Disable email/password login on the users collection. |
+| `--oauth2-providers` | `QPI_OAUTH2_PROVIDERS` | | JSON string representing OAuth2 providers config. |
 
 ---
 
@@ -119,6 +141,6 @@ make clean
 
 ## GitHub Actions CI/CD
 
-The workflow in [.github/workflows/e2e.yml](.github/workflows/e2e.yml) runs E2E integration tests against multiple matrix versions of Go (1.22 to 1.26) and Python (3.12 to 3.14).
+The workflow in [.github/workflows/ci.yml](.github/workflows/ci.yml) runs lint checks, unit tests, and E2E integration tests against multiple matrix versions of Go (1.22 to 1.26) and Python (3.12 to 3.14).
 
 If the workflow runs on a `push` to `main`/`master` and the repository environment variable `PUBLISH_TO_PYPI` is set to `true`, the package will automatically build and publish to PyPI.
