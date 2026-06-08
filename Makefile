@@ -1,6 +1,6 @@
 .PHONY: all build test lint lint-go lint-py format format-go format-py package clean venv-check
 
-VERSION ?= 1.0.0
+VERSION ?= 0.0.1
 UV := $(shell command -v uv 2> /dev/null || echo "$$HOME/.local/bin/uv")
 
 all: build

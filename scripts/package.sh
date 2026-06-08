@@ -5,7 +5,7 @@
 
 set -e
 
-VERSION=${1:-"1.0.0"}
+VERSION=${1:-"0.0.1"}
 SRC_DIR="qpi-interface"
 DIST_DIR="bin/dist"
 
@@ -34,7 +34,7 @@ for PLATFORM in "${PLATFORMS[@]}"; do
     mkdir -p "$BUILD_DIR"
 
     echo "Building for $OS/$ARCH..."
-    GOOS=$OS GOARCH=$ARCH go build -C "$SRC_DIR" -o "../$BUILD_DIR/$BIN_NAME" .
+    GOOS=$OS GOARCH=$ARCH go build -ldflags="-X 'main.Version=v${VERSION#v}'" -C "$SRC_DIR" -o "../$BUILD_DIR/$BIN_NAME" .
 
     # Copy metadata or license files if needed
     cp README.md "$BUILD_DIR/" 2>/dev/null || true
@@ -70,7 +70,7 @@ Version: ${VERSION}
 Section: utils
 Priority: optional
 Architecture: ${ARCH}
-Maintainer: SopherApps <info@sopherapps.com>
+Maintainer: SopherApps <team.sopherapps@gmail.com>
 Description: Quantum Processing Interface (QPI) Orchestrator
  QPI is a distributed quantum control stack architecture designed
  to control multiple Quantum Processing Units (QPUs).

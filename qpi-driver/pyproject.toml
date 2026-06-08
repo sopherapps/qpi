@@ -4,11 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "qpi-driver"
-version = "1.0.0"
+version = "0.0.1"
 description = "Quantum Processing Interface (QPI) Hardware Driver"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 license = { text = "MIT" }
+authors = [
+    { name = "Martin Ahindura", email = "team.sopherapps@gmail.com" },
+]
 dependencies = [
     "numpy>=2.0.0",
     "xarray>=2024.1.0",
@@ -36,6 +39,13 @@ dev = [
     "pytest>=8.0.0",
     "ruff>=0.3.0"
 ]
+
+[project.urls]
+Homepage = "https://github.com/sopherapps/qpi"
+Repository = "https://github.com/sopherapps/qpi"
+Documentation = "https://github.com/sopherapps/qpi"
+Issues = "https://github.com/sopherapps/qpi/issues"
+Changelog = "https://github.com/sopherapps/qpi/blob/main/CHANGELOG.md"
 
 [project.scripts]
 qpi-driver = "qpi_driver.cli:app"

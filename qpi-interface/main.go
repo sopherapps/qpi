@@ -15,11 +15,16 @@ import (
 	"qpi/internal/schema"
 )
 
+var Version = "v0.0.1"
+
 func main() {
 	app := pocketbase.New()
 
 	// Bind custom persistent CLI flags to configuration variables
 	config.BindFlags(app.RootCmd)
+
+	// set the current version of the application
+	app.RootCmd.Version = Version
 
 	// Bootstrap: create collections on first boot
 	app.OnBootstrap().Bind(&hook.Handler[*core.BootstrapEvent]{

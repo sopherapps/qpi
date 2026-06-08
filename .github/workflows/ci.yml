@@ -2,14 +2,14 @@ name: CI/CD Workflow
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main ]
     tags: [ 'v*' ]
   pull_request:
-    branches: [ main, master ]
 
-env:
-  PUBLISH_TO_PYPI: ${{ vars.PUBLISH_TO_PYPI || 'false' }}
-  PUBLISH_GO_APP: ${{ vars.PUBLISH_GO_APP || 'false' }}
+concurrency:
+  # cancel any previous run on this branch or tag that is still in progress
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   # Rename workflow file reference or update steps
@@ -77,7 +77,7 @@ jobs:
   publish-pypi:
     needs: lint-and-test
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && env.PUBLISH_TO_PYPI == 'true'
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && vars.PUBLISH_TO_PYPI == 'true'
     permissions:
       id-token: write
       contents: read
@@ -101,7 +101,7 @@ jobs:
   publish-go-release:
     needs: lint-and-test
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && env.PUBLISH_GO_APP == 'true'
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && vars.PUBLISH_GO_APP == 'true'
     permissions:
       contents: write
     steps:
@@ -119,7 +119,7 @@ jobs:
     - name: Build Packages
       run: |
         VERSION=${{ github.ref_name }}
-        make package VERSION=${VERSION#v}
+        make package VERSION=$${VERSION#v}
 
     - name: Upload Binaries to Release
       uses: softprops/action-gh-release@v2
