@@ -59,12 +59,12 @@ def start(
     is_dummy: Annotated[
         bool,
         typer.Option(
-            "--is-dummy/--no-is-dummy",
+            "--is-dummy",
             help="Whether to run the executor in dummy/simulation mode",
         ),
     ] = False,
     quantify_config: Annotated[
-        str,
+        str | None,
         typer.Option(
             "--quantify-config",
             envvar="QUANTIFY_CONFIG",
@@ -91,7 +91,7 @@ def start(
         executor=executor,
         data_dir=data_dir,
         is_dummy=is_dummy,
-        hardware_config=quantify_config,
+        quantify_config=quantify_config,
     )
 
 

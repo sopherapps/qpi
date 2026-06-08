@@ -8,7 +8,7 @@ QPI is a distributed quantum control stack architecture designed to control mult
 ## Prerequisites
 
 * **Go**: `>= 1.22` (tested up to `1.26`)
-* **Python**: `>= 3.12` (tested up to `3.14`)
+* **Python**: `~= 3.12`
 
 ---
 
@@ -53,6 +53,7 @@ graph TD
 ```
 
 ### Key Orchestrator Features
+* **Session-Based Booking with Opportunistic FIFO:** Dispatches jobs prioritizing users who have booked the current time slot. Fallback mechanism allows other users' pending jobs to execute if the slot booker is idle.
 * **Session-Based Booking with Opportunistic FIFO:** Dispatches jobs prioritizing users who have booked the current time slot. Fallback mechanism allows other users' pending jobs to execute if the slot booker is idle.
 * **Auto-Schema Migration & Port Allocation:** Automatically creates required database collections (`qpus`, `time_slots`, `quantum_jobs`) and dynamically allocates race-free TCP ports for registered QPUs.
 * **Stale Job Recovery:** A background ticking routine monitors running jobs and resets them to `pending` if their driver hangs or disconnects (timeout default: 20 seconds).
@@ -134,12 +135,12 @@ Compiles and runs circuits using `quantify-scheduler`.
   pip install ./qpi-driver[cli,quantify]
 
   # Start driver in dummy mode
-  qpi-driver start --token "my-super-secret-token-12345" --executor "quantify" --is-dummy
+  qpi-driver start --token "my-super-secret-token-12345" --executor "quantify" --is-dummy --quantify-config quantify_config.example.json
   ```
 * **Real Hardware Mode**: Compiles and deploys to actual physical Qblox hardware.
   ```bash
   # Start driver with a hardware config file
-  qpi-driver start --token "my-super-secret-token-12345" --executor "quantify" --no-is-dummy --quantify-config quantify_config.example.json
+  qpi-driver start --token "my-super-secret-token-12345" --executor "quantify" --quantify-config quantify_config.example.json
   ```
 
 ### CLI Usage
@@ -152,7 +153,7 @@ Common options:
 * `-n`, `--name`: Human-readable name for this QPU (env: `QPU_NAME`, default: `QPU-Sim-01`).
 * `-e`, `--executor`: Which executor backend to use (env: `DRIVER_BACKEND`, default: `mock`).
 * `-d`, `--data-dir`: Directory for intermediate NetCDF datasets (env: `QPI_DATA_DIR`, default: `bin/data`).
-* `--is-dummy / --no-is-dummy`: Enable/disable dummy/simulation mode (default: `false`).
+* `--is-dummy`: Enable/disable dummy/simulation mode (default: `false`).
 * `--quantify-config`: Path to the hardware config file (JSON/YAML) (env: `QUANTIFY_CONFIG`, default: `None`).
 
 
@@ -180,3 +181,15 @@ make clean
 The workflow in [.github/workflows/ci.yml](.github/workflows/ci.yml) runs lint checks, unit tests, and E2E integration tests against multiple matrix versions of Go (1.22 to 1.26) and Python (3.12 to 3.14).
 
 If the workflow runs on a `push` to `main`/`master` and the repository environment variable `PUBLISH_TO_PYPI` is set to `true`, the package will automatically build and publish to PyPI.
+
+
+## TODOs
+
+- [ ] Add CRUD (authenticated/authorized) for submitting/viewing/cancelling jobs by users
+- [ ] Add CRUD (authenticated/authorized) for submitting/viewing/cancelling booking slots by users
+- [ ] Add CRUD (authenticated/authorized) for requesting/approving/rejecting/viewing QPU time by users
+- [ ] Add tracking of QPU time used by a user on job execution (or failure or error)
+- [ ] Add off/on-switch for QPI-drivers
+- [ ] Add dashboard for viewing jobs, admins allocating QPU time, setting maintenance, scheduling
+  announcements, viewing QPU calibration data, viewing job results and statuses etc.
+- [ ] Add qiskit-based python client library for submitting jobs, viewing results

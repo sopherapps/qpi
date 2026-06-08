@@ -10,14 +10,14 @@ class QuantifyExecutor(Executor):
 
     def __init__(
         self,
-        hardware_config: Any = None,
+        quantify_config: Any = None,
         is_dummy: bool = False,
         **kwargs: Any,
     ) -> None:
         """Initialize the QuantifyExecutor.
 
         Args:
-            hardware_config: Hardware configuration dictionary, file path, or config object.
+            quantify_config: Hardware configuration dictionary, file path, or config object.
             is_dummy: If True, uses a dummy Cluster instrument.
             **kwargs: Arbitrary keyword arguments passed to the base class.
         """
@@ -25,42 +25,44 @@ class QuantifyExecutor(Executor):
         self.is_dummy = is_dummy
         self.hardware_config = None
 
-        if hardware_config is not None:
-            try:
+        if not quantify_config:
+            raise TypeError("quantify_config is a required option")
+
+        try:
                 from quantify_scheduler.backends.qblox_backend import (
                     QbloxHardwareCompilationConfig,
                 )
-            except ImportError as exc:
+        except ImportError as exc:
                 raise ImportError(
                     "quantify-scheduler is not installed. Install the [quantify] extra to use QuantifyExecutor."
                 ) from exc
 
-            if isinstance(hardware_config, QbloxHardwareCompilationConfig):
-                self.hardware_config = hardware_config
-            elif isinstance(hardware_config, dict):
+        if isinstance(quantify_config, QbloxHardwareCompilationConfig):
+                self.hardware_config = quantify_config
+        elif isinstance(quantify_config, dict):
                 if hasattr(QbloxHardwareCompilationConfig, "model_validate"):
                     self.hardware_config = (
-                        QbloxHardwareCompilationConfig.model_validate(hardware_config)
+                        QbloxHardwareCompilationConfig.model_validate(quantify_config)
                     )
                 else:
                     self.hardware_config = QbloxHardwareCompilationConfig.parse_obj(
-                        hardware_config
+                        quantify_config
                     )
-            elif isinstance(hardware_config, str):
+        elif isinstance(quantify_config, str):
                 import json
 
-                if hardware_config.endswith((".yaml", ".yml")):
+                if quantify_config.endswith((".yaml", ".yml")):
                     try:
                         import yaml
 
-                        with open(hardware_config, "r") as f:
+                        with open(quantify_config, "r") as f:
                             cfg_dict = yaml.safe_load(f)
                     except ImportError:
                         raise ImportError(
                             "PyYAML is required to parse YAML hardware config files."
                         )
                 else:
-                    with open(hardware_config, "r") as f:
+                    with open(quantify_config, "r") as f:
                         cfg_dict = json.load(f)
 
                 if hasattr(QbloxHardwareCompilationConfig, "model_validate"):
@@ -201,9 +203,9 @@ class QuantifyExecutor(Executor):
         # 3. Setup Hardware Configuration
         quantum_device = QuantumDevice("quantum_device")
 
-        if self.hardware_config is not None:
-            quantum_device.hardware_config(self.hardware_config)
-            for i in range(n_qubits):
+        quantum_device.hardware_config(self.hardware_config)
+        # FIXME: Add another configuration for calibration data and use it here instead of hard coding it
+        for i in range(n_qubits):
                 qubit_name = f"q{i}"
                 if qubit_name not in quantum_device.elements():
                     q_elem = BasicTransmonElement(qubit_name)
@@ -220,14 +222,14 @@ class QuantifyExecutor(Executor):
                     q_elem.measure.integration_time(1e-6)
             cluster_name = "cluster"
             identifier = None
-            try:
+        try:
                 desc = self.hardware_config.hardware_description
                 if "cluster" in desc:
                     identifier = getattr(desc["cluster"], "identifier", None)
-            except Exception:
+        except Exception:
                 pass
 
-            if self.is_dummy:
+        if self.is_dummy:
                 from qblox_instruments import ClusterType
 
                 dummy_cfg = {}
