@@ -24,6 +24,10 @@ func main() {
 	// Bootstrap: create collections on first boot
 	app.OnBootstrap().Bind(&hook.Handler[*core.BootstrapEvent]{
 		Func: func(e *core.BootstrapEvent) error {
+			// Populate and save AppConfig to the App store
+			cfg := config.NewFromFlags(app.RootCmd)
+			config.SaveConfigOnApp(e.App, cfg)
+
 			if err := e.Next(); err != nil {
 				return err
 			}
@@ -34,6 +38,10 @@ func main() {
 	// Register custom HTTP routes & background tasks
 	app.OnServe().Bind(&hook.Handler[*core.ServeEvent]{
 		Func: func(e *core.ServeEvent) error {
+			// Populate and save AppConfig to the App store to ensure it is always available
+			cfg := config.NewFromFlags(app.RootCmd)
+			config.SaveConfigOnApp(e.App, cfg)
+
 			// Register api register handler routes
 			api.RegisterRoutes(e)
 

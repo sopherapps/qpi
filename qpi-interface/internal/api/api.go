@@ -58,13 +58,18 @@ func RegisterRoutes(e *core.ServeEvent) {
 // handleQPURegister registers a new hardware driver node, allocating dynamic command/result ports
 // and starting parallel dispatcher and result listener routines.
 func handleQPURegister(re *core.RequestEvent) error {
+	cfg, err := config.GetConfigFromApp(re.App)
+	if err != nil {
+		return re.Error(http.StatusInternalServerError, "failed to retrieve custom configuration", err)
+	}
+
 	var req registerRequest
 	if err := re.BindBody(&req); err != nil {
 		return re.Error(http.StatusBadRequest, "invalid request body", err)
 	}
 
 	// Find QPU by registration token
-	qpu, err := re.App.FindFirstRecordByData(config.CollectionQPUs, "registration_token", req.RegistrationToken)
+	qpu, err := re.App.FindFirstRecordByData(cfg.CollectionQPUs, "registration_token", req.RegistrationToken)
 	if err != nil {
 		return re.Error(http.StatusUnauthorized, "invalid registration token", err)
 	}
@@ -125,6 +130,12 @@ func handleQPURegister(re *core.RequestEvent) error {
 // runDispatcher starts an NNG PUSH socket on the cmdPort, polling for pending quantum jobs
 // from the scheduler and pushing them to the registered python driver node.
 func runDispatcher(app core.App, qpuID string, cmdPort int) {
+	cfg, err := config.GetConfigFromApp(app)
+	if err != nil {
+		log.Printf("[Dispatcher %s] failed to get config: %v", qpuID, err)
+		return
+	}
+
 	addr := fmt.Sprintf("tcp://0.0.0.0:%d", cmdPort)
 	sock, err := push.NewSocket()
 	if err != nil {
@@ -142,7 +153,7 @@ func runDispatcher(app core.App, qpuID string, cmdPort int) {
 	for {
 		job := scheduler.FetchNextJob(app, qpuID)
 		if job == nil {
-			time.Sleep(config.DispatchPollInterval)
+			time.Sleep(cfg.DispatchPollInterval)
 			continue
 		}
 
@@ -155,7 +166,7 @@ func runDispatcher(app core.App, qpuID string, cmdPort int) {
 			log.Printf("[Dispatcher %s] send error: %v — requeueing", qpuID, err)
 			job.Set("status", "pending")
 			_ = app.Save(job)
-			time.Sleep(config.DispatchPollInterval)
+			time.Sleep(cfg.DispatchPollInterval)
 			continue
 		}
 
@@ -171,6 +182,12 @@ func runDispatcher(app core.App, qpuID string, cmdPort int) {
 // runResultListener starts an NNG PULL socket on the resPort, waiting for job execution
 // results sent back by the hardware driver node and saving them to the database.
 func runResultListener(app core.App, qpuID string, resPort int) {
+	cfg, err := config.GetConfigFromApp(app)
+	if err != nil {
+		log.Printf("[Listener %s] failed to get config: %v", qpuID, err)
+		return
+	}
+
 	addr := fmt.Sprintf("tcp://0.0.0.0:%d", resPort)
 	sock, err := pull.NewSocket()
 	if err != nil {
@@ -192,7 +209,7 @@ func runResultListener(app core.App, qpuID string, resPort int) {
 				return
 			}
 			log.Printf("[Listener %s] recv error: %v", qpuID, err)
-			time.Sleep(config.DispatchPollInterval)
+			time.Sleep(cfg.DispatchPollInterval)
 			continue
 		}
 
@@ -202,7 +219,7 @@ func runResultListener(app core.App, qpuID string, resPort int) {
 			continue
 		}
 
-		job, err := app.FindRecordById(config.CollectionQuantumJobs, result.JobID)
+		job, err := app.FindRecordById(cfg.CollectionQuantumJobs, result.JobID)
 		if err != nil {
 			log.Printf("[Listener %s] job %s not found: %v", qpuID, result.JobID, err)
 			continue
@@ -224,9 +241,14 @@ func runResultListener(app core.App, qpuID string, resPort int) {
 // findFreePorts searches for free TCP ports within the configuration range,
 // excluding ports currently reserved/allocated in the QPUs database table.
 func findFreePorts(app core.App, count int) ([]int, error) {
+	cfg, err := config.GetConfigFromApp(app)
+	if err != nil {
+		return nil, err
+	}
+
 	allocated := make(map[int]bool)
-	filter := fmt.Sprintf("nng_command_port >= %d || nng_result_port >= %d", config.PortRangeStart, config.PortRangeStart)
-	records, err := app.FindRecordsByFilter(config.CollectionQPUs, filter, "", 0, 0)
+	filter := fmt.Sprintf("nng_command_port >= %d || nng_result_port >= %d", cfg.PortRangeStart, cfg.PortRangeStart)
+	records, err := app.FindRecordsByFilter(cfg.CollectionQPUs, filter, "", 0, 0)
 	if err == nil {
 		for _, r := range records {
 			cmd := r.GetInt("nng_command_port")
@@ -241,7 +263,7 @@ func findFreePorts(app core.App, count int) ([]int, error) {
 	}
 
 	var ports []int
-	for port := config.PortRangeStart; port < config.PortRangeEnd; port++ {
+	for port := cfg.PortRangeStart; port < cfg.PortRangeEnd; port++ {
 		if allocated[port] {
 			continue
 		}
@@ -256,5 +278,5 @@ func findFreePorts(app core.App, count int) ([]int, error) {
 			}
 		}
 	}
-	return nil, fmt.Errorf("could not find %d free ports in range %d-%d", count, config.PortRangeStart, config.PortRangeEnd)
+	return nil, fmt.Errorf("could not find %d free ports in range %d-%d", count, cfg.PortRangeStart, cfg.PortRangeEnd)
 }

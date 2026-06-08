@@ -13,14 +13,20 @@ import (
 
 // FetchNextJob implements the session-based booking + opportunistic FIFO algorithm.
 // It prioritizes the booked user's oldest pending job. If no slot is active, or if
-// the booked user remains idle beyond config.IdleThreshold, it falls back to the oldest
+// the booked user remains idle beyond cfg.IdleThreshold, it falls back to the oldest
 // pending job from any user targetted at this QPU.
 func FetchNextJob(app core.App, qpuID string) *core.Record {
+	cfg, err := config.GetConfigFromApp(app)
+	if err != nil {
+		log.Printf("[Scheduler] failed to get config: %v", err)
+		return nil
+	}
+
 	now := time.Now().UTC().Format("2006-01-02 15:04:05.000Z")
 
 	// Is there an active time slot right now?
 	slots, _ := app.FindRecordsByFilter(
-		config.CollectionTimeSlots,
+		cfg.CollectionTimeSlots,
 		"start_time <= {:now} && end_time >= {:now}",
 		"-start_time", 1, 0,
 		dbx.Params{"now": now},
@@ -34,7 +40,7 @@ func FetchNextJob(app core.App, qpuID string) *core.Record {
 	if bookerID != "" {
 		// Priority 1: booked user's oldest pending job for this QPU
 		jobs, _ := app.FindRecordsByFilter(
-			config.CollectionQuantumJobs,
+			cfg.CollectionQuantumJobs,
 			"status = 'pending' && qpu_target = {:qpu} && user_id = {:user}",
 			"+created", 1, 0,
 			dbx.Params{"qpu": qpuID, "user": bookerID},
@@ -45,14 +51,14 @@ func FetchNextJob(app core.App, qpuID string) *core.Record {
 
 		// Priority 2: idle fallback — check booker's last completed job time
 		lastJobs, _ := app.FindRecordsByFilter(
-			config.CollectionQuantumJobs,
+			cfg.CollectionQuantumJobs,
 			"status = 'completed' && qpu_target = {:qpu} && user_id = {:user}",
 			"-finished_at", 1, 0,
 			dbx.Params{"qpu": qpuID, "user": bookerID},
 		)
 		if len(lastJobs) > 0 {
 			finishedAt := lastJobs[0].GetDateTime("finished_at").Time()
-			if time.Since(finishedAt) < config.IdleThreshold {
+			if time.Since(finishedAt) < cfg.IdleThreshold {
 				// Booker is still active; wait for their next job
 				return nil
 			}
@@ -61,7 +67,7 @@ func FetchNextJob(app core.App, qpuID string) *core.Record {
 
 	// Priority 3: general drop-in — oldest pending job for this QPU
 	jobs, _ := app.FindRecordsByFilter(
-		config.CollectionQuantumJobs,
+		cfg.CollectionQuantumJobs,
 		"status = 'pending' && qpu_target = {:qpu}",
 		"+created", 1, 0,
 		dbx.Params{"qpu": qpuID},
@@ -73,17 +79,23 @@ func FetchNextJob(app core.App, qpuID string) *core.Record {
 }
 
 // RunRecoveryEngine runs a background loop that identifies 'running' jobs
-// that have exceeded config.JobTimeout and resets their status to 'pending'
+// that have exceeded cfg.JobTimeout and resets their status to 'pending'
 // (e.g. if the hardware driver crashed or lost connection during simulation).
 func RunRecoveryEngine(app core.App) {
-	ticker := time.NewTicker(config.RecoveryInterval)
+	cfg, err := config.GetConfigFromApp(app)
+	if err != nil {
+		log.Printf("[Recovery] failed to get config: %v", err)
+		return
+	}
+
+	ticker := time.NewTicker(cfg.RecoveryInterval)
 	defer ticker.Stop()
 	log.Println("[Recovery] Engine started")
 
 	for range ticker.C {
-		cutoff := time.Now().UTC().Add(-config.JobTimeout).Format("2006-01-02 15:04:05.000Z")
+		cutoff := time.Now().UTC().Add(-cfg.JobTimeout).Format("2006-01-02 15:04:05.000Z")
 		staleJobs, err := app.FindRecordsByFilter(
-			config.CollectionQuantumJobs,
+			cfg.CollectionQuantumJobs,
 			"status = 'running' && updated <= {:cutoff}",
 			"+updated", 100, 0,
 			dbx.Params{"cutoff": cutoff},
