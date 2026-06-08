@@ -13,7 +13,7 @@ venv-check:
 build: venv-check
 	@echo "Building Go orchestrator..."
 	mkdir -p bin
-	go build -o bin/qpi main.go
+	(cd qpi-interface && go build -o ../bin/qpi .)
 	@echo "Installing python package..."
 	@if [ -d ".venv" ] && [ -z "$$VIRTUAL_ENV" ]; then \
 		.venv/bin/python -m pip install -e ./qpi-driver[cli,aer]; \

@@ -1,0 +1,48 @@
+package main
+
+import (
+	"log"
+
+	"github.com/pocketbase/pocketbase"
+	"github.com/pocketbase/pocketbase/core"
+	"github.com/pocketbase/pocketbase/tools/hook"
+
+	"qpi/internal/api"
+	"qpi/internal/config"
+	"qpi/internal/scheduler"
+	"qpi/internal/schema"
+)
+
+func main() {
+	app := pocketbase.New()
+
+	// Bind custom persistent CLI flags to configuration variables
+	config.BindFlags(app.RootCmd)
+
+	// Bootstrap: create collections on first boot
+	app.OnBootstrap().Bind(&hook.Handler[*core.BootstrapEvent]{
+		Func: func(e *core.BootstrapEvent) error {
+			if err := e.Next(); err != nil {
+				return err
+			}
+			return schema.EnsureSchema(e.App)
+		},
+	})
+
+	// Register custom HTTP routes & background tasks
+	app.OnServe().Bind(&hook.Handler[*core.ServeEvent]{
+		Func: func(e *core.ServeEvent) error {
+			// Register api register handler routes
+			api.RegisterRoutes(e)
+
+			// Start the global recovery engine
+			go scheduler.RunRecoveryEngine(e.App)
+
+			return e.Next()
+		},
+	})
+
+	if err := app.Start(); err != nil {
+		log.Fatal(err)
+	}
+}

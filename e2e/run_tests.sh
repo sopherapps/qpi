@@ -29,7 +29,7 @@ trap cleanup EXIT
 # Build Go orchestrator
 echo "[e2e] Building Go orchestrator..."
 mkdir -p bin
-go build -o bin/qpi main.go
+(cd qpi-interface && go build -o ../bin/qpi .)
 
 # Detect Python interpreter.
 # If the developer has already activated a virtual environment, we respect that environment
