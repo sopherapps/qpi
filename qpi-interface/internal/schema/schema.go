@@ -1,3 +1,5 @@
+// Package schema handles the automatic creation and verification of database schemas
+// for the QPI orchestrator backend upon bootstrap.
 package schema
 
 import (
@@ -8,6 +10,8 @@ import (
 	"qpi/internal/config"
 )
 
+// EnsureSchema bootstraps the database collections required by the QPI control stack.
+// It creates the QPUs, Time Slots, and Quantum Jobs collections if they do not exist.
 func EnsureSchema(app core.App) error {
 	if err := ensureQPUsCollection(app); err != nil {
 		return fmt.Errorf("qpus collection: %w", err)
@@ -22,6 +26,7 @@ func EnsureSchema(app core.App) error {
 	return nil
 }
 
+// ensureQPUsCollection creates the collection storing QPU hardware properties, statuses, and ports.
 func ensureQPUsCollection(app core.App) error {
 	if _, err := app.FindCollectionByNameOrId(config.CollectionQPUs); err == nil {
 		return nil // already exists
@@ -40,6 +45,7 @@ func ensureQPUsCollection(app core.App) error {
 	return app.Save(col)
 }
 
+// ensureTimeSlotsCollection creates the collection storing calendar slot reservations for users.
 func ensureTimeSlotsCollection(app core.App) error {
 	if _, err := app.FindCollectionByNameOrId(config.CollectionTimeSlots); err == nil {
 		return nil
@@ -60,6 +66,7 @@ func ensureTimeSlotsCollection(app core.App) error {
 	return app.Save(col)
 }
 
+// ensureQuantumJobsCollection creates the collection storing jobs pending execution or containing results.
 func ensureQuantumJobsCollection(app core.App) error {
 	if _, err := app.FindCollectionByNameOrId(config.CollectionQuantumJobs); err == nil {
 		return nil

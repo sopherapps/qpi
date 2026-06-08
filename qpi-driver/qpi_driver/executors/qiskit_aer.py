@@ -3,6 +3,18 @@ from qpi_driver.executors.base import Executor
 
 class QiskitAerExecutor(Executor):
     def execute(self, payload: dict) -> xr.Dataset:
+        """Run quantum circuit simulation using Qiskit Aer backend.
+
+        Args:
+            payload: Dictionary specifying 'n_qubits', 'shots', and optional QASM string ('circuit_qasm' or 'circuit').
+
+        Returns:
+            xr.Dataset: Dataset containing measured state outcomes, counts, and frequencies.
+
+        Raises:
+            ImportError: If qiskit-aer is not installed.
+            ValueError: If the provided QASM circuit cannot be loaded.
+        """
         try:
             from qiskit_aer import AerSimulator
             from qiskit import QuantumCircuit, transpile

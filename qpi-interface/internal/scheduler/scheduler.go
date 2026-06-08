@@ -1,3 +1,5 @@
+// Package scheduler manages the job queue dispatcher algorithm and recovery loops,
+// prioritizing booked session users and reverting hung quantum jobs.
 package scheduler
 
 import (
@@ -10,6 +12,9 @@ import (
 )
 
 // FetchNextJob implements the session-based booking + opportunistic FIFO algorithm.
+// It prioritizes the booked user's oldest pending job. If no slot is active, or if
+// the booked user remains idle beyond config.IdleThreshold, it falls back to the oldest
+// pending job from any user targetted at this QPU.
 func FetchNextJob(app core.App, qpuID string) *core.Record {
 	now := time.Now().UTC().Format("2006-01-02 15:04:05.000Z")
 
@@ -67,6 +72,9 @@ func FetchNextJob(app core.App, qpuID string) *core.Record {
 	return nil
 }
 
+// RunRecoveryEngine runs a background loop that identifies 'running' jobs
+// that have exceeded config.JobTimeout and resets their status to 'pending'
+// (e.g. if the hardware driver crashed or lost connection during simulation).
 func RunRecoveryEngine(app core.App) {
 	ticker := time.NewTicker(config.RecoveryInterval)
 	defer ticker.Stop()

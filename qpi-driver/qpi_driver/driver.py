@@ -22,14 +22,34 @@ log = logging.getLogger(__name__)
 
 @dataclass
 class HandshakeInfo:
-    """Strongly typed handshake response containing assigned port configurations and credentials."""
+    """Strongly typed handshake response containing assigned port configurations and credentials.
+
+    Attributes:
+        nng_command_port: Port allocated for NNG command dispatch.
+        nng_result_port: Port allocated for NNG result collection.
+        auth_token: Static authorization token assigned to the QPU.
+    """
     nng_command_port: int
     nng_result_port: int
     auth_token: str
 
 
 def do_handshake(host: str, port: int, token: str, name: str) -> HandshakeInfo:
-    """POST to /api/qpu/register and return dynamic port configurations."""
+    """POST to /api/qpu/register and return dynamic port configurations.
+
+    Args:
+        host: Hostname or IP of the Go PocketBase server.
+        port: PocketBase HTTP port.
+        token: Unique QPU registration token.
+        name: Human-readable name for this QPU.
+
+    Returns:
+        HandshakeInfo: Strongly typed port and token credentials.
+
+    Raises:
+        ValueError: If the registration token is empty.
+        requests.RequestException: If the HTTP request fails.
+    """
     if not token:
         raise ValueError("Registration token must be provided")
 
@@ -128,10 +148,15 @@ def process_results(
     res_port: int,
     host: str
 ) -> None:
-    """
-    Translator process: pulls results from result_queue, loads xarray.Dataset from disk,
+    """Translator process: pulls results from result_queue, loads xarray.Dataset from disk,
+
     translates it to Qiskit Results format, deletes the NetCDF file, and pushes the JSON string
     back to the Go orchestrator via NNG PUSH.
+
+    Args:
+        result_queue: Queue used to receive filepaths or error dicts from the worker.
+        res_port: Port allocated for the NNG PUSH socket to return results.
+        host: Hostname or IP of the Go PocketBase server.
     """
     # Override logging config inside translator process
     logging.basicConfig(
@@ -141,11 +166,21 @@ def process_results(
     t_log = logging.getLogger("translator")
     t_log.info("Translator process started")
 
+	# Import dependencies locally
     import xarray as xr
     from qiskit.result import Result
     from qiskit.result.models import ExperimentResult, ExperimentResultData
 
     def xarray_to_qiskit_counts(dataset: xr.Dataset, job_id: str) -> dict:
+        """Convert xarray.Dataset measurements to a Qiskit compatible result dict.
+
+        Args:
+            dataset: The xarray.Dataset containing quantum measurement counts and metadata.
+            job_id: The unique ID of the quantum job.
+
+        Returns:
+            dict: Qiskit results format mapped to hex counts, shots, and status keys.
+        """
         counts_da = dataset.get("counts")
         if counts_da is None:
             return {"raw": str(dataset)}
@@ -249,8 +284,16 @@ def run_driver(
     custom_executors: dict[str, type[Executor]] | None = None,
     data_dir: str = "bin/data"
 ) -> None:
-    """
-    Run the QPI Python hardware driver.
+    """Run the QPI Python hardware driver.
+
+    Args:
+        host: Hostname or IP of the Go PocketBase server.
+        port: PocketBase HTTP port.
+        token: Unique QPU registration token.
+        name: Human-readable name for this QPU.
+        executor: Executor specification (string key, class, or instance).
+        custom_executors: Optional dict of custom executors for resolving string keys.
+        data_dir: Directory where NetCDF files should be saved.
     """
     # do_handshake returns strongly typed dataclass
     info = do_handshake(host, port, token, name)

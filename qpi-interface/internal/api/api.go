@@ -1,3 +1,5 @@
+// Package api manages HTTP REST endpoints and low-level NNG message channels
+// for registering QPUs, dispatching jobs, and listening for job execution results.
 package api
 
 import (
@@ -21,15 +23,18 @@ import (
 )
 
 var (
-	activeQPUs   = make(map[string]context.CancelFunc) // qpuID -> cancel
+	// activeQPUs stores active cancel functions for goroutines bound to registered QPUs.
+	activeQPUs   = make(map[string]context.CancelFunc)
 	activeQPUsMu sync.Mutex
 )
 
+// registerRequest represents the JSON payload passed to /api/qpu/register.
 type registerRequest struct {
 	Name              string `json:"name"`
 	RegistrationToken string `json:"registration_token"`
 }
 
+// registerResponse represents the JSON payload returned by /api/qpu/register.
 type registerResponse struct {
 	Status         string `json:"status"`
 	NNGCommandPort int    `json:"nng_command_port"`
@@ -37,17 +42,21 @@ type registerResponse struct {
 	AuthToken      string `json:"auth_token"`
 }
 
+// resultPayload represents the NNG incoming message format for job execution results.
 type resultPayload struct {
 	JobID   string         `json:"job_id"`
 	Results map[string]any `json:"results"`
 }
 
+// RegisterRoutes sets up custom HTTP routes for QPU interactions.
 func RegisterRoutes(e *core.ServeEvent) {
 	e.Router.POST("/api/qpu/register", func(re *core.RequestEvent) error {
 		return handleQPURegister(re)
 	})
 }
 
+// handleQPURegister registers a new hardware driver node, allocating dynamic command/result ports
+// and starting parallel dispatcher and result listener routines.
 func handleQPURegister(re *core.RequestEvent) error {
 	var req registerRequest
 	if err := re.BindBody(&req); err != nil {
@@ -113,6 +122,8 @@ func handleQPURegister(re *core.RequestEvent) error {
 	})
 }
 
+// runDispatcher starts an NNG PUSH socket on the cmdPort, polling for pending quantum jobs
+// from the scheduler and pushing them to the registered python driver node.
 func runDispatcher(app core.App, qpuID string, cmdPort int) {
 	addr := fmt.Sprintf("tcp://0.0.0.0:%d", cmdPort)
 	sock, err := push.NewSocket()
@@ -157,6 +168,8 @@ func runDispatcher(app core.App, qpuID string, cmdPort int) {
 	}
 }
 
+// runResultListener starts an NNG PULL socket on the resPort, waiting for job execution
+// results sent back by the hardware driver node and saving them to the database.
 func runResultListener(app core.App, qpuID string, resPort int) {
 	addr := fmt.Sprintf("tcp://0.0.0.0:%d", resPort)
 	sock, err := pull.NewSocket()
@@ -208,6 +221,8 @@ func runResultListener(app core.App, qpuID string, resPort int) {
 	}
 }
 
+// findFreePorts searches for free TCP ports within the configuration range,
+// excluding ports currently reserved/allocated in the QPUs database table.
 func findFreePorts(app core.App, count int) ([]int, error) {
 	allocated := make(map[int]bool)
 	filter := fmt.Sprintf("nng_command_port >= %d || nng_result_port >= %d", config.PortRangeStart, config.PortRangeStart)

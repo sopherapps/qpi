@@ -6,6 +6,14 @@ from qpi_driver.executors.base import Executor
 
 class MockExecutor(Executor):
     def execute(self, payload: dict) -> xr.Dataset:
+        """Execute mock quantum circuit execution by drawing random multinomial samples.
+
+        Args:
+            payload: Dictionary specifying 'n_qubits' and 'shots'.
+
+        Returns:
+            xr.Dataset: Dataset containing simulated states, counts, and frequencies.
+        """
         n_qubits = payload.get("n_qubits", 2)
         shots = payload.get("shots", 1024)
 
