@@ -4,21 +4,21 @@ import time
 import numpy as np
 import xarray as xr
 
-from qpi_driver.executors.base import Executor
+from qpi_driver.executors.base import Executor, JobPayload
 
 
 class MockExecutor(Executor):
-    def execute(self, payload: dict) -> xr.Dataset:
+    def execute(self, payload: JobPayload) -> xr.Dataset:
         """Execute mock quantum circuit execution by drawing random multinomial samples.
 
         Args:
-            payload: Dictionary specifying 'n_qubits' and 'shots'.
+            payload: JobPayload specifying n_qubits and shots.
 
         Returns:
             xr.Dataset: Dataset containing simulated states, counts, and frequencies.
         """
-        n_qubits = payload.get("n_qubits", 2)
-        shots = payload.get("shots", 1024)
+        n_qubits = payload.n_qubits
+        shots = payload.shots
 
         # Simulate execution latency
         time.sleep(random.uniform(0.1, 0.5))
@@ -39,3 +39,4 @@ class MockExecutor(Executor):
             },
             attrs={"shots": shots, "n_qubits": n_qubits, "backend": "mock"},
         )
+

@@ -1,14 +1,14 @@
 import xarray as xr
 
-from qpi_driver.executors.base import Executor
+from qpi_driver.executors.base import Executor, JobPayload
 
 
 class QiskitAerExecutor(Executor):
-    def execute(self, payload: dict) -> xr.Dataset:
+    def execute(self, payload: JobPayload) -> xr.Dataset:
         """Run quantum circuit simulation using Qiskit Aer backend.
 
         Args:
-            payload: Dictionary specifying 'n_qubits', 'shots', and optional QASM string ('circuit_qasm' or 'circuit').
+            payload: JobPayload specifying n_qubits, shots, and qasm.
 
         Returns:
             xr.Dataset: Dataset containing measured state outcomes, counts, and frequencies.
@@ -25,51 +25,49 @@ class QiskitAerExecutor(Executor):
                 "qiskit-aer is not installed. Install the [aer] extra to use QiskitAerExecutor."
             ) from exc
 
-        n_qubits = payload.get("n_qubits", 2)
-        shots = payload.get("shots", 1024)
+        n_qubits = payload.n_qubits
+        shots = payload.shots
+        qasm_str = payload.qasm
 
-        # Support dynamically passing the circuit in the payload as a QASM string.
-        # If not provided or if it's just a simple name, fall back to the default Bell state.
-        qasm_str = payload.get("circuit_qasm") or payload.get("circuit")
+        if qasm_str is None or qasm_str == "":
+            raise ValueError("No circuit provided in payload")
         if (
             qasm_str
             and isinstance(qasm_str, str)
             and ("OPENQASM" in qasm_str or "qreg" in qasm_str or "include" in qasm_str)
         ):
             try:
-                if "OPENQASM 3" in qasm_str or "OPENQASM 3.0" in qasm_str:
+                try:
                     import qiskit.qasm3 as qasm3
 
                     qc = qasm3.loads(qasm_str)
-                else:
+                except Exception:
                     qc = QuantumCircuit.from_qasm_str(qasm_str)
             except Exception as exc:
                 raise ValueError(f"Failed to parse QASM circuit: {exc}") from exc
         else:
-            qc = QuantumCircuit(n_qubits)
-            qc.h(0)
-            if n_qubits > 1:
-                qc.cx(0, 1)
-            qc.measure_all()
+            raise ValueError("Invalid circuit provided in payload")
+
 
         simulator = AerSimulator()
         t_qc = transpile(qc, simulator)
         sim_result = simulator.run(t_qc, shots=shots).result()
         counts = sim_result.get_counts(t_qc)
 
-        # Standardise counts keys to binary string representation
-        # Qiskit get_counts keys are strings like '00', '01'
-        states = list(counts.keys())
-        freqs = [counts[s] / shots for s in states]
+        # Standardise counts keys to binary string representation and pad to 2^n_qubits states
+        states_list = [format(i, f"0{n_qubits}b") for i in range(2**n_qubits)]
+        counts_list = [counts.get(s, 0) for s in states_list]
+        freqs_list = [c / shots for c in counts_list]
 
         return xr.Dataset(
             {
                 "counts": xr.DataArray(
-                    list(counts.values()), dims=["state"], coords={"state": states}
+                    counts_list, dims=["state"], coords={"state": states_list}
                 ),
                 "frequencies": xr.DataArray(
-                    freqs, dims=["state"], coords={"state": states}
+                    freqs_list, dims=["state"], coords={"state": states_list}
                 ),
             },
             attrs={"shots": shots, "n_qubits": n_qubits, "backend": "qiskit_aer"},
         )
+

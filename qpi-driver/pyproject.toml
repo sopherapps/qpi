@@ -7,7 +7,7 @@ name = "qpi-driver"
 version = "1.0.0"
 description = "Quantum Processing Interface (QPI) Hardware Driver"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.12,<3.13"
 license = { text = "MIT" }
 dependencies = [
     "numpy>=2.0.0",
@@ -15,13 +15,24 @@ dependencies = [
     "pynng>=0.8.0",
     "requests>=2.31.0",
     "qiskit>=1.0.0",
-    "scipy>=1.10.0"
+    "scipy>=1.10.0",
+    "pyyaml>=6.0"
 ]
 
 [project.optional-dependencies]
 cli = ["typer>=0.9.0"]
 aer = ["qiskit-aer>=0.14.0"]
+quantify = [
+    "quantify-scheduler",
+    "qblox-instruments"
+]
 test = [
+    "pytest>=8.0.0",
+    "ruff>=0.3.0"
+]
+
+[dependency-groups]
+dev = [
     "pytest>=8.0.0",
     "ruff>=0.3.0"
 ]
@@ -32,3 +43,10 @@ qpi-driver = "qpi_driver.cli:app"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["qpi_driver*"]
+
+[tool.uv]
+override-dependencies = [
+    "pyqt5-qt5>=5.15.10",
+    "pyqt5>=5.15.10",
+    "qcodes<0.57"
+]

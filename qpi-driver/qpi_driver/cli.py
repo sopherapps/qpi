@@ -56,6 +56,21 @@ def start(
             help="Directory where intermediate netCDF datasets are written",
         ),
     ] = "bin/data",
+    is_dummy: Annotated[
+        bool,
+        typer.Option(
+            "--is-dummy/--no-is-dummy",
+            help="Whether to run the executor in dummy/simulation mode",
+        ),
+    ] = False,
+    quantify_config: Annotated[
+        str,
+        typer.Option(
+            "--quantify-config",
+            envvar="QUANTIFY_CONFIG",
+            help="Path to the quantify hardware configuration file",
+        ),
+    ] = None,
 ):
     """
     Start the QPI driver.
@@ -75,7 +90,10 @@ def start(
         name=name,
         executor=executor,
         data_dir=data_dir,
+        is_dummy=is_dummy,
+        hardware_config=quantify_config,
     )
+
 
 
 @app.command()

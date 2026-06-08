@@ -98,19 +98,52 @@ class MyCustomExecutor(Executor):
 
 Built-in executors include:
 * `MockExecutor` (`mock`): Simulates random multinomial measurement outcomes.
-* `QiskitAerExecutor` (`qiskit_aer`): Runs circuit simulations using `qiskit-aer`.
-* Placeholder executors: `QuantifyExecutor` (`quantify`), `QbloxExecutor` (`qblox`), and `PrestoExecutor` (`presto`).
+* `QiskitAerExecutor` (`qiskit_aer`): Runs quantum circuit simulations using `qiskit-aer`.
+* `QuantifyExecutor` (`quantify`): Executes quantum circuits using `quantify-scheduler` and a Qblox cluster compiler.
+* Placeholder executors: `QbloxExecutor` (`qblox`) and `PrestoExecutor` (`presto`).
+
+### Running the Driver for Each Executor
+
+Depending on the backend you wish to run, start the driver using the `--executor` / `-e` option.
+
+#### 1. Mock Executor
+Runs simulated measurements without external physics dependencies.
+```bash
+# Install the package with cli extra
+pip install ./qpi-driver[cli]
+
+# Start the driver using mock executor
+qpi-driver start --token "my-super-secret-token-12345" --executor "mock"
+```
+
+#### 2. Qiskit Aer Simulator
+Runs realistic circuit simulations using Qiskit Aer.
+```bash
+# Install the package with simulator extras
+pip install ./qpi-driver[cli,aer]
+
+# Start the driver using qiskit_aer executor
+qpi-driver start --token "my-super-secret-token-12345" --executor "qiskit_aer"
+```
+
+#### 3. Quantify Executor (Qblox Cluster)
+Compiles and runs circuits using `quantify-scheduler`.
+* **Dummy/Simulation Mode**: Compiles the schedule and executes it against a dummy local Qblox instrument cluster.
+  ```bash
+  # Install the package with quantify extra
+  pip install ./qpi-driver[cli,quantify]
+
+  # Start driver in dummy mode
+  qpi-driver start --token "my-super-secret-token-12345" --executor "quantify" --is-dummy
+  ```
+* **Real Hardware Mode**: Compiles and deploys to actual physical Qblox hardware.
+  ```bash
+  # Start driver with a hardware config file
+  qpi-driver start --token "my-super-secret-token-12345" --executor "quantify" --no-is-dummy --quantify-config quantify_config.example.json
+  ```
 
 ### CLI Usage
 The package exposes a command-line interface via `typer`. Options can be passed as CLI arguments/flags or will automatically fall back to their corresponding environment variables.
-
-```bash
-# Install the package with CLI and simulator extras
-pip install ./qpi-driver[cli,aer]
-
-# Start the driver
-qpi-driver start --token "my-super-secret-token-12345" --executor "qiskit_aer"
-```
 
 Common options:
 * `-H`, `--host`: Hostname/IP of the Go PocketBase server (env: `GO_SERVER_HOST`, default: `127.0.0.1`).
@@ -119,6 +152,9 @@ Common options:
 * `-n`, `--name`: Human-readable name for this QPU (env: `QPU_NAME`, default: `QPU-Sim-01`).
 * `-e`, `--executor`: Which executor backend to use (env: `DRIVER_BACKEND`, default: `mock`).
 * `-d`, `--data-dir`: Directory for intermediate NetCDF datasets (env: `QPI_DATA_DIR`, default: `bin/data`).
+* `--is-dummy / --no-is-dummy`: Enable/disable dummy/simulation mode (default: `false`).
+* `--quantify-config`: Path to the hardware config file (JSON/YAML) (env: `QUANTIFY_CONFIG`, default: `None`).
+
 
 ---
 

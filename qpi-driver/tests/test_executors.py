@@ -8,7 +8,9 @@ from qpi_driver.executors.mock import MockExecutor
 def test_mock_executor_execute():
     """Verify that MockExecutor runs successfully and returns the correct xarray.Dataset format."""
     executor = MockExecutor()
-    payload = {"n_qubits": 2, "shots": 500, "circuit": "bell_state"}
+    from qpi_driver.executors.base import JobPayload
+    payload_dict = {"n_qubits": 2, "shots": 500, "circuit": "bell_state"}
+    payload = JobPayload.from_dict(payload_dict)
     dataset = executor.execute(payload)
 
     # Assert return type
@@ -58,18 +60,23 @@ def test_resolve_executor():
 def test_custom_executor_resolution():
     """Verify resolver successfully supports custom user-defined executors."""
 
+    from qpi_driver.executors.base import JobPayload
+
     class DummyExecutor(Executor):
-        def execute(self, payload: dict) -> xr.Dataset:
+        def execute(self, payload: JobPayload) -> xr.Dataset:
             return xr.Dataset()
 
-    customs = {"dummy": DummyExecutor}
+    customs: dict[str, type[Executor]] = {"dummy": DummyExecutor}
     exec_inst = resolve_executor("dummy", custom_executors=customs)
     assert isinstance(exec_inst, DummyExecutor)
 
 
 def test_placeholder_executors_raise_not_implemented():
     """Verify that placeholder executors raise NotImplementedError."""
-    for name in ["quantify", "qblox", "presto"]:
+    from qpi_driver.executors.base import JobPayload
+    payload = JobPayload(qasm="OPENQASM 2.0;")
+    for name in ["qblox", "presto"]:
         executor = resolve_executor(name)
         with pytest.raises(NotImplementedError):
-            executor.execute({})
+            executor.execute(payload)
+

@@ -9,7 +9,7 @@ from typing import Any
 import pynng
 import requests
 
-from qpi_driver.executors import Executor
+from qpi_driver.executors import Executor, JobPayload
 
 # Setup logging for the main process.
 # We stick with the standard Python logging library instead of introducing logurus
@@ -128,13 +128,14 @@ def execute_job(
             w_log.info("Worker process executing job %s", job_id)
 
             try:
-                payload = job.get("payload", {})
-                if isinstance(payload, str):
+                payload_dict = job.get("payload", {})
+                if isinstance(payload_dict, str):
                     try:
-                        payload = json.loads(payload)
+                        payload_dict = json.loads(payload_dict)
                     except Exception:
-                        payload = {}
+                        payload_dict = {}
 
+                payload = JobPayload.from_dict(payload_dict)
                 dataset = executor_instance.execute(payload)
 
                 # Save dataset to a NetCDF file
@@ -296,6 +297,7 @@ def run_driver(
     executor: str | type[Executor] | Executor = "mock",
     custom_executors: dict[str, type[Executor]] | None = None,
     data_dir: str = "bin/data",
+    **executor_options: Any,
 ) -> None:
     """Run the QPI Python hardware driver.
 
@@ -321,6 +323,7 @@ def run_driver(
     worker = multiprocessing.Process(
         target=execute_job,
         args=(job_queue, result_queue, executor, custom_executors, data_dir),
+        kwargs=executor_options,
         name="QPI-Worker",
         daemon=True,
     )

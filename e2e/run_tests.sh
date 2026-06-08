@@ -33,18 +33,24 @@ mkdir -p bin
 
 # Detect Python interpreter.
 # If the developer has already activated a virtual environment, we respect that environment
-# and use the active python in PATH. Otherwise, we look for the local .venv folder,
+# and use the active python in PATH. Otherwise, we look for the local qpi-driver/.venv folder,
 # and finally fall back to the system python.
 PYTHON="python"
 if [ -n "$VIRTUAL_ENV" ]; then
     PYTHON="python"
+elif [ -d "qpi-driver/.venv" ]; then
+    PYTHON="./qpi-driver/.venv/bin/python"
 elif [ -d ".venv" ]; then
     PYTHON="./.venv/bin/python"
 fi
 
 # Install python driver package
-echo "[e2e] Installing Python qpi-driver package..."
-$PYTHON -m pip install -e ./qpi-driver[cli,aer]
+echo "[e2e] Syncing Python qpi-driver package dependencies..."
+if command -v uv >/dev/null 2>&1; then
+    uv sync --project qpi-driver --extra cli --extra aer --extra quantify
+else
+    $PYTHON -m pip install -e ./qpi-driver[cli,aer,quantify]
+fi
 
 # NOTE regarding pytest vs bash script:
 # We use this bash script for orchestration rather than pytest and pytest fixtures because
@@ -124,12 +130,21 @@ run_e2e_for_executor() {
     fi
     echo "[e2e] Verification PASSED for executor: $executor"
 }
-
-# Run for mock
-run_e2e_for_executor "mock"
-
-# Run for qiskit_aer
-run_e2e_for_executor "qiskit_aer"
+if [ -n "$1" ]; then
+    EXECUTOR="$1"
+    if [ "$EXECUTOR" = "aer" ]; then
+        EXECUTOR="qiskit_aer"
+    fi
+    if [ "$EXECUTOR" = "quantify" ]; then
+        echo "[e2e] Live E2E tests are not supported for quantify (requires physical hardware config). Skipping E2E..."
+    else
+        run_e2e_for_executor "$EXECUTOR"
+    fi
+else
+    run_e2e_for_executor "mock"
+    run_e2e_for_executor "qiskit_aer"
+fi
 
 echo ""
 echo "[e2e] All E2E Tests completed successfully!"
+

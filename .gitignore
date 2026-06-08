@@ -264,3 +264,10 @@ INSTRUCTIONS.md
 
 # QPI config file
 qpi.config.yml
+
+# quantify 
+quantify_config.json
+quantify_config.yml
+quantify_config.yaml
+**.hex
+**.q1asm

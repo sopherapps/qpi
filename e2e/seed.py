@@ -91,8 +91,15 @@ def create_time_slot(user_id):
 
 def create_jobs(user_id, qpu_id, n=5):
     job_ids = []
+    qasm = """OPENQASM 2.0;
+include "qelib1.inc";
+qreg q[2];
+creg c[2];
+h q[0];
+cx q[0], q[1];
+measure q -> c;"""
     for i in range(n):
-        payload = {"n_qubits": 2, "shots": 1024, "circuit": f"bell_state_{i}"}
+        payload = {"n_qubits": 2, "shots": 1024, "qasm": qasm}
         resp = s.post(f"{BASE}/api/collections/quantum_jobs/records", json={
             "user_id":    user_id,
             "qpu_target": qpu_id,
@@ -104,6 +111,7 @@ def create_jobs(user_id, qpu_id, n=5):
         job_ids.append(job["id"])
         print(f"[seed] Job {i+1}/{n} created: {job['id']}")
     return job_ids
+
 
 
 if __name__ == "__main__":

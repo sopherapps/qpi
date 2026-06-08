@@ -1,6 +1,6 @@
 from typing import Any
 
-from qpi_driver.executors.base import Executor
+from qpi_driver.executors.base import Executor, JobPayload as JobPayload
 from qpi_driver.executors.mock import MockExecutor
 from qpi_driver.executors.presto import PrestoExecutor
 from qpi_driver.executors.qblox import QbloxExecutor

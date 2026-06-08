@@ -1,15 +1,15 @@
 .PHONY: all build test lint lint-go lint-py format format-go format-py package clean venv-check
 
 VERSION ?= 1.0.0
+UV := $(shell command -v uv 2> /dev/null || echo "$$HOME/.local/bin/uv")
 
 all: build
 
-# Automatically create the virtual environment if not already in one and .venv doesn't exist.
+# Automatically create the virtual environment if not already in one and uv is missing.
 venv-check:
-	@if [ -z "$$VIRTUAL_ENV" ] && [ ! -d ".venv" ]; then \
-		echo "Creating virtual environment..."; \
-		python3 -m venv .venv; \
-		.venv/bin/pip install --upgrade pip; \
+	@if ! command -v uv >/dev/null 2>&1 && [ ! -f "$$HOME/.local/bin/uv" ]; then \
+		echo "uv not found, installing..."; \
+		curl -LsSf https://astral.sh/uv/install.sh | sh; \
 	fi
 
 build: venv-check
@@ -17,21 +17,13 @@ build: venv-check
 	mkdir -p bin
 	(cd qpi-interface && go build -o ../bin/qpi .)
 	@echo "Installing python package..."
-	@if [ -d ".venv" ] && [ -z "$$VIRTUAL_ENV" ]; then \
-		.venv/bin/python -m pip install -e ./qpi-driver[cli,aer,test]; \
-	else \
-		python -m pip install -e ./qpi-driver[cli,aer,test]; \
-	fi
+	$(UV) sync --project qpi-driver --extra cli --extra aer --extra quantify --extra test
 
 test:
 	@echo "Running Go unit tests..."
 	(cd qpi-interface && go test -v ./...)
 	@echo "Running Python unit tests..."
-	@if [ -d ".venv" ] && [ -z "$$VIRTUAL_ENV" ]; then \
-		.venv/bin/python -m pytest qpi-driver/tests/; \
-	else \
-		python -m pytest qpi-driver/tests/; \
-	fi
+	$(UV) run --project qpi-driver pytest qpi-driver/tests/
 	@echo "Running E2E tests..."
 	./e2e/run_tests.sh
 
@@ -44,11 +36,7 @@ lint-go:
 
 lint-py:
 	@echo "Linting Python files..."
-	@if [ -d ".venv" ] && [ -z "$$VIRTUAL_ENV" ]; then \
-		.venv/bin/ruff check qpi-driver/; \
-	else \
-		ruff check qpi-driver/; \
-	fi
+	$(UV) run --project qpi-driver ruff check qpi-driver/
 
 format: format-go format-py
 
@@ -58,13 +46,8 @@ format-go:
 
 format-py:
 	@echo "Formatting and sorting imports for Python files..."
-	@if [ -d ".venv" ] && [ -z "$$VIRTUAL_ENV" ]; then \
-		.venv/bin/ruff format qpi-driver/; \
-		.venv/bin/ruff check --select I --fix qpi-driver/; \
-	else \
-		ruff format qpi-driver/; \
-		ruff check --select I --fix qpi-driver/; \
-	fi
+	$(UV) run --project qpi-driver ruff format qpi-driver/
+	$(UV) run --project qpi-driver ruff check --select I --fix qpi-driver/
 
 package:
 	@echo "Packaging Go application..."
@@ -77,4 +60,4 @@ clean:
 	find . -type d -name "*.egg-info" -exec rm -rf {} +
 	find . -type d -name ".pytest_cache" -exec rm -rf {} +
 	find . -type d -name ".ruff_cache" -exec rm -rf {} +
-	rm -rf qpi-driver/build qpi-driver/dist qpi-driver/*.egg-info
+	rm -rf qpi-driver/build qpi-driver/dist qpi-driver/*.egg-info qpi-driver/.venv .venv
