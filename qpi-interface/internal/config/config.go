@@ -10,10 +10,12 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 )
 
 const appStoreConfigKey = "custom_config"
@@ -104,20 +106,40 @@ func NewFromFlags(cmd *cobra.Command) *AppConfig {
 	}
 	if configFile != "" {
 		if data, err := os.ReadFile(configFile); err == nil {
-			var fileCfg struct {
-				CollectionQPUs           *string                     `json:"qpusCollection"`
-				CollectionTimeSlots      *string                     `json:"timeslotsCollection"`
-				CollectionQuantumJobs    *string                     `json:"jobsCollection"`
-				IdleThreshold            *string                     `json:"idleThreshold"`
-				RecoveryInterval         *string                     `json:"recoveryInterval"`
-				JobTimeout               *string                     `json:"jobTimeout"`
-				DispatchPollInterval     *string                     `json:"dispatchPollInterval"`
-				PortRangeStart           *int                        `json:"portRangeStart"`
-				PortRangeEnd             *int                        `json:"portRangeEnd"`
-				DisableEmailPasswordAuth *bool                       `json:"disableEmailPasswordAuth"`
-				OAuth2Providers          []core.OAuth2ProviderConfig `json:"oauth2Providers"`
+			type oauth2ProviderConfigLocal struct {
+				Name         string         `json:"name" yaml:"name"`
+				ClientId     string         `json:"clientId" yaml:"clientId"`
+				ClientSecret string         `json:"clientSecret" yaml:"clientSecret"`
+				AuthURL      string         `json:"authURL" yaml:"authURL"`
+				TokenURL     string         `json:"tokenURL" yaml:"tokenURL"`
+				UserInfoURL  string         `json:"userInfoURL" yaml:"userInfoURL"`
+				DisplayName  string         `json:"displayName" yaml:"displayName"`
+				PKCE         *bool          `json:"pkce" yaml:"pkce"`
+				Extra        map[string]any `json:"extra" yaml:"extra"`
 			}
-			if err := json.Unmarshal(data, &fileCfg); err == nil {
+			var fileCfg struct {
+				CollectionQPUs           *string                      `json:"qpusCollection" yaml:"qpusCollection"`
+				CollectionTimeSlots      *string                      `json:"timeslotsCollection" yaml:"timeslotsCollection"`
+				CollectionQuantumJobs    *string                      `json:"jobsCollection" yaml:"jobsCollection"`
+				IdleThreshold            *string                      `json:"idleThreshold" yaml:"idleThreshold"`
+				RecoveryInterval         *string                      `json:"recoveryInterval" yaml:"recoveryInterval"`
+				JobTimeout               *string                      `json:"jobTimeout" yaml:"jobTimeout"`
+				DispatchPollInterval     *string                      `json:"dispatchPollInterval" yaml:"dispatchPollInterval"`
+				PortRangeStart           *int                         `json:"portRangeStart" yaml:"portRangeStart"`
+				PortRangeEnd             *int                         `json:"portRangeEnd" yaml:"portRangeEnd"`
+				DisableEmailPasswordAuth *bool                        `json:"disableEmailPasswordAuth" yaml:"disableEmailPasswordAuth"`
+				OAuth2Providers          []oauth2ProviderConfigLocal  `json:"oauth2Providers" yaml:"oauth2Providers"`
+			}
+
+			var parseErr error
+			isYaml := strings.HasSuffix(configFile, ".yaml") || strings.HasSuffix(configFile, ".yml")
+			if isYaml {
+				parseErr = yaml.Unmarshal(data, &fileCfg)
+			} else {
+				parseErr = json.Unmarshal(data, &fileCfg)
+			}
+
+			if parseErr == nil {
 				if fileCfg.CollectionQPUs != nil {
 					cfg.CollectionQPUs = *fileCfg.CollectionQPUs
 				}
@@ -157,10 +179,23 @@ func NewFromFlags(cmd *cobra.Command) *AppConfig {
 					cfg.DisableEmailPasswordAuth = *fileCfg.DisableEmailPasswordAuth
 				}
 				if len(fileCfg.OAuth2Providers) > 0 {
-					cfg.OAuth2Providers = fileCfg.OAuth2Providers
+					cfg.OAuth2Providers = make([]core.OAuth2ProviderConfig, len(fileCfg.OAuth2Providers))
+					for i, p := range fileCfg.OAuth2Providers {
+						cfg.OAuth2Providers[i] = core.OAuth2ProviderConfig{
+							Name:         p.Name,
+							ClientId:     p.ClientId,
+							ClientSecret: p.ClientSecret,
+							AuthURL:      p.AuthURL,
+							TokenURL:     p.TokenURL,
+							UserInfoURL:  p.UserInfoURL,
+							DisplayName:  p.DisplayName,
+							PKCE:         p.PKCE,
+							Extra:        p.Extra,
+						}
+					}
 				}
 			} else {
-				log.Printf("Warning: failed to parse config file JSON: %v", err)
+				log.Printf("Warning: failed to parse config file: %v", parseErr)
 			}
 		} else {
 			log.Printf("Warning: failed to read config file %s", configFile)

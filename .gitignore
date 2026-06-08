@@ -261,3 +261,6 @@ bin
 
 # AI
 INSTRUCTIONS.md
+
+# QPI config file
+qpi.config.yml

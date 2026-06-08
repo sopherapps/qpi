@@ -1,0 +1,52 @@
+# QPI Configuration File Example
+# This file defines settings for the QPI orchestrator service.
+# You can copy this file to 'qpi.config.yml' (which is gitignored) and customize the values.
+# The server will pick this up if run with --config-file qpi.config.yml or by setting QPI_CONFIG_FILE=qpi.config.yml.
+
+# Collection name for physical/logical QPUs
+qpusCollection: "qpus"
+
+# Collection name for reservation Time Slots
+timeslotsCollection: "time_slots"
+
+# Collection name for Quantum Jobs
+jobsCollection: "quantum_jobs"
+
+# Idle threshold: time to wait before falling back when the schedule is idle
+idleThreshold: "5s"
+
+# Recovery interval: how often to check for stale/hung quantum jobs to reset
+recoveryInterval: "10s"
+
+# Job timeout: maximum time allowed for a job to run before it is considered stale
+jobTimeout: "20s"
+
+# Dispatch poll interval: how often to check for new pending jobs to dispatch
+dispatchPollInterval: "1s"
+
+# NNG Port Range: start port for allocating connection channels to executors
+portRangeStart: 6000
+
+# NNG Port Range: end port for allocating connection channels to executors
+portRangeEnd: 7000
+
+# Disable email/password authentication on the users collection (forcing OAuth2 usage only)
+disableEmailPasswordAuth: false
+
+# List of OAuth2 Identity Providers to configure for authentication
+oauth2Providers:
+  - name: "github"
+    clientId: "YOUR_GITHUB_CLIENT_ID"
+    clientSecret: "YOUR_GITHUB_CLIENT_SECRET"
+    displayName: "GitHub"
+    pkce: true
+
+  # Custom or generic OpenID Connect (OIDC) provider example
+  # - name: "oidc"
+  #   clientId: "YOUR_OIDC_CLIENT_ID"
+  #   clientSecret: "YOUR_OIDC_CLIENT_SECRET"
+  #   authURL: "https://auth.example.com/oauth2/authorize"
+  #   tokenURL: "https://auth.example.com/oauth2/token"
+  #   userInfoURL: "https://auth.example.com/oauth2/userinfo"
+  #   displayName: "My Custom Auth"
+  #   pkce: true
