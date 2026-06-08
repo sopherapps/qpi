@@ -48,7 +48,6 @@ class QiskitAerExecutor(Executor):
         else:
             raise ValueError("Invalid circuit provided in payload")
 
-
         simulator = AerSimulator()
         t_qc = transpile(qc, simulator)
         sim_result = simulator.run(t_qc, shots=shots).result()
@@ -70,4 +69,3 @@ class QiskitAerExecutor(Executor):
             },
             attrs={"shots": shots, "n_qubits": n_qubits, "backend": "qiskit_aer"},
         )
-

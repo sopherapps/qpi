@@ -21,7 +21,6 @@ class JobPayload:
         return cls(qasm=qasm, shots=shots, n_qubits=n_qubits)
 
 
-
 class Executor(ABC):
     def __init__(self, **kwargs: Any) -> None:
         pass
@@ -37,4 +36,3 @@ class Executor(ABC):
             xr.Dataset: Dataset mimicking the raw measurement counts and frequencies.
         """
         pass
-

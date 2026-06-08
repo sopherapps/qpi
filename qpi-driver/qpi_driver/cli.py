@@ -95,7 +95,6 @@ def start(
     )
 
 
-
 @app.command()
 def version():
     """

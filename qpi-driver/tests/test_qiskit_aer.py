@@ -1,18 +1,16 @@
+import importlib.util
+
 import pytest
 import xarray as xr
 from qpi_driver.executors import resolve_executor
-from qpi_driver.executors.qiskit_aer import QiskitAerExecutor
 from qpi_driver.executors.base import JobPayload
+from qpi_driver.executors.qiskit_aer import QiskitAerExecutor
 
-try:
-    import qiskit_aer
-    has_aer = True
-except ImportError:
-    has_aer = False
+has_aer = importlib.util.find_spec("qiskit_aer") is not None
+
 
 @pytest.mark.skipif(
-    not has_aer,
-    reason="qiskit-aer must be installed to run qiskit-aer tests"
+    not has_aer, reason="qiskit-aer must be installed to run qiskit-aer tests"
 )
 def test_qiskit_aer_executor_execute():
     """Verify that QiskitAerExecutor runs successfully and returns correct standard output."""

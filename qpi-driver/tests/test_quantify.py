@@ -1,21 +1,21 @@
+import importlib.util
+
 import pytest
 import xarray as xr
 from qpi_driver.executors import resolve_executor
-from qpi_driver.executors.quantify import QuantifyExecutor
 from qpi_driver.executors.base import JobPayload
+from qpi_driver.executors.quantify import QuantifyExecutor
 from utils import load_json_fixture
 
-try:
-    import quantify_scheduler
-    import qblox_instruments
-    has_quantify = True
-except ImportError:
-    has_quantify = False
+has_quantify = (
+    importlib.util.find_spec("quantify_scheduler") is not None
+    and importlib.util.find_spec("qblox_instruments") is not None
+)
 
 
 @pytest.mark.skipif(
     not has_quantify,
-    reason="quantify-scheduler and qblox-instruments must be installed to run quantify tests"
+    reason="quantify-scheduler and qblox-instruments must be installed to run quantify tests",
 )
 def test_quantify_executor_execute_dummy():
     """Verify that QuantifyExecutor compiles and executes successfully on a dummy cluster with standard output."""
@@ -87,5 +87,3 @@ ccx q[0], q[1], q[2];"""
     with pytest.raises(ValueError) as excinfo:
         executor.execute(payload)
     assert "not supported" in str(excinfo.value)
-
-

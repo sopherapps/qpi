@@ -39,15 +39,16 @@ PYTHON="python"
 if [ -n "$VIRTUAL_ENV" ]; then
     PYTHON="python"
 elif [ -d "qpi-driver/.venv" ]; then
-    PYTHON="./qpi-driver/.venv/bin/python"
+    PYTHON="${PROJECT_ROOT}/qpi-driver/.venv/bin/python"
 elif [ -d ".venv" ]; then
-    PYTHON="./.venv/bin/python"
+    PYTHON="${PROJECT_ROOT}/.venv/bin/python"
 fi
 
 # Install python driver package
 echo "[e2e] Syncing Python qpi-driver package dependencies..."
 if command -v uv >/dev/null 2>&1; then
     uv sync --project qpi-driver --extra cli --extra aer --extra quantify
+    PYTHON="${PROJECT_ROOT}/qpi-driver/.venv/bin/python"
 else
     $PYTHON -m pip install -e ./qpi-driver[cli,aer,quantify]
 fi

@@ -9,6 +9,7 @@ def test_mock_executor_execute():
     """Verify that MockExecutor runs successfully and returns the correct xarray.Dataset format."""
     executor = MockExecutor()
     from qpi_driver.executors.base import JobPayload
+
     payload_dict = {"n_qubits": 2, "shots": 500, "circuit": "bell_state"}
     payload = JobPayload.from_dict(payload_dict)
     dataset = executor.execute(payload)
@@ -74,9 +75,9 @@ def test_custom_executor_resolution():
 def test_placeholder_executors_raise_not_implemented():
     """Verify that placeholder executors raise NotImplementedError."""
     from qpi_driver.executors.base import JobPayload
+
     payload = JobPayload(qasm="OPENQASM 2.0;")
     for name in ["qblox", "presto"]:
         executor = resolve_executor(name)
         with pytest.raises(NotImplementedError):
             executor.execute(payload)
-

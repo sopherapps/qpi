@@ -1,5 +1,6 @@
-import xarray as xr
 from typing import Any
+
+import xarray as xr
 
 from qpi_driver.executors.base import Executor, JobPayload
 
@@ -38,8 +39,8 @@ class QuantifyExecutor(Executor):
                 self.hardware_config = hardware_config
             elif isinstance(hardware_config, dict):
                 if hasattr(QbloxHardwareCompilationConfig, "model_validate"):
-                    self.hardware_config = QbloxHardwareCompilationConfig.model_validate(
-                        hardware_config
+                    self.hardware_config = (
+                        QbloxHardwareCompilationConfig.model_validate(hardware_config)
                     )
                 else:
                     self.hardware_config = QbloxHardwareCompilationConfig.parse_obj(
@@ -63,8 +64,8 @@ class QuantifyExecutor(Executor):
                         cfg_dict = json.load(f)
 
                 if hasattr(QbloxHardwareCompilationConfig, "model_validate"):
-                    self.hardware_config = QbloxHardwareCompilationConfig.model_validate(
-                        cfg_dict
+                    self.hardware_config = (
+                        QbloxHardwareCompilationConfig.model_validate(cfg_dict)
                     )
                 else:
                     self.hardware_config = QbloxHardwareCompilationConfig.parse_obj(
@@ -97,11 +98,11 @@ class QuantifyExecutor(Executor):
                 H,
                 Measure,
                 Reset,
+                Rxy,
+                Rz,
                 X,
                 Y,
                 Z,
-                Rxy,
-                Rz,
             )
             from quantify_scheduler.qblox import ClusterComponent
         except ImportError as exc:
@@ -113,6 +114,7 @@ class QuantifyExecutor(Executor):
         # Clean up any previously registered instruments to avoid name collision errors in QCoDeS
         try:
             from qcodes.instrument.base import Instrument
+
             Instrument.close_all()
         except Exception:
             pass
@@ -169,16 +171,19 @@ class QuantifyExecutor(Executor):
                 schedule.add(CZ(ctrl, tgt))
             elif name == "rx":
                 import numpy as np
+
                 theta_deg = float(np.degrees(gate.params[0]))
                 for idx in qubit_indices:
                     schedule.add(Rxy(theta_deg, 0, f"q{idx}"))
             elif name == "ry":
                 import numpy as np
+
                 theta_deg = float(np.degrees(gate.params[0]))
                 for idx in qubit_indices:
                     schedule.add(Rxy(theta_deg, 90, f"q{idx}"))
             elif name == "rz":
                 import numpy as np
+
                 theta_deg = float(np.degrees(gate.params[0]))
                 for idx in qubit_indices:
                     schedule.add(Rz(theta_deg, f"q{idx}"))
@@ -224,6 +229,7 @@ class QuantifyExecutor(Executor):
 
             if self.is_dummy:
                 from qblox_instruments import ClusterType
+
                 dummy_cfg = {}
                 try:
                     desc = self.hardware_config.hardware_description
@@ -242,7 +248,10 @@ class QuantifyExecutor(Executor):
                             elif inst_type == "QRM_RF":
                                 dummy_cfg[slot] = ClusterType.CLUSTER_QRM_RF
                 except Exception:
-                    dummy_cfg = {2: ClusterType.CLUSTER_QCM_RF, 3: ClusterType.CLUSTER_QRM_RF}
+                    dummy_cfg = {
+                        2: ClusterType.CLUSTER_QCM_RF,
+                        3: ClusterType.CLUSTER_QRM_RF,
+                    }
         else:
             # Setup dummy hardware configuration dynamically based on QASM qubit count
             modules = {"2": {"instrument_type": "QCM_RF"}}
@@ -270,7 +279,9 @@ class QuantifyExecutor(Executor):
                 modules[str(readout_slot)] = {"instrument_type": "QRM_RF"}
                 dummy_cfg[readout_slot] = ClusterType.CLUSTER_QRM_RF
 
-                graph.append((f"cluster.module2.complex_output_{i}", f"{qubit_name}:mw"))
+                graph.append(
+                    (f"cluster.module2.complex_output_{i}", f"{qubit_name}:mw")
+                )
                 graph.append(
                     (
                         f"cluster.module{readout_slot}.complex_output_0",

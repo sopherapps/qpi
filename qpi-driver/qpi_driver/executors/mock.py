@@ -39,4 +39,3 @@ class MockExecutor(Executor):
             },
             attrs={"shots": shots, "n_qubits": n_qubits, "backend": "mock"},
         )
-
