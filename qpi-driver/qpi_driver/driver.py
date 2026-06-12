@@ -4,6 +4,7 @@ import multiprocessing
 import os
 import time
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import pynng
@@ -78,7 +79,7 @@ def execute_job(
     result_queue: multiprocessing.Queue,
     executor: str | type[Executor] | Executor,
     custom_executors: dict[str, type[Executor]] | None,
-    data_dir: str,
+    data_dir: Path,
     **executor_options: Any,
 ) -> None:
     """
@@ -135,11 +136,12 @@ def execute_job(
                     except Exception:
                         payload_dict = {}
 
+                payload_dict.update(dict(id=job_id))
                 payload = JobPayload.from_dict(payload_dict)
                 dataset = executor_instance.execute(payload)
 
                 # Save dataset to a NetCDF file
-                filepath = os.path.join(data_dir, f"job_{job_id}.nc")
+                filepath = data_dir / f"job_{job_id}.nc"
                 dataset.to_netcdf(filepath, engine="scipy")
 
                 result_queue.put({"job_id": job_id, "filepath": filepath})
@@ -153,6 +155,9 @@ def execute_job(
             break
         except Exception as exc:
             w_log.error("Worker loop exception: %s", exc)
+
+    # release resources
+    executor_instance.close()
 
 
 def process_results(
@@ -296,7 +301,7 @@ def run_driver(
     name: str,
     executor: str | type[Executor] | Executor = "mock",
     custom_executors: dict[str, type[Executor]] | None = None,
-    data_dir: str = "bin/data",
+    data_dir: Path = Path("bin/data"),
     **executor_options: Any,
 ) -> None:
     """Run the QPI Python hardware driver.
@@ -309,6 +314,7 @@ def run_driver(
         executor: Executor specification (string key, class, or instance).
         custom_executors: Optional dict of custom executors for resolving string keys.
         data_dir: Directory where NetCDF files should be saved.
+        executor_options: other options to pass to the executor.
     """
     # do_handshake returns strongly typed dataclass
     info = do_handshake(host, port, token, name)
@@ -318,6 +324,9 @@ def run_driver(
     # Create queues
     job_queue = multiprocessing.Queue()
     result_queue = multiprocessing.Queue()
+
+    # add extra args to be passed to the executor
+    executor_options.update(dict(name=name, data_dir=data_dir))
 
     # 2. Start Worker Process
     worker = multiprocessing.Process(

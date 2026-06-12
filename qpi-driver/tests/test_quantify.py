@@ -7,6 +7,8 @@ from qpi_driver.executors.base import JobPayload
 from qpi_driver.executors.quantify import QuantifyExecutor
 from utils import load_json_fixture
 
+_QUANTIFY_HARDWARE_CONFIG: dict = load_json_fixture("quantify.hardware.json")
+
 has_quantify = (
     importlib.util.find_spec("quantify_scheduler") is not None
     and importlib.util.find_spec("qblox_instruments") is not None
@@ -19,7 +21,9 @@ has_quantify = (
 )
 def test_quantify_executor_execute_dummy():
     """Verify that QuantifyExecutor compiles and executes successfully on a dummy cluster with standard output."""
-    executor = resolve_executor("quantify", is_dummy=True)
+    executor = resolve_executor(
+        "quantify", is_dummy=True, quantify_hardware_config=_QUANTIFY_HARDWARE_CONFIG
+    )
     assert isinstance(executor, QuantifyExecutor)
 
     qasm = """OPENQASM 2.0;
@@ -52,8 +56,9 @@ measure q[1] -> c[1];"""
 
 def test_quantify_executor_with_config_fixture():
     """Verify that QuantifyExecutor correctly loads and validates hardware configuration from fixture."""
-    config_dict = load_json_fixture("quantify_config.json")
-    executor = resolve_executor("quantify", hardware_config=config_dict, is_dummy=True)
+    executor = resolve_executor(
+        "quantify", quantify_hardware_config=_QUANTIFY_HARDWARE_CONFIG, is_dummy=True
+    )
     assert isinstance(executor, QuantifyExecutor)
     assert executor.hardware_config is not None
 
@@ -75,7 +80,11 @@ measure q[0] -> c[0];"""
 
 def test_quantify_executor_invalid_gate_raises():
     """Verify that invalid gates in QASM raise ValueError."""
-    executor = resolve_executor("quantify", is_dummy=True)
+    executor = resolve_executor(
+        "quantify",
+        is_dummy=True,
+        quantify_hardware_config=_QUANTIFY_HARDWARE_CONFIG,
+    )
 
     # ccx is not a supported gate in QuantifyExecutor
     qasm = """OPENQASM 2.0;

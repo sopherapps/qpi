@@ -1,0 +1,18 @@
+# Quantify's device layer configuration
+q0:
+  element_type: "quantify_scheduler.device_under_test.transmon_element.BasicTransmonElement"
+  rxy:
+    amp180: 0.352
+    duration: 20e-9
+  clock_freqs:
+    f01: 5.120e9
+    readout: 6.000e9  
+
+q1:
+  element_type: "quantify_scheduler.device_under_test.transmon_element.BasicTransmonElement"
+  rxy:
+    amp180: 0.411
+    duration: 20e-9
+  clock_freqs:
+    f01: 5.340e9
+    readout: 6.010e9

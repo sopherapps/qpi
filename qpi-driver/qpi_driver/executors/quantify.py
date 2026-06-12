@@ -1,78 +1,95 @@
+import importlib
+from contextlib import suppress
+from pathlib import Path
 from typing import Any
 
 import xarray as xr
+import yaml
 
+from qpi_driver.compat.quantify import (
+    CNOT,
+    CZ,
+    IS_QUANTIFY_INSTALLED,
+    Cluster,
+    ClusterComponent,
+    ClusterDescription,
+    ClusterType,
+    H,
+    Instrument,
+    InstrumentCoordinator,
+    InstrumentModule,
+    InstrumentType,
+    Measure,
+    ParameterBase,
+    QbloxHardwareCompilationConfig,
+    QuantumDevice,
+    Reset,
+    Rxy,
+    Rz,
+    Schedule,
+    SerialCompiler,
+    X,
+    Y,
+    Z,
+    set_datadir,
+)
 from qpi_driver.executors.base import Executor, JobPayload
+
+from .utils.qiskit import load_qasm
+
+_DEVICE_ELEMENT_TYPE_PROP = "element_type"
 
 
 class QuantifyExecutor(Executor):
     """Executor subclass for interacting with Quantify-scheduler acquisition backends."""
 
+    def __new__(cls, *args, **kwargs):
+        if not IS_QUANTIFY_INSTALLED:
+            raise ImportError(
+                "quantify-scheduler is not installed. Install the [quantify] extra to use QuantifyExecutor."
+            )
+        return super().__new__(cls)
+
     def __init__(
         self,
-        quantify_config: Any = None,
+        name: str,
+        quantify_hardware_config: QbloxHardwareCompilationConfig | Path | dict = Path(
+            "quantify.hardware.json"
+        ),
+        quantify_device_config: Path | dict = Path("quantify.device.json"),
         is_dummy: bool = False,
+        data_dir: Path = Path("data"),
+        acquisition_timeout: int = 10,
         **kwargs: Any,
     ) -> None:
         """Initialize the QuantifyExecutor.
 
         Args:
-            quantify_config: Hardware configuration dictionary, file path, or config object.
+            name: the name of the executor
+            quantify_hardware_config: Hardware-layer configuration dictionary, file path, or config as dict.
+            quantify_device_config: Device-layer configuration dictionary, file path or config as dict
             is_dummy: If True, uses a dummy Cluster instrument.
+            data_dir: Directory to where data is temporarily stored.
+            acquisition_timeout: Timeout in seconds to wait for acquisition.
             **kwargs: Arbitrary keyword arguments passed to the base class.
         """
-        super().__init__(**kwargs)
-        self.is_dummy = is_dummy
-        self.hardware_config = None
+        super().__init__(name, **kwargs)
+        set_datadir(data_dir)
+        # Clean up any previously registered instruments to avoid name collision errors in QCoDeS
+        with suppress(Exception):
+            Instrument.close_all()
 
-        if not quantify_config:
-            raise TypeError("quantify_config is a required option")
-
-        try:
-                from quantify_scheduler.backends.qblox_backend import (
-                    QbloxHardwareCompilationConfig,
-                )
-        except ImportError as exc:
-                raise ImportError(
-                    "quantify-scheduler is not installed. Install the [quantify] extra to use QuantifyExecutor."
-                ) from exc
-
-        if isinstance(quantify_config, QbloxHardwareCompilationConfig):
-                self.hardware_config = quantify_config
-        elif isinstance(quantify_config, dict):
-                if hasattr(QbloxHardwareCompilationConfig, "model_validate"):
-                    self.hardware_config = (
-                        QbloxHardwareCompilationConfig.model_validate(quantify_config)
-                    )
-                else:
-                    self.hardware_config = QbloxHardwareCompilationConfig.parse_obj(
-                        quantify_config
-                    )
-        elif isinstance(quantify_config, str):
-                import json
-
-                if quantify_config.endswith((".yaml", ".yml")):
-                    try:
-                        import yaml
-
-                        with open(quantify_config, "r") as f:
-                            cfg_dict = yaml.safe_load(f)
-                    except ImportError:
-                        raise ImportError(
-                            "PyYAML is required to parse YAML hardware config files."
-                        )
-                else:
-                    with open(quantify_config, "r") as f:
-                        cfg_dict = json.load(f)
-
-                if hasattr(QbloxHardwareCompilationConfig, "model_validate"):
-                    self.hardware_config = (
-                        QbloxHardwareCompilationConfig.model_validate(cfg_dict)
-                    )
-                else:
-                    self.hardware_config = QbloxHardwareCompilationConfig.parse_obj(
-                        cfg_dict
-                    )
+        self._is_dummy = is_dummy
+        self._acquisition_timeout = acquisition_timeout
+        hardware_config = _load_quantify_hardware_config(quantify_hardware_config)
+        self._device = _load_quantum_device(name=name, config=quantify_device_config)
+        self._instrument_coordinator = _load_instrument_coordinator(
+            f"{name}_ic", hardware_config=hardware_config, is_dummy=is_dummy
+        )
+        self._device.hardware_config(hardware_config)
+        self._compiler = SerialCompiler(
+            name=f"{name}_compiler", quantum_device=self._device
+        )
 
     def execute(self, payload: JobPayload) -> xr.Dataset:
         """Execute quantum instructions using the Quantify scheduler.
@@ -83,69 +100,20 @@ class QuantifyExecutor(Executor):
         Returns:
             xr.Dataset: Standardised counts/frequencies dataset.
         """
-        try:
-            from qblox_instruments import Cluster, ClusterType
-            from quantify_scheduler import Schedule
-            from quantify_scheduler.backends.graph_compilation import SerialCompiler
-            from quantify_scheduler.device_under_test.quantum_device import (
-                QuantumDevice,
-            )
-            from quantify_scheduler.device_under_test.transmon_element import (
-                BasicTransmonElement,
-            )
-            from quantify_scheduler.instrument_coordinator import InstrumentCoordinator
-            from quantify_scheduler.operations.gate_library import (
-                CNOT,
-                CZ,
-                H,
-                Measure,
-                Reset,
-                Rxy,
-                Rz,
-                X,
-                Y,
-                Z,
-            )
-            from quantify_scheduler.qblox import ClusterComponent
-        except ImportError as exc:
-            raise ImportError(
-                "quantify-scheduler or qblox-instruments is not installed. "
-                "Install the [quantify] extra to use QuantifyExecutor."
-            ) from exc
+        # Parse QASM circuit
+        circuit = load_qasm(payload.qasm)
 
-        # Clean up any previously registered instruments to avoid name collision errors in QCoDeS
-        try:
-            from qcodes.instrument.base import Instrument
-
-            Instrument.close_all()
-        except Exception:
-            pass
-
-        # 1. Parse QASM circuit
-        qasm_str = payload.qasm
-        try:
-            from qiskit import QuantumCircuit
-
-            try:
-                import qiskit.qasm3 as qasm3
-
-                qc = qasm3.loads(qasm_str)
-            except Exception:
-                qc = QuantumCircuit.from_qasm_str(qasm_str)
-        except Exception as exc:
-            raise ValueError(f"Failed to parse QASM circuit: {exc}") from exc
-
-        n_qubits = qc.num_qubits
+        n_qubits = circuit.num_qubits
         shots = payload.shots
 
-        # 2. Translate Qiskit QuantumCircuit to Quantify Schedule
-        schedule = Schedule("Quantify Execution", repetitions=shots)
+        # Translate Qiskit QuantumCircuit to Quantify Schedule
+        schedule = Schedule(name=payload.id, repetitions=shots)
         acq_indices = {}
 
-        for instruction in qc.data:
+        for instruction in circuit.data:
             gate = instruction.operation
             qubits = instruction.qubits
-            qubit_indices = [qc.find_bit(q).index for q in qubits]
+            qubit_indices = [circuit.find_bit(q).index for q in qubits]
 
             name = gate.name.lower()
             if name == "reset":
@@ -200,196 +168,162 @@ class QuantifyExecutor(Executor):
             else:
                 raise ValueError(f"Gate '{name}' is not supported by QuantifyExecutor")
 
-        # 3. Setup Hardware Configuration
-        quantum_device = QuantumDevice("quantum_device")
+        compiled_sched = self._compiler.compile(schedule=schedule)
 
-        quantum_device.hardware_config(self.hardware_config)
-        # FIXME: Add another configuration for calibration data and use it here instead of hard coding it
-        for i in range(n_qubits):
-                qubit_name = f"q{i}"
-                if qubit_name not in quantum_device.elements():
-                    q_elem = BasicTransmonElement(qubit_name)
-                    quantum_device.add_element(q_elem)
-                    # Set defaults
-                    q_elem.rxy.amp180(0.1)
-                    q_elem.rxy.motzoi(0)
-                    q_elem.clock_freqs.f01(5e9)
-                    q_elem.clock_freqs.f12(4.8e9)
-                    q_elem.clock_freqs.readout(6e9)
-                    q_elem.measure.pulse_amp(0.25)
-                    q_elem.measure.pulse_duration(300e-9)
-                    q_elem.measure.acq_delay(100e-9)
-                    q_elem.measure.integration_time(1e-6)
-            cluster_name = "cluster"
-            identifier = None
-        try:
-                desc = self.hardware_config.hardware_description
-                if "cluster" in desc:
-                    identifier = getattr(desc["cluster"], "identifier", None)
-        except Exception:
-                pass
+        self._instrument_coordinator.prepare(compiled_sched)
+        self._instrument_coordinator.start()
+        self._instrument_coordinator.wait_done(timeout_sec=self._acquisition_timeout)
+        return self._instrument_coordinator.retrieve_acquisition()
 
-        if self.is_dummy:
-                from qblox_instruments import ClusterType
+    def close(self) -> None:
+        """Release resources."""
+        for component in self._instrument_coordinator.components:
+            self._instrument_coordinator.remove_component(component.name)
+            component.close()
 
-                dummy_cfg = {}
-                try:
-                    desc = self.hardware_config.hardware_description
-                    if "cluster" in desc:
-                        cluster_desc = desc["cluster"]
-                        modules_dict = getattr(cluster_desc, "modules", {})
-                        if not isinstance(modules_dict, dict):
-                            modules_dict = cluster_desc.dict().get("modules", {})
-                        for slot_str, mod_info in modules_dict.items():
-                            slot = int(slot_str)
-                            inst_type = getattr(mod_info, "instrument_type", None)
-                            if not inst_type and isinstance(mod_info, dict):
-                                inst_type = mod_info.get("instrument_type")
-                            if inst_type == "QCM_RF":
-                                dummy_cfg[slot] = ClusterType.CLUSTER_QCM_RF
-                            elif inst_type == "QRM_RF":
-                                dummy_cfg[slot] = ClusterType.CLUSTER_QRM_RF
-                except Exception:
-                    dummy_cfg = {
-                        2: ClusterType.CLUSTER_QCM_RF,
-                        3: ClusterType.CLUSTER_QRM_RF,
-                    }
-        else:
-            # Setup dummy hardware configuration dynamically based on QASM qubit count
-            modules = {"2": {"instrument_type": "QCM_RF"}}
-            dummy_cfg = {2: ClusterType.CLUSTER_QCM_RF}
-            graph = []
-            modulation_frequencies = {}
+        with suppress(Exception):
+            self._instrument_coordinator.close()
 
-            for i in range(n_qubits):
-                qubit_name = f"q{i}"
-                q_elem = BasicTransmonElement(qubit_name)
-                quantum_device.add_element(q_elem)
 
-                # Set basic transmon properties
-                q_elem.rxy.amp180(0.1)
-                q_elem.rxy.motzoi(0)
-                q_elem.clock_freqs.f01(5e9)
-                q_elem.clock_freqs.f12(4.8e9)
-                q_elem.clock_freqs.readout(6e9)
-                q_elem.measure.pulse_amp(0.25)
-                q_elem.measure.pulse_duration(300e-9)
-                q_elem.measure.acq_delay(100e-9)
-                q_elem.measure.integration_time(1e-6)
+def _load_quantify_hardware_config(
+    data: QbloxHardwareCompilationConfig | Path | dict,
+) -> QbloxHardwareCompilationConfig:
+    """Load quantify hardware-layer config from the given data
 
-                readout_slot = 2 * i + 3
-                modules[str(readout_slot)] = {"instrument_type": "QRM_RF"}
-                dummy_cfg[readout_slot] = ClusterType.CLUSTER_QRM_RF
+    Args:
+        data: the data in form of ``QbloxHardwareCompilationConfig`` or the path to the config file or the dict
+            version from which ``QbloxHardwareCompilationConfig`` can be constructed.
 
-                graph.append(
-                    (f"cluster.module2.complex_output_{i}", f"{qubit_name}:mw")
-                )
-                graph.append(
-                    (
-                        f"cluster.module{readout_slot}.complex_output_0",
-                        f"{qubit_name}:res",
-                    )
-                )
+    Returns:
+        the parsed QbloxHardwareCompilationConfig
 
-                modulation_frequencies[f"{qubit_name}:mw-{qubit_name}.01"] = {
-                    "interm_freq": 200e6
-                }
-                modulation_frequencies[f"{qubit_name}:res-{qubit_name}.ro"] = {
-                    "interm_freq": 50e6
-                }
+    Raises:
+        ValidationError: if data or the file at 'data' is invalid QbloxHardwareCompilationConfig
+    """
+    if isinstance(data, Path):
+        with open(data, "r") as file:
+            data: dict = yaml.safe_load(file)
 
-            hardware_compilation_cfg = {
-                "version": "0.2",
-                "config_type": "quantify_scheduler.backends.qblox_backend.QbloxHardwareCompilationConfig",
-                "hardware_description": {
-                    "cluster": {
-                        "instrument_type": "Cluster",
-                        "ref": "internal",
-                        "modules": modules,
-                    }
-                },
-                "hardware_options": {
-                    "modulation_frequencies": modulation_frequencies,
-                },
-                "connectivity": {
-                    "graph": graph,
-                },
-            }
-            quantum_device.hardware_config(hardware_compilation_cfg)
-            cluster_name = "cluster"
-            identifier = None
+    return QbloxHardwareCompilationConfig.model_validate(data)
 
-        # 4. Instantiate Cluster instrument
-        if self.is_dummy or self.hardware_config is None:
-            cluster = Cluster(cluster_name, dummy_cfg=dummy_cfg)
-        else:
-            cluster = Cluster(cluster_name, identifier=identifier)
 
-        # 5. Setup InstrumentCoordinator and register the ClusterComponent
-        ic = InstrumentCoordinator("ic")
-        ic_cluster = ClusterComponent(cluster)
-        ic.add_component(ic_cluster)
+def _load_quantum_device(name: str, config: Path | dict) -> QuantumDevice:
+    """Load quantify device-layer config from the given data and returns a QuantumDevice
 
-        try:
-            compiler = SerialCompiler(name="compiler")
-            compiled_sched = compiler.compile(
-                schedule=schedule, config=quantum_device.generate_compilation_config()
+    Args:
+        name: the name of the device
+        config: the data in form of the path to the config file or the dict
+            from which ``QuantumDevice`` can be constructed.
+
+    Returns:
+        the parsed QuantumDevice
+
+    Raises:
+        TypeError: if a device element's attribute is not callable
+            yet it is configured like it is a parameter
+        AttributeError: if a device element does not have the attribute
+            yet it is being configured as if it has
+    """
+    if isinstance(config, Path):
+        with open(config, "r") as file:
+            config: dict = yaml.safe_load(file)
+
+    quantum_device = QuantumDevice(name=name)
+
+    for element_name, element_data in config.items():  # type: str, dict
+        element_type = element_data.pop(_DEVICE_ELEMENT_TYPE_PROP, None)
+        if not element_type:
+            raise ValueError(
+                f"Element '{element_name}' is missing a '{_DEVICE_ELEMENT_TYPE_PROP}' specification."
             )
 
-            # 6. Execute
-            ic.prepare(compiled_sched)
-            ic.start()
-            ic.wait_done(timeout_sec=10)
-            dataset = ic.retrieve_acquisition()
+        try:
+            module_path, element_cls_name = element_name.rsplit(".", 1)
+        except ValueError:
+            raise ValueError(
+                f"Element '{element_name}' is not a valid full import path for element type."
+            )
 
-        finally:
-            # 7. Clean up instruments safely
+        module = importlib.import_module(module_path)
+        element_class = getattr(module, element_cls_name)
+
+        element_instance = element_class(element_name)
+        _apply_parameters(element_instance, element_data)
+
+        quantum_device.add_element(element_instance)
+
+    return quantum_device
+
+
+def _apply_parameters(obj: InstrumentModule | ParameterBase, data: dict):
+    """Helper to recursively map dictionaries onto QCoDeS submodules/parameters
+
+    Args:
+        obj: the instrument module or parameter
+        data: the data to apply to this module or parameter
+
+    Raises:
+        TypeError: if obj is not callable yet data is not a dict
+        AttributeError: if obj does not have the attribute set on it in the data
+    """
+    if not isinstance(data, dict):
+        try:
+            obj(data)
+        except TypeError as exp:
+            raise TypeError(
+                f"{obj} is not a Parameter yet value {data} passed is not a dict"
+            ) from exp
+
+    else:
+        for key, value in data.items():
             try:
-                ic.remove_component(cluster_name)
-            except Exception:
-                pass
-            try:
-                cluster.close()
-            except Exception:
-                pass
+                attribute = getattr(obj, key)
+            except AttributeError as exp:
+                raise AttributeError(f"{obj} has no attribute '{key}'") from exp
 
-        # 8. Standardise output to expected xarray structure
-        # In dummy/simulation mode or when no real acquisition data is present,
-        # we generate counts via a local Qiskit simulation for correctness.
-        if self.is_dummy or not list(dataset.data_vars):
-            try:
-                from qiskit.primitives import StatevectorSampler
+            _apply_parameters(attribute, value)
 
-                sampler = StatevectorSampler()
-                sim_job = sampler.run([qc], shots=shots)
-                sim_result = sim_job.result()[0]
 
-                raw_counts = {}
-                for key in sim_result.data.keys():
-                    reg_data = getattr(sim_result.data, key)
-                    if hasattr(reg_data, "get_counts"):
-                        for state, count in reg_data.get_counts().items():
-                            raw_counts[state] = raw_counts.get(state, 0) + count
-            except Exception:
-                raw_counts = {}
-        else:
-            # Real execution data parsing
-            raw_counts = {}
-            # (In a real setup, parse dataset.data_vars and reconstruct the states)
+def _load_instrument_coordinator(
+    name: str, hardware_config: QbloxHardwareCompilationConfig, is_dummy: bool = False
+) -> InstrumentCoordinator:
+    """Loads the instrument coordinator from the given hardware configuration
 
-        # Pad with 0 counts for all 2^n_qubits states to standardise length
-        states_list = [format(i, f"0{n_qubits}b") for i in range(2**n_qubits)]
-        counts_list = [raw_counts.get(s, 0) for s in states_list]
-        freqs_list = [c / shots for c in counts_list]
+    Args:
+        name: the name of the instrument coordinator
+        hardware_config: the QbloxHardwareCompilationConfig of the setup.
+        is_dummy: whether this setup is dummy or not.
 
-        return xr.Dataset(
-            {
-                "counts": xr.DataArray(
-                    counts_list, dims=["state"], coords={"state": states_list}
-                ),
-                "frequencies": xr.DataArray(
-                    freqs_list, dims=["state"], coords={"state": states_list}
-                ),
-            },
-            attrs={"shots": shots, "n_qubits": n_qubits, "backend": "quantify"},
-        )
+    Returns:
+        the parsed InstrumentCoordinator
+    """
+    coordinator = InstrumentCoordinator(name=name)
+    hardware_description = hardware_config.hardware_description
+
+    for instrument_name, cfg in hardware_description.items():
+        if isinstance(cfg, ClusterDescription):
+            cluster_ip = cfg.ip
+            dummy_cfg = None
+            if is_dummy:
+                dummy_cfg = {
+                    k: _to_cluster_type(v.instrument_type)
+                    for k, v in cfg.modules.items()
+                }
+
+            cluster = Cluster(
+                name=instrument_name, identifier=cluster_ip, dummy_cfg=dummy_cfg
+            )
+            cluster_component = ClusterComponent(cluster)
+            coordinator.add_component(cluster_component)
+
+    return coordinator
+
+
+def _to_cluster_type(value: InstrumentType) -> ClusterType:
+    """Converts the given InstrumentType to ClusterType
+    Args:
+        value: the InstrumentType to convert
+    Returns:
+        the corresponding ClusterType
+    """
+    return getattr(ClusterType, f"CLUSTER_{value}")

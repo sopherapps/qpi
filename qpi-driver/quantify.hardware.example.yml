@@ -1,3 +1,4 @@
+# quantify's hardware layer configuration
 version: '0.2'
 config_type: quantify_scheduler.backends.qblox_backend.QbloxHardwareCompilationConfig
 hardware_description:

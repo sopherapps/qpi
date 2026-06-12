@@ -1,3 +1,4 @@
+import uuid
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any
@@ -7,6 +8,7 @@ import xarray as xr
 
 @dataclass
 class JobPayload:
+    id: str
     qasm: str
     shots: int = 1024
     n_qubits: int = 2
@@ -18,12 +20,13 @@ class JobPayload:
             raise ValueError("No QASM string/circuit provided in payload")
         shots = data.get("shots") or 1024
         n_qubits = data.get("n_qubits") or 2
-        return cls(qasm=qasm, shots=shots, n_qubits=n_qubits)
+        identifier = data.get("id", str(uuid.uuid4()))
+        return cls(qasm=qasm, shots=shots, n_qubits=n_qubits, id=identifier)
 
 
 class Executor(ABC):
-    def __init__(self, **kwargs: Any) -> None:
-        pass
+    def __init__(self, name: str, **kwargs: Any) -> None:
+        self.name = name
 
     @abstractmethod
     def execute(self, payload: JobPayload) -> xr.Dataset:
@@ -35,4 +38,8 @@ class Executor(ABC):
         Returns:
             xr.Dataset: Dataset mimicking the raw measurement counts and frequencies.
         """
+        pass
+
+    def close(self) -> None:
+        """Release resources."""
         pass

@@ -135,12 +135,12 @@ Compiles and runs circuits using `quantify-scheduler`.
   pip install ./qpi-driver[cli,quantify]
 
   # Start driver in dummy mode
-  qpi-driver start --token "my-super-secret-token-12345" --executor "quantify" --is-dummy --quantify-config quantify_config.example.json
+  qpi-driver start --token "my-super-secret-token-12345" --executor "quantify" --is-dummy --quantify-hardware-config quantify.hardware.example.json --quantify-deivce-config quantify.deivde.example.json
   ```
 * **Real Hardware Mode**: Compiles and deploys to actual physical Qblox hardware.
   ```bash
   # Start driver with a hardware config file
-  qpi-driver start --token "my-super-secret-token-12345" --executor "quantify" --quantify-config quantify_config.example.json
+  qpi-driver start --token "my-super-secret-token-12345" --executor "quantify" --quantify-hardware-config quantify.hardware.example.json --quantify-deivce-config quantify.deivde.example.json
   ```
 
 ### CLI Usage
@@ -154,8 +154,10 @@ Common options:
 * `-e`, `--executor`: Which executor backend to use (env: `DRIVER_BACKEND`, default: `mock`).
 * `-d`, `--data-dir`: Directory for intermediate NetCDF datasets (env: `QPI_DATA_DIR`, default: `bin/data`).
 * `--is-dummy`: Enable/disable dummy/simulation mode (default: `false`).
-* `--quantify-config`: Path to the hardware config file (JSON/YAML) (env: `QUANTIFY_CONFIG`, default: `None`).
-
+* `--quantify-hardware-config`: Path to the quantify's hardware-layer config file (JSON/YAML) for the RF control instruments (env: `QPI_QUANTIFY_HARDWARE_CONFIG`, default: `quantify.hardware.json`).
+* `--quantify-device-config`: Path to the quantify's device-layer config file (JSON/YAML) for the quantum chip (env: `QPI_QUANTIFY_DEVICE_CONFIG`, default: `quantify.device.yml`).
+* `--job-timeout`: the number of seconds to wait for results of the job before timing out (env: `QPI_JOB_TIMEOUT`, default: 10)
+* `-d`, `--data-dir`: the path to the folder where experiment data is to be saved (env: `QPI_DATA_DIR`, default: `./bin/data`)
 
 ---
 

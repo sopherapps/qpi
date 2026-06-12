@@ -222,7 +222,7 @@ cython_debug/
 #   be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
 #   and can be added to the global gitignore or merged into this file.  For a more nuclear
 #   option (not recommended) you can uncomment the following to ignore the entire idea folder.
-# .idea/
+.idea/
 
 # Abstra
 #   Abstra is an AI-powered process automation framework.
@@ -266,8 +266,15 @@ INSTRUCTIONS.md
 qpi.config.yml
 
 # quantify 
-quantify_config.json
-quantify_config.yml
-quantify_config.yaml
+quantify.hardware.json
+quantify.device.json
+quantify.config.yml
+quantify.device.yml
+quantify.config.yaml
+quantify.device.yaml
+!**/fixtures/**.json
+!**/fixtures/**.yaml
+!**/fixtures/**.yml
+
 **.hex
 **.q1asm
