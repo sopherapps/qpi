@@ -238,6 +238,60 @@ def test_python_client_smoke():
     return True
 
 
+def test_qiskit_hadamard_circuit():
+    """Build a Hadamard circuit with Qiskit, submit it, and verify completion."""
+    print("\n[verify] Testing Qiskit Hadamard circuit submission …")
+    try:
+        from qiskit import QuantumCircuit, qasm2
+    except ImportError:
+        print("[verify] ⚠ qiskit not installed — skipping Hadamard circuit test")
+        return True
+
+    # Build a simple Hadamard + measure circuit
+    qc = QuantumCircuit(1, 1)
+    qc.h(0)
+    qc.measure(0, 0)
+    qasm = qasm2.dumps(qc)
+
+    # Extract qpu_target from existing jobs so submission succeeds
+    # even if the QPU has gone offline after processing seeded jobs
+    jobs = get_all_jobs()
+    qpu_target = jobs[0].get("qpu_target") if jobs else None
+
+    headers = {"X-API-Token": TEST_API_TOKEN}
+    payload = {
+        "circuits": [{"circuit": qasm}],
+        "shots": 100,
+    }
+    if qpu_target:
+        payload["qpu_target"] = qpu_target
+
+    # Submit the job
+    resp = requests.post(f"{BASE}/api/jobs", json=payload, headers=headers)
+    if resp.status_code not in (200, 201):
+        print(f"[verify] ✗ Job submission failed: {resp.status_code} {resp.text}")
+        return False
+
+    job_id = resp.json().get("job_id") or resp.json().get("id")
+    print(f"[verify] Submitted Hadamard job {job_id}")
+
+    # Poll for completion (up to 30s)
+    for i in range(30):
+        time.sleep(1)
+        resp = requests.get(f"{BASE}/api/jobs/{job_id}", headers=headers)
+        if resp.status_code == 200:
+            status = resp.json().get("status")
+            if status == "completed":
+                print(f"[verify] ✓ Hadamard job completed after {i + 1}s")
+                return True
+            if status in ("failed", "cancelled"):
+                print(f"[verify] ✗ Hadamard job {status}")
+                return False
+
+    print("[verify] ✗ Hadamard job did not complete within 30s")
+    return False
+
+
 def test_recovery_engine():
     print("\n[verify] Testing recovery engine …")
     jobs = get_all_jobs()
@@ -292,6 +346,9 @@ def main():
         all_passed = False
 
     if not test_python_client_smoke():
+        all_passed = False
+
+    if not test_qiskit_hadamard_circuit():
         all_passed = False
 
     if not test_recovery_engine():
