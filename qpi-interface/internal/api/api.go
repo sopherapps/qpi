@@ -5,13 +5,16 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 	"go.nanomsg.org/mangos/v3"
 	"go.nanomsg.org/mangos/v3/protocol/pull"
@@ -48,11 +51,269 @@ type resultPayload struct {
 	Results map[string]any `json:"results"`
 }
 
+// circuitPayload represents a single quantum circuit within a job submission.
+type circuitPayload struct {
+	Circuit         string      `json:"circuit"`
+	ParameterValues [][]float64 `json:"parameter_values,omitempty"`
+	Shots           *int        `json:"shots,omitempty"`
+}
+
+// jobSubmitRequest represents the JSON payload for POST /api/jobs.
+type jobSubmitRequest struct {
+	Circuits   []circuitPayload `json:"circuits"`
+	Shots      int              `json:"shots"`
+	MeasLevel  *int             `json:"meas_level,omitempty"`
+	MeasReturn string           `json:"meas_return,omitempty"`
+	QPUTarget  string           `json:"qpu_target,omitempty"`
+}
+
 // RegisterRoutes sets up custom HTTP routes for QPU interactions.
 func RegisterRoutes(e *core.ServeEvent) {
 	e.Router.POST("/api/qpu/register", func(re *core.RequestEvent) error {
 		return handleQPURegister(re)
 	})
+
+	// Job CRUD routes
+	e.Router.POST("/api/jobs", func(re *core.RequestEvent) error {
+		return handleJobSubmit(re)
+	})
+	e.Router.GET("/api/jobs", func(re *core.RequestEvent) error {
+		return handleJobList(re)
+	})
+	e.Router.GET("/api/jobs/{id}", func(re *core.RequestEvent) error {
+		return handleJobGet(re)
+	})
+	e.Router.POST("/api/jobs/{id}/cancel", func(re *core.RequestEvent) error {
+		return handleJobCancel(re)
+	})
+}
+
+// resolveUserAuth resolves the authenticated user from the request.
+// It checks re.Auth first, then falls back to API token auth via
+// X-API-Token header or Authorization: Bearer <token> header.
+func resolveUserAuth(re *core.RequestEvent) (*core.Record, error) {
+	// 1. Check if already authenticated via PocketBase session/JWT
+	if re.Auth != nil && re.Auth.Collection().Name == "users" {
+		return re.Auth, nil
+	}
+
+	// 2. Check for API token in headers
+	var token string
+	if t := re.Request.Header.Get("X-API-Token"); t != "" {
+		token = t
+	} else if authHeader := re.Request.Header.Get("Authorization"); strings.HasPrefix(authHeader, "Bearer ") {
+		token = strings.TrimPrefix(authHeader, "Bearer ")
+	}
+
+	if token != "" {
+		user, err := re.App.FindFirstRecordByFilter(
+			"users",
+			"api_tokens ~ {:token}",
+			dbx.Params{"token": token},
+		)
+		if err == nil {
+			return user, nil
+		}
+	}
+
+	return nil, errors.New("authentication required")
+}
+
+// handleJobSubmit handles POST /api/jobs — creates a new quantum job.
+func handleJobSubmit(re *core.RequestEvent) error {
+	cfg, err := config.GetConfigFromApp(re.App)
+	if err != nil {
+		return re.Error(http.StatusInternalServerError, "failed to retrieve configuration", err)
+	}
+
+	user, err := resolveUserAuth(re)
+	if err != nil {
+		return re.Error(http.StatusUnauthorized, "authentication required", err)
+	}
+
+	// Check QPU seconds balance
+	qpuSeconds := user.GetFloat("qpu_seconds")
+	if qpuSeconds <= 0 {
+		return re.Error(http.StatusForbidden, "insufficient QPU seconds balance", nil)
+	}
+
+	// Parse and validate request body
+	var req jobSubmitRequest
+	if err := re.BindBody(&req); err != nil {
+		return re.Error(http.StatusBadRequest, "invalid request body", err)
+	}
+
+	if len(req.Circuits) == 0 {
+		return re.Error(http.StatusBadRequest, "at least one circuit is required", nil)
+	}
+	for _, c := range req.Circuits {
+		if c.Circuit == "" {
+			return re.Error(http.StatusBadRequest, "circuit string must not be empty", nil)
+		}
+	}
+
+	// Set defaults
+	if req.Shots == 0 {
+		req.Shots = 1024
+	}
+	if req.MeasLevel == nil {
+		defaultMeasLevel := 2
+		req.MeasLevel = &defaultMeasLevel
+	}
+	if req.MeasReturn == "" {
+		req.MeasReturn = "single"
+	}
+
+	// Resolve QPU target
+	qpuTargetID := req.QPUTarget
+	if qpuTargetID == "" {
+		// Find first online QPU
+		qpus, err := re.App.FindRecordsByFilter(
+			cfg.CollectionQPUs,
+			"status = 'online'",
+			"+created", 1, 0,
+		)
+		if err != nil || len(qpus) == 0 {
+			return re.Error(http.StatusServiceUnavailable, "no online QPU available", nil)
+		}
+		qpuTargetID = qpus[0].Id
+	}
+
+	// Create the quantum job record
+	jobsCol, err := re.App.FindCollectionByNameOrId(cfg.CollectionQuantumJobs)
+	if err != nil {
+		return re.Error(http.StatusInternalServerError, "jobs collection not found", err)
+	}
+
+	payloadJSON, err := json.Marshal(req)
+	if err != nil {
+		return re.Error(http.StatusInternalServerError, "failed to marshal payload", err)
+	}
+
+	record := core.NewRecord(jobsCol)
+	record.Set("user_id", user.Id)
+	record.Set("qpu_target", qpuTargetID)
+	record.Set("status", "pending")
+	record.Set("payload", string(payloadJSON))
+
+	if err := re.App.Save(record); err != nil {
+		return re.Error(http.StatusInternalServerError, "failed to create job", err)
+	}
+
+	return re.JSON(http.StatusCreated, map[string]string{"job_id": record.Id})
+}
+
+// handleJobList handles GET /api/jobs — lists jobs for the authenticated user.
+func handleJobList(re *core.RequestEvent) error {
+	cfg, err := config.GetConfigFromApp(re.App)
+	if err != nil {
+		return re.Error(http.StatusInternalServerError, "failed to retrieve configuration", err)
+	}
+
+	user, err := resolveUserAuth(re)
+	if err != nil {
+		return re.Error(http.StatusUnauthorized, "authentication required", err)
+	}
+
+	records, err := re.App.FindRecordsByFilter(
+		cfg.CollectionQuantumJobs,
+		"user_id = {:userId}",
+		"-created", 0, 0,
+		dbx.Params{"userId": user.Id},
+	)
+	if err != nil {
+		return re.Error(http.StatusInternalServerError, "failed to query jobs", err)
+	}
+
+	// Serialize records to a simple JSON array
+	jobs := make([]map[string]any, 0, len(records))
+	for _, r := range records {
+		jobs = append(jobs, map[string]any{
+			"id":          r.Id,
+			"user_id":     r.GetString("user_id"),
+			"qpu_target":  r.GetString("qpu_target"),
+			"status":      r.GetString("status"),
+			"payload":     r.Get("payload"),
+			"results":     r.Get("results"),
+			"finished_at": r.GetString("finished_at"),
+			"created":     r.GetString("created"),
+			"updated":     r.GetString("updated"),
+		})
+	}
+
+	return re.JSON(http.StatusOK, jobs)
+}
+
+// handleJobGet handles GET /api/jobs/{id} — retrieves a single job by ID.
+func handleJobGet(re *core.RequestEvent) error {
+	cfg, err := config.GetConfigFromApp(re.App)
+	if err != nil {
+		return re.Error(http.StatusInternalServerError, "failed to retrieve configuration", err)
+	}
+
+	user, err := resolveUserAuth(re)
+	if err != nil {
+		return re.Error(http.StatusUnauthorized, "authentication required", err)
+	}
+
+	jobID := re.Request.PathValue("id")
+	record, err := re.App.FindRecordById(cfg.CollectionQuantumJobs, jobID)
+	if err != nil {
+		return re.Error(http.StatusNotFound, "job not found", err)
+	}
+
+	if record.GetString("user_id") != user.Id {
+		return re.Error(http.StatusForbidden, "access denied", nil)
+	}
+
+	return re.JSON(http.StatusOK, map[string]any{
+		"id":          record.Id,
+		"user_id":     record.GetString("user_id"),
+		"qpu_target":  record.GetString("qpu_target"),
+		"status":      record.GetString("status"),
+		"payload":     record.Get("payload"),
+		"results":     record.Get("results"),
+		"finished_at": record.GetString("finished_at"),
+		"created":     record.GetString("created"),
+		"updated":     record.GetString("updated"),
+	})
+}
+
+// handleJobCancel handles POST /api/jobs/{id}/cancel — cancels a pending or running job.
+func handleJobCancel(re *core.RequestEvent) error {
+	cfg, err := config.GetConfigFromApp(re.App)
+	if err != nil {
+		return re.Error(http.StatusInternalServerError, "failed to retrieve configuration", err)
+	}
+
+	user, err := resolveUserAuth(re)
+	if err != nil {
+		return re.Error(http.StatusUnauthorized, "authentication required", err)
+	}
+
+	jobID := re.Request.PathValue("id")
+	record, err := re.App.FindRecordById(cfg.CollectionQuantumJobs, jobID)
+	if err != nil {
+		return re.Error(http.StatusNotFound, "job not found", err)
+	}
+
+	if record.GetString("user_id") != user.Id {
+		return re.Error(http.StatusForbidden, "access denied", nil)
+	}
+
+	status := record.GetString("status")
+	switch status {
+	case "pending", "running":
+		record.Set("status", "cancelled")
+		if err := re.App.Save(record); err != nil {
+			return re.Error(http.StatusInternalServerError, "failed to cancel job", err)
+		}
+		return re.JSON(http.StatusOK, map[string]string{"status": "cancelled"})
+	case "completed", "failed", "cancelled":
+		return re.Error(http.StatusBadRequest, fmt.Sprintf("job is already %s", status), nil)
+	default:
+		return re.Error(http.StatusBadRequest, fmt.Sprintf("unexpected job status: %s", status), nil)
+	}
 }
 
 // handleQPURegister registers a new hardware driver node, allocating dynamic command/result ports
@@ -225,7 +486,31 @@ func runResultListener(app core.App, qpuID string, resPort int) {
 			continue
 		}
 
-		job.Set("status", "completed")
+		// Calculate execution duration from last update timestamp
+		executionDuration := time.Since(job.GetDateTime("updated").Time())
+		durationSeconds := executionDuration.Seconds()
+
+		// Deduct QPU seconds from the user's balance
+		userID := job.GetString("user_id")
+		if userID != "" {
+			userRecord, userErr := app.FindRecordById("users", userID)
+			if userErr == nil {
+				userRecord.Set("qpu_seconds-", durationSeconds)
+				if saveErr := app.Save(userRecord); saveErr != nil {
+					log.Printf("[Listener %s] failed to deduct QPU seconds for user %s: %v", qpuID, userID, saveErr)
+				}
+			} else {
+				log.Printf("[Listener %s] user %s not found for QPU seconds deduction: %v", qpuID, userID, userErr)
+			}
+		}
+
+		// Determine final job status based on result contents
+		finalStatus := "completed"
+		if _, hasError := result.Results["error"]; hasError {
+			finalStatus = "failed"
+		}
+
+		job.Set("status", finalStatus)
 		job.Set("finished_at", time.Now().UTC().Format("2006-01-02 15:04:05.000Z"))
 		resultsJSON, _ := json.Marshal(result.Results)
 		job.Set("results", string(resultsJSON))
@@ -233,7 +518,7 @@ func runResultListener(app core.App, qpuID string, resPort int) {
 		if err := app.Save(job); err != nil {
 			log.Printf("[Listener %s] DB save error for job %s: %v", qpuID, result.JobID, err)
 		} else {
-			log.Printf("[Listener %s] job %s completed", qpuID, result.JobID)
+			log.Printf("[Listener %s] job %s %s", qpuID, result.JobID, finalStatus)
 		}
 	}
 }

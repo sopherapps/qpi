@@ -1,7 +1,7 @@
 import pytest
 import xarray as xr
 from qpi_driver.executors import resolve_executor
-from qpi_driver.executors.base import Executor
+from qpi_driver.executors.base import CircuitPayload, Executor, JobPayload
 from qpi_driver.executors.mock import MockExecutor
 
 
@@ -71,7 +71,7 @@ def test_placeholder_executors_raise_not_implemented():
     """Verify that placeholder executors raise NotImplementedError."""
     from qpi_driver.executors.base import JobPayload
 
-    payload = JobPayload(qasm="OPENQASM 2.0;")
+    payload = JobPayload(circuits=[CircuitPayload(circuit="OPENQASM 2.0;")])
     for name in ["qblox", "presto"]:
         executor = resolve_executor(name)
         with pytest.raises(NotImplementedError):

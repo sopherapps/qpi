@@ -192,65 +192,95 @@ def process_results(
     def xarray_to_qiskit_counts(dataset: xr.Dataset, job_id: str) -> dict:
         """Convert xarray.Dataset measurements to a Qiskit compatible result dict.
 
+        Handles single-circuit and multi-circuit (``circuit_index`` dimension)
+        datasets, as well as different measurement levels:
+
+        * ``meas_level == 2`` → classical counts (default, backward-compatible).
+        * ``meas_level < 2``  → IQ ``memory`` values as ``[[real, imag], …]``.
+
+        When ``meas_return == "avg"`` and ``meas_level < 2``, the IQ values are
+        averaged across shots.
+
         Args:
             dataset: The xarray.Dataset containing quantum measurement counts and metadata.
             job_id: The unique ID of the quantum job.
 
         Returns:
             dict: Qiskit results format mapped to hex counts, shots, and status keys.
+                  For multi-circuit payloads an additional ``circuit_results`` list is
+                  included.
         """
-        counts_da = dataset.get("counts")
-        if counts_da is not None:
-            states = counts_da.coords["state"].values.tolist()
-            counts = counts_da.values.tolist()
-            counts_dict = {s: int(c) for s, c in zip(states, counts)}
-            shots = int(dataset.attrs.get("shots", sum(counts)))
+        meas_level = int(dataset.attrs.get("meas_level", 2))
+        meas_return = str(dataset.attrs.get("meas_return", "single"))
+
+        # ── multi-circuit: recurse per slice ──────────────────────────
+        if "circuit_index" in dataset.dims:
+            circuit_results = []
+            for ci in range(dataset.sizes["circuit_index"]):
+                sub_ds = dataset.isel(circuit_index=ci)
+                # Carry attrs forward
+                sub_ds.attrs.update(dataset.attrs)
+                circuit_results.append(
+                    _single_dataset_to_result(sub_ds, meas_level, meas_return)
+                )
+
+            # Build combined Qiskit Result with multiple ExperimentResult entries
+            exp_results = []
+            for cr in circuit_results:
+                if "memory" in cr:
+                    expt_data = ExperimentResultData(memory=cr["memory"])
+                else:
+                    expt_data = ExperimentResultData(
+                        counts={hex(int(s, 2)): c for s, c in cr["counts"].items()}
+                    )
+                exp_results.append(
+                    ExperimentResult(
+                        shots=cr["shots"],
+                        success=True,
+                        data=expt_data,
+                        status="DONE",
+                        name="qpi_job",
+                    )
+                )
+
             backend = dataset.attrs.get("backend", "mock")
+            result_obj = Result(
+                backend_name=backend,
+                backend_version="1.0.0",
+                qobj_id=job_id,
+                job_id=job_id,
+                success=True,
+                results=exp_results,
+            )
+
+            # Use first circuit for top-level backward-compat keys
+            first = circuit_results[0]
+            out = {
+                "shots": first["shots"],
+                "backend": backend,
+                "success": True,
+                "circuit_results": circuit_results,
+            }
+            if "counts" in first:
+                out["counts"] = first["counts"]
+                out["hex_counts"] = result_obj.get_counts(0)
+            if "memory" in first:
+                out["memory"] = first["memory"]
+            return out
+
+        # ── single-circuit ────────────────────────────────────────────
+        single = _single_dataset_to_result(dataset, meas_level, meas_return)
+        backend = dataset.attrs.get("backend", "mock")
+
+        if "memory" in single:
+            expt_data = ExperimentResultData(memory=single["memory"])
         else:
-            # Parse Quantify-style dataset containing qubit index keys
-            qubit_vars = []
-            for var in dataset.data_vars:
-                try:
-                    qubit_vars.append(int(var))
-                except ValueError:
-                    pass
-            if not qubit_vars:
-                return {"raw": str(dataset)}
+            expt_data = ExperimentResultData(
+                counts={hex(int(s, 2)): c for s, c in single["counts"].items()}
+            )
 
-            qubit_vars.sort()
-            q0_key = qubit_vars[0] if qubit_vars[0] in dataset else str(qubit_vars[0])
-            shots = int(dataset.attrs.get("shots", len(dataset[q0_key])))
-            backend = dataset.attrs.get("backend", "mock")
-            n_qubits = len(qubit_vars)
-
-            counts_dict = {}
-            num_samples = len(dataset[q0_key])
-            for s in range(num_samples):
-                state_chars = []
-                for q_idx in reversed(qubit_vars):
-                    var_key = q_idx if q_idx in dataset else str(q_idx)
-                    val = dataset[var_key].values[s]
-                    state_chars.append("1" if val.real > 0.5 else "0")
-                state_str = "".join(state_chars)
-                counts_dict[state_str] = counts_dict.get(state_str, 0) + 1
-
-            if num_samples == 1 and shots > 1:
-                # scale the single outcome to total shots
-                state_str = list(counts_dict.keys())[0]
-                counts_dict = {state_str: shots}
-
-            # Pad with 0 counts for all 2^N states to standardise length
-            states_list = [format(i, f"0{n_qubits}b") for i in range(2**n_qubits)]
-            for st in states_list:
-                if st not in counts_dict:
-                    counts_dict[st] = 0
-
-        # Build a minimal Qiskit Result object and serialise
-        expt_data = ExperimentResultData(
-            counts={hex(int(s, 2)): c for s, c in counts_dict.items()}
-        )
         exp_result = ExperimentResult(
-            shots=shots,
+            shots=single["shots"],
             success=True,
             data=expt_data,
             status="DONE",
@@ -258,7 +288,7 @@ def process_results(
         )
         # We omit the arbitrary 'qpi_' prefix from the backend name.
         # We dynamically assign job_id and qobj_id from the processed job.
-        result = Result(
+        result_obj = Result(
             backend_name=backend,
             backend_version="1.0.0",
             qobj_id=job_id,
@@ -267,13 +297,89 @@ def process_results(
             results=[exp_result],
         )
 
-        return {
-            "counts": counts_dict,
-            "hex_counts": result.get_counts(0),
-            "shots": shots,
+        out = {
+            "shots": single["shots"],
             "backend": backend,
             "success": True,
         }
+        if "counts" in single:
+            out["counts"] = single["counts"]
+            out["hex_counts"] = result_obj.get_counts(0)
+        if "memory" in single:
+            out["memory"] = single["memory"]
+        return out
+
+    def _single_dataset_to_result(
+        dataset: xr.Dataset, meas_level: int, meas_return: str
+    ) -> dict:
+        """Extract counts or IQ memory from a single-circuit dataset slice."""
+        counts_da = dataset.get("counts")
+        if counts_da is not None:
+            states = counts_da.coords["state"].values.tolist()
+            counts = counts_da.values.tolist()
+            counts_dict = {s: int(c) for s, c in zip(states, counts)}
+            shots = int(dataset.attrs.get("shots", sum(counts)))
+            return {"counts": counts_dict, "shots": shots}
+
+        # Parse Quantify-style dataset containing qubit index keys
+        qubit_vars = []
+        for var in dataset.data_vars:
+            try:
+                qubit_vars.append(int(var))
+            except ValueError:
+                pass
+        if not qubit_vars:
+            return {"raw": str(dataset), "shots": 0}
+
+        qubit_vars.sort()
+        q0_key = qubit_vars[0] if qubit_vars[0] in dataset else str(qubit_vars[0])
+        shots = int(dataset.attrs.get("shots", len(dataset[q0_key])))
+        n_qubits = len(qubit_vars)
+
+        # ── meas_level < 2: return IQ memory ──────────────────────
+        if meas_level < 2:
+            memory: list[list[list[float]]] = []  # per-shot list of [real, imag] pairs per qubit
+            num_samples = len(dataset[q0_key])
+            for s in range(num_samples):
+                shot_iq = []
+                for q_idx in qubit_vars:
+                    var_key = q_idx if q_idx in dataset else str(q_idx)
+                    val = dataset[var_key].values[s]
+                    shot_iq.append([float(val.real), float(val.imag)])
+                memory.append(shot_iq)
+
+            if meas_return == "avg" and memory:
+                import numpy as _np
+                arr = _np.array(memory)  # (shots, n_qubits, 2)
+                avg = arr.mean(axis=0).tolist()  # (n_qubits, 2)
+                return {"memory": [avg], "shots": shots}
+
+            return {"memory": memory, "shots": shots}
+
+        # ── meas_level == 2: classical counts ─────────────────────
+        counts_dict = {}
+        num_samples = len(dataset[q0_key])
+        for s in range(num_samples):
+            state_chars = []
+            for q_idx in reversed(qubit_vars):
+                var_key = q_idx if q_idx in dataset else str(q_idx)
+                val = dataset[var_key].values[s]
+                state_chars.append("1" if val.real > 0.5 else "0")
+            state_str = "".join(state_chars)
+            counts_dict[state_str] = counts_dict.get(state_str, 0) + 1
+
+        if num_samples == 1 and shots > 1:
+            # scale the single outcome to total shots
+            state_str = list(counts_dict.keys())[0]
+            counts_dict = {state_str: shots}
+
+        # Pad with 0 counts for all 2^N states to standardise length
+        states_list = [format(i, f"0{n_qubits}b") for i in range(2**n_qubits)]
+        for st in states_list:
+            if st not in counts_dict:
+                counts_dict[st] = 0
+
+        return {"counts": counts_dict, "shots": shots}
 
     addr = f"tcp://{host}:{res_port}"
     t_log.info("Connecting NNG PUSH → %s", addr)

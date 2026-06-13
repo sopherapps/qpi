@@ -3,7 +3,7 @@ import importlib.util
 import pytest
 import xarray as xr
 from qpi_driver.executors import resolve_executor
-from qpi_driver.executors.base import JobPayload
+from qpi_driver.executors.base import CircuitPayload, JobPayload
 from qpi_driver.executors.qiskit_aer import QiskitAerExecutor
 
 has_aer = importlib.util.find_spec("qiskit_aer") is not None
@@ -39,7 +39,7 @@ def test_qiskit_aer_executor_execute(qasm):
     executor = resolve_executor("qiskit_aer")
     assert isinstance(executor, QiskitAerExecutor)
 
-    payload = JobPayload(qasm=qasm, shots=100, n_qubits=2)
+    payload = JobPayload(circuits=[CircuitPayload(circuit=qasm)], shots=100, n_qubits=2)
     dataset = executor.execute(payload)
 
     assert isinstance(dataset, xr.Dataset)

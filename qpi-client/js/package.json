@@ -1,0 +1,31 @@
+{
+  "name": "@qpi/client",
+  "version": "0.0.1",
+  "description": "JavaScript/TypeScript client SDK for the QPI quantum computing platform",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist/"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "keywords": [
+    "quantum",
+    "qpi",
+    "quantum-computing",
+    "sdk"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sopherapps/qpi"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

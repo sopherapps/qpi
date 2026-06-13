@@ -59,6 +59,12 @@ func ensureUsersCollection(app core.App, cfg *config.AppConfig) error {
 				Name: "api_tokens",
 			},
 		)
+		collection.Fields.Add(
+			&core.NumberField{
+				Name: "qpu_seconds",
+				Min:  types.Pointer(0.0),
+			},
+		)
 	}
 
 	// Disable Email/Password authentication if configured
@@ -161,7 +167,7 @@ func ensureQuantumJobsCollection(app core.App, cfg *config.AppConfig) error {
 	col.Fields.Add(&core.JSONField{Name: "payload"})
 	col.Fields.Add(&core.SelectField{
 		Name:      "status",
-		Values:    []string{"pending", "running", "completed", "failed"},
+		Values:    []string{"pending", "running", "completed", "failed", "cancelled"},
 		MaxSelect: 1,
 		Required:  true,
 	})

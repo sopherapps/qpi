@@ -1,5 +1,6 @@
 from typing import Any
 
+from qpi_driver.executors.base import CircuitPayload as CircuitPayload
 from qpi_driver.executors.base import Executor
 from qpi_driver.executors.base import JobPayload as JobPayload
 from qpi_driver.executors.mock import MockExecutor
