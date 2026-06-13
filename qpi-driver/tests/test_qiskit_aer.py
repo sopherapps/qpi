@@ -39,7 +39,7 @@ def test_qiskit_aer_executor_execute(qasm):
     executor = resolve_executor("qiskit_aer")
     assert isinstance(executor, QiskitAerExecutor)
 
-    payload = JobPayload(circuits=[CircuitPayload(circuit=qasm)], shots=100, n_qubits=2)
+    payload = JobPayload(circuits=[CircuitPayload(circuit=qasm)], shots=100)
     dataset = executor.execute(payload)
 
     assert isinstance(dataset, xr.Dataset)

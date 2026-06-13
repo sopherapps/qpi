@@ -1,39 +1,54 @@
-import random
-import time
+from typing import Any
 
-import numpy as np
 import xarray as xr
+from qiskit import transpile
+from qiskit.providers.basic_provider import BasicSimulator
 
 from qpi_driver.executors.base import Executor, JobPayload
+from qpi_driver.executors.utils.qiskit import load_qasm, memory_to_dataset
 
 
 class MockExecutor(Executor):
+    def __init__(self, name: str = "mock", **kwargs: Any):
+        super().__init__(name, **kwargs)
+        self._simulator = BasicSimulator()
+
     def execute(self, payload: JobPayload) -> xr.Dataset:
-        """Execute mock quantum circuit execution by drawing random multinomial samples.
+        """Execute quantum circuit simulation using Qiskit BasicSimulator.
 
         For multi-circuit payloads, results are concatenated along a ``circuit_index``
         dimension.  A single-circuit payload without parameter bindings returns the
         legacy flat format (no ``circuit_index`` dimension) for backward compatibility.
 
         Args:
-            payload: JobPayload specifying n_qubits and shots.
+            payload: JobPayload specifying shots and circuits.
 
         Returns:
-            xr.Dataset: Dataset containing simulated states, counts, and frequencies.
+            xr.Dataset: Dataset containing measured state outcomes.
         """
-        n_qubits = payload.n_qubits
-
-        # Simulate execution latency
-        time.sleep(random.uniform(0.1, 0.5))
-
         sub_datasets: list[xr.Dataset] = []
 
         for circ in payload.circuits:
             circ_shots = circ.shots if circ.shots is not None else payload.shots
-            param_sets = circ.parameter_values or [None]
+            qasm_str = circ.circuit
+            circuit = load_qasm(qasm_str)
 
-            for _params in param_sets:
-                ds = self._simulate_single(n_qubits, circ_shots, payload.meas_level)
+            param_sets = circ.parameter_values or [None]
+            for param_vals in param_sets:
+                bound_circuit = circuit
+                if param_vals is not None and circuit.parameters:
+                    bound_circuit = circuit.assign_parameters(param_vals)
+
+                t_qc = transpile(bound_circuit, self._simulator)
+                result = self._simulator.run(
+                    t_qc, shots=circ_shots, memory=True
+                ).result()
+                memory = result.get_memory(t_qc)
+                n_qubits = circuit.num_qubits
+
+                ds = memory_to_dataset(
+                    memory, n_qubits, circ_shots, payload.meas_level
+                )
                 sub_datasets.append(ds)
 
         # Backward compatible: single result → flat dataset (no circuit_index)
@@ -62,43 +77,3 @@ class MockExecutor(Executor):
             }
         )
         return combined
-
-    # ------------------------------------------------------------------
-    # Internal helpers
-    # ------------------------------------------------------------------
-
-    @staticmethod
-    def _simulate_single(n_qubits: int, shots: int, meas_level: int) -> xr.Dataset:
-        """Simulate a single circuit execution and return a flat xr.Dataset."""
-        states = [format(i, f"0{n_qubits}b") for i in range(2**n_qubits)]
-        raw_counts = np.random.multinomial(shots, [1 / len(states)] * len(states))
-
-        # Reconstruct list of shot outcomes
-        shot_outcomes = []
-        for state_idx, count in enumerate(raw_counts):
-            shot_outcomes.extend([states[state_idx]] * count)
-        random.shuffle(shot_outcomes)
-
-        data_vars = {}
-        for i in range(n_qubits):
-            # Qubit state 0 or 1 for each shot. Qubit 0 is LSB, so index is n_qubits - 1 - i.
-            qubit_vals = [float(outcome[n_qubits - 1 - i]) for outcome in shot_outcomes]
-
-            if meas_level == 2:
-                # Level 2: counts — store as complex with zero imaginary part
-                data_vars[str(i)] = xr.DataArray(
-                    [complex(val, 0.0) for val in qubit_vals],
-                    dims=[f"acq_index_{i}"],
-                    coords={f"acq_index_{i}": list(range(shots))},
-                )
-            else:
-                # Level 0/1: IQ data — simulate with small Gaussian noise
-                iq_real = np.array(qubit_vals) + np.random.normal(0, 0.05, shots)
-                iq_imag = np.random.normal(0, 0.05, shots)
-                data_vars[str(i)] = xr.DataArray(
-                    [complex(r, im) for r, im in zip(iq_real, iq_imag)],
-                    dims=[f"acq_index_{i}"],
-                    coords={f"acq_index_{i}": list(range(shots))},
-                )
-
-        return xr.Dataset(data_vars)

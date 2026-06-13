@@ -10,7 +10,14 @@ def test_mock_executor_execute():
     executor = MockExecutor(name="mock")
     from qpi_driver.executors.base import JobPayload
 
-    payload_dict = {"n_qubits": 2, "shots": 500, "circuit": "bell_state"}
+    qasm = """OPENQASM 2.0;
+include "qelib1.inc";
+qreg q[2];
+creg c[2];
+h q[0];
+cx q[0], q[1];
+measure q -> c;"""
+    payload_dict = {"shots": 500, "circuit": qasm}
     payload = JobPayload.from_dict(payload_dict)
     dataset = executor.execute(payload)
 

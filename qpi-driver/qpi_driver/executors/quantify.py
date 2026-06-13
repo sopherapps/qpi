@@ -116,8 +116,9 @@ class QuantifyExecutor(Executor):
             xr.Dataset: Standardised counts/frequencies dataset.
         """
         # Parse QASM circuit
-        circuit = load_qasm(payload.qasm, num_qubits=payload.n_qubits)
+        circuit = load_qasm(payload.qasm)
         shots = payload.shots
+        n_qubits = circuit.num_qubits
 
         # Translate Qiskit QuantumCircuit to Quantify Schedule
         schedule = Schedule(name=payload.id, repetitions=shots)
@@ -139,7 +140,7 @@ class QuantifyExecutor(Executor):
         dataset.attrs.update(
             {
                 "shots": shots,
-                "n_qubits": payload.n_qubits,
+                "n_qubits": n_qubits,
                 "backend": self.name,
             }
         )

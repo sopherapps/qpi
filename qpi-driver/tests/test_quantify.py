@@ -84,7 +84,7 @@ def test_quantify_executor_execute_dummy(qasm):
     )
     assert isinstance(executor, QuantifyExecutor)
 
-    payload = JobPayload(circuits=[CircuitPayload(circuit=qasm)], shots=100, n_qubits=2)
+    payload = JobPayload(circuits=[CircuitPayload(circuit=qasm)], shots=100)
     dataset = executor.execute(payload)
 
     # Assert standardised output format
@@ -116,7 +116,7 @@ def test_quantify_executor_with_config_fixture(qasm):
     assert isinstance(executor, QuantifyExecutor)
     assert executor.hardware_config is not None
 
-    payload = JobPayload(circuits=[CircuitPayload(circuit=qasm)], shots=50, n_qubits=1)
+    payload = JobPayload(circuits=[CircuitPayload(circuit=qasm)], shots=50)
     dataset = executor.execute(payload)
 
     assert isinstance(dataset, xr.Dataset)
@@ -141,7 +141,7 @@ def test_quantify_executor_invalid_gate_raises(qasm):
     )
 
     # ccx is not a supported gate in QuantifyExecutor
-    payload = JobPayload(circuits=[CircuitPayload(circuit=qasm)], shots=10, n_qubits=3)
+    payload = JobPayload(circuits=[CircuitPayload(circuit=qasm)], shots=10)
     with pytest.raises(ValueError) as excinfo:
         executor.execute(payload)
     assert "not supported" in str(excinfo.value)

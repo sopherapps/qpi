@@ -67,7 +67,6 @@ type circuitPayload struct {
 type jobSubmitRequest struct {
 	Circuits   []circuitPayload `json:"circuits"`
 	Shots      int              `json:"shots"`
-	N_Qubits   int              `json:"n_qubits,omitempty"`
 	MeasLevel  *int             `json:"meas_level,omitempty"`
 	MeasReturn string           `json:"meas_return,omitempty"`
 	QPUTarget  string           `json:"qpu_target,omitempty"`

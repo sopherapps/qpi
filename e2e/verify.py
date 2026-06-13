@@ -318,7 +318,6 @@ def test_qiskit_hadamard_circuit():
     payload = {
         "circuits": [{"circuit": qasm}],
         "shots": 100,
-        "n_qubits": 1,
     }
     if qpu_target:
         payload["qpu_target"] = qpu_target

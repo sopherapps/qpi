@@ -5,7 +5,7 @@ from qiskit import transpile
 
 from qpi_driver.compat.qiskit_aer import IS_AER_INSTALLED, AerSimulator
 from qpi_driver.executors.base import Executor, JobPayload
-from qpi_driver.executors.utils.qiskit import load_qasm
+from qpi_driver.executors.utils.qiskit import load_qasm, memory_to_dataset
 
 
 class QiskitAerExecutor(Executor):
@@ -26,7 +26,7 @@ class QiskitAerExecutor(Executor):
         legacy flat format (no ``circuit_index`` dimension) for backward compatibility.
 
         Args:
-            payload: JobPayload specifying n_qubits, shots, and circuits.
+            payload: JobPayload specifying shots and circuits.
 
         Returns:
             xr.Dataset: Dataset containing measured state outcomes, counts, and frequencies.
@@ -35,14 +35,12 @@ class QiskitAerExecutor(Executor):
             ImportError: If qiskit-aer is not installed.
             ValueError: If the provided QASM circuit cannot be loaded.
         """
-        n_qubits = payload.n_qubits
-
         sub_datasets: list[xr.Dataset] = []
 
         for circ in payload.circuits:
             circ_shots = circ.shots if circ.shots is not None else payload.shots
             qasm_str = circ.circuit
-            circuit = load_qasm(qasm_str, n_qubits)
+            circuit = load_qasm(qasm_str)
 
             param_sets = circ.parameter_values or [None]
             for param_vals in param_sets:
@@ -55,8 +53,9 @@ class QiskitAerExecutor(Executor):
                     t_qc, shots=circ_shots, memory=True
                 ).result()
                 memory = result.get_memory(t_qc)
+                n_qubits = circuit.num_qubits
 
-                ds = self._memory_to_dataset(
+                ds = memory_to_dataset(
                     memory, n_qubits, circ_shots, payload.meas_level
                 )
                 sub_datasets.append(ds)
@@ -87,19 +86,3 @@ class QiskitAerExecutor(Executor):
             }
         )
         return combined
-
-    @staticmethod
-    def _memory_to_dataset(
-        memory: list[str], n_qubits: int, shots: int, meas_level: int
-    ) -> xr.Dataset:
-        """Convert Aer shot memory into an xr.Dataset."""
-        data_vars = {}
-        for i in range(n_qubits):
-            # Qubit state 0 or 1 for each shot. Qubit 0 is LSB, so index is n_qubits - 1 - i.
-            qubit_vals = [float(outcome[n_qubits - 1 - i]) for outcome in memory]
-            data_vars[str(i)] = xr.DataArray(
-                [complex(val, 0.0) for val in qubit_vals],
-                dims=[f"acq_index_{i}"],
-                coords={f"acq_index_{i}": list(range(shots))},
-            )
-        return xr.Dataset(data_vars)

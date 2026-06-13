@@ -20,7 +20,6 @@ class JobPayload:
     circuits: list[CircuitPayload]
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
     shots: int = 1024
-    n_qubits: int = 2
     meas_level: int = 2  # 2=counts, 1=kerneled IQ, 0=raw IQ
     meas_return: str = "single"  # "single" or "avg"
 
@@ -51,7 +50,6 @@ class JobPayload:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "JobPayload":
         shots = data.get("shots") or 1024
-        n_qubits = data.get("n_qubits") or 2
         identifier = data.get("id") or str(uuid.uuid4())
         meas_level = data.get("meas_level", 2)
         meas_return = data.get("meas_return", "single")
@@ -102,7 +100,6 @@ class JobPayload:
         return cls(
             circuits=circuits,
             shots=shots,
-            n_qubits=n_qubits,
             id=identifier,
             meas_level=meas_level,
             meas_return=meas_return,
