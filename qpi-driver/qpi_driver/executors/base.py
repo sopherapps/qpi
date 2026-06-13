@@ -9,6 +9,7 @@ import xarray as xr
 @dataclass
 class CircuitPayload:
     """A single circuit within a batch job."""
+
     circuit: str  # QASM string
     parameter_values: list[list[float]] | None = None  # Optional parameter bindings
     shots: int | None = None  # Per-circuit override

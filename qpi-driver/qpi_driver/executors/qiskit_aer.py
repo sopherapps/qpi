@@ -51,33 +51,41 @@ class QiskitAerExecutor(Executor):
                     bound_circuit = circuit.assign_parameters(param_vals)
 
                 t_qc = transpile(bound_circuit, self._simulator)
-                result = self._simulator.run(t_qc, shots=circ_shots, memory=True).result()
+                result = self._simulator.run(
+                    t_qc, shots=circ_shots, memory=True
+                ).result()
                 memory = result.get_memory(t_qc)
 
-                ds = self._memory_to_dataset(memory, n_qubits, circ_shots, payload.meas_level)
+                ds = self._memory_to_dataset(
+                    memory, n_qubits, circ_shots, payload.meas_level
+                )
                 sub_datasets.append(ds)
 
         # Backward compatible: single result → flat dataset (no circuit_index)
         if len(sub_datasets) == 1:
             ds = sub_datasets[0]
-            ds.attrs.update({
-                "shots": circ_shots,
-                "n_qubits": n_qubits,
-                "backend": self.name,
-                "meas_level": payload.meas_level,
-                "meas_return": payload.meas_return,
-            })
+            ds.attrs.update(
+                {
+                    "shots": circ_shots,
+                    "n_qubits": n_qubits,
+                    "backend": self.name,
+                    "meas_level": payload.meas_level,
+                    "meas_return": payload.meas_return,
+                }
+            )
             return ds
 
         # Multiple results → concat along circuit_index
         combined = xr.concat(sub_datasets, dim="circuit_index")
-        combined.attrs.update({
-            "shots": payload.shots,
-            "n_qubits": n_qubits,
-            "backend": self.name,
-            "meas_level": payload.meas_level,
-            "meas_return": payload.meas_return,
-        })
+        combined.attrs.update(
+            {
+                "shots": payload.shots,
+                "n_qubits": n_qubits,
+                "backend": self.name,
+                "meas_level": payload.meas_level,
+                "meas_return": payload.meas_return,
+            }
+        )
         return combined
 
     @staticmethod

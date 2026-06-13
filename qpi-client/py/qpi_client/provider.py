@@ -257,7 +257,7 @@ class QPIBackend(BackendV2):
         Args:
             circuits: A single :class:`QuantumCircuit` or a list thereof.
             **kwargs: Override options such as ``shots``, ``meas_level``,
-                ``meas_return``.
+                ``meas_return``, ``parameter_values``.
 
         Returns:
             A :class:`QPIJob` handle that can be polled or awaited.
@@ -268,9 +268,24 @@ class QPIBackend(BackendV2):
         shots: int = kwargs.get("shots", self._options.get("shots", 1024))
         meas_level: int = kwargs.get("meas_level", self._options.get("meas_level", 2))
         meas_return: str = kwargs.get("meas_return", self._options.get("meas_return", "single"))
+        parameter_values: list[dict[Any, float]] | None = kwargs.get("parameter_values")
 
         circuit_payloads: list[dict[str, Any]] = []
-        for qc in circuits:
+        for idx, qc in enumerate(circuits):
+            # Handle parameter binding
+            if parameter_values and idx < len(parameter_values):
+                pv = parameter_values[idx]
+                if pv:
+                    bound_qc = qc.assign_parameters(pv)
+                    qasm_str = qasm3_dumps(bound_qc)
+                    # Order values according to qc.parameters for the payload
+                    ordered_values = [float(pv[p]) for p in qc.parameters]
+                    circuit_payloads.append({
+                        "circuit": qasm_str,
+                        "parameter_values": [ordered_values],
+                    })
+                    continue
+
             qasm_str = qasm3_dumps(qc)
             circuit_payloads.append({"circuit": qasm_str})
 

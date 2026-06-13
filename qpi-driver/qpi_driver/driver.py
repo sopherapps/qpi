@@ -338,7 +338,9 @@ def process_results(
 
         # ── meas_level < 2: return IQ memory ──────────────────────
         if meas_level < 2:
-            memory: list[list[list[float]]] = []  # per-shot list of [real, imag] pairs per qubit
+            memory: list[
+                list[list[float]]
+            ] = []  # per-shot list of [real, imag] pairs per qubit
             num_samples = len(dataset[q0_key])
             for s in range(num_samples):
                 shot_iq = []
@@ -350,6 +352,7 @@ def process_results(
 
             if meas_return == "avg" and memory:
                 import numpy as _np
+
                 arr = _np.array(memory)  # (shots, n_qubits, 2)
                 avg = arr.mean(axis=0).tolist()  # (n_qubits, 2)
                 return {"memory": [avg], "shots": shots}

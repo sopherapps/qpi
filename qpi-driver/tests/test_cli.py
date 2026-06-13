@@ -1,7 +1,18 @@
-from qpi_driver.cli import app
-from typer.testing import CliRunner
+import importlib.util
 
-runner = CliRunner()
+import pytest
+
+has_typer = importlib.util.find_spec("typer") is not None
+
+pytestmark = pytest.mark.skipif(
+    not has_typer, reason="typer must be installed to run CLI tests"
+)
+
+if has_typer:
+    from qpi_driver.cli import app
+    from typer.testing import CliRunner
+
+    runner = CliRunner()
 
 
 def test_cli_version():

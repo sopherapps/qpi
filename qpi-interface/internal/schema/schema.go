@@ -33,6 +33,7 @@ func EnsureSchema(app core.App) error {
 	if err := ensureQuantumJobsCollection(app, cfg); err != nil {
 		return fmt.Errorf("quantum_jobs collection: %w", err)
 	}
+
 	log.Println("[QPi] Schema OK")
 	return nil
 }

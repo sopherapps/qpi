@@ -24,11 +24,39 @@ build: venv-check
 	fi
 
 
-test:
+test: test-go test-py test-e2e
+
+test-go:
 	@echo "Running Go unit tests..."
 	(cd qpi-interface && go test -v ./...)
-	@echo "Running Python unit tests..."
-	$(UV) run --project qpi-driver pytest qpi-driver/tests/
+
+test-py: test-py-base test-py-cli test-py-aer test-py-quantify
+
+test-py-base:
+	@echo "Running Python tests with base deps only (mock executor)..."
+	$(UV) sync --project qpi-driver --dev
+	$(UV) run --project qpi-driver pytest qpi-driver/tests/ -v
+
+test-py-cli:
+	@echo "Running Python tests with [cli] extra..."
+	$(UV) sync --project qpi-driver --extra cli --dev
+	$(UV) run --project qpi-driver pytest qpi-driver/tests/ -v
+
+test-py-aer:
+	@echo "Running Python tests with [aer] extra..."
+	$(UV) sync --project qpi-driver --extra aer --dev
+	$(UV) run --project qpi-driver pytest qpi-driver/tests/ -v
+
+test-py-quantify:
+	@echo "Running Python tests with [quantify] extra..."
+	$(UV) sync --project qpi-driver --extra quantify --dev
+	@if [ "$$(uname)" = "Darwin" ]; then \
+		echo "Fixing macOS codesign for q1asm_macos..."; \
+		codesign --force --deep --sign - qpi-driver/.venv/lib/python3.12/site-packages/qblox_instruments/assemblers/q1asm_macos 2>/dev/null || true; \
+	fi
+	$(UV) run --project qpi-driver pytest qpi-driver/tests/ -v
+
+test-e2e:
 	@echo "Running E2E tests..."
 	./e2e/run_tests.sh
 

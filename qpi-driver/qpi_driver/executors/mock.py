@@ -39,24 +39,28 @@ class MockExecutor(Executor):
         # Backward compatible: single result → flat dataset (no circuit_index)
         if len(sub_datasets) == 1:
             ds = sub_datasets[0]
-            ds.attrs.update({
-                "shots": circ_shots,
-                "n_qubits": n_qubits,
-                "backend": self.name,
-                "meas_level": payload.meas_level,
-                "meas_return": payload.meas_return,
-            })
+            ds.attrs.update(
+                {
+                    "shots": circ_shots,
+                    "n_qubits": n_qubits,
+                    "backend": self.name,
+                    "meas_level": payload.meas_level,
+                    "meas_return": payload.meas_return,
+                }
+            )
             return ds
 
         # Multiple results → concat along circuit_index
         combined = xr.concat(sub_datasets, dim="circuit_index")
-        combined.attrs.update({
-            "shots": payload.shots,
-            "n_qubits": n_qubits,
-            "backend": self.name,
-            "meas_level": payload.meas_level,
-            "meas_return": payload.meas_return,
-        })
+        combined.attrs.update(
+            {
+                "shots": payload.shots,
+                "n_qubits": n_qubits,
+                "backend": self.name,
+                "meas_level": payload.meas_level,
+                "meas_return": payload.meas_return,
+            }
+        )
         return combined
 
     # ------------------------------------------------------------------

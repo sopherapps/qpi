@@ -67,6 +67,12 @@ type jobSubmitRequest struct {
 	QPUTarget  string           `json:"qpu_target,omitempty"`
 }
 
+// userUpdateRequest represents the JSON payload for PATCH /api/admin/users/{id}.
+type userUpdateRequest struct {
+	QpuSeconds *float64 `json:"qpu_seconds,omitempty"`
+	APITokens  []string `json:"api_tokens,omitempty"`
+}
+
 // RegisterRoutes sets up custom HTTP routes for QPU interactions.
 func RegisterRoutes(e *core.ServeEvent) {
 	e.Router.POST("/api/qpu/register", func(re *core.RequestEvent) error {
@@ -85,6 +91,11 @@ func RegisterRoutes(e *core.ServeEvent) {
 	})
 	e.Router.POST("/api/jobs/{id}/cancel", func(re *core.RequestEvent) error {
 		return handleJobCancel(re)
+	})
+
+	// Admin-only user management route
+	e.Router.PATCH("/api/admin/users/{id}", func(re *core.RequestEvent) error {
+		return handleUserUpdate(re)
 	})
 }
 
@@ -314,6 +325,42 @@ func handleJobCancel(re *core.RequestEvent) error {
 	default:
 		return re.Error(http.StatusBadRequest, fmt.Sprintf("unexpected job status: %s", status), nil)
 	}
+}
+
+// handleUserUpdate handles PATCH /api/admin/users/{id} — admin-only endpoint to update user fields.
+func handleUserUpdate(re *core.RequestEvent) error {
+	// Only superusers (admins) can access this endpoint
+	if !re.HasSuperuserAuth() {
+		return re.Error(http.StatusForbidden, "admin access required", nil)
+	}
+
+	userID := re.Request.PathValue("id")
+	record, err := re.App.FindRecordById("users", userID)
+	if err != nil {
+		return re.Error(http.StatusNotFound, "user not found", err)
+	}
+
+	var req userUpdateRequest
+	if err := re.BindBody(&req); err != nil {
+		return re.Error(http.StatusBadRequest, "invalid request body", err)
+	}
+
+	if req.QpuSeconds != nil {
+		record.Set("qpu_seconds", *req.QpuSeconds)
+	}
+	if req.APITokens != nil {
+		record.Set("api_tokens", req.APITokens)
+	}
+
+	if err := re.App.Save(record); err != nil {
+		return re.Error(http.StatusInternalServerError, "failed to update user", err)
+	}
+
+	return re.JSON(http.StatusOK, map[string]any{
+		"id":          record.Id,
+		"qpu_seconds": record.GetFloat("qpu_seconds"),
+		"api_tokens":  record.Get("api_tokens"),
+	})
 }
 
 // handleQPURegister registers a new hardware driver node, allocating dynamic command/result ports
