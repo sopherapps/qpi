@@ -1,4 +1,4 @@
-.PHONY: all build test lint lint-go lint-py format format-go format-py package clean venv-check
+.PHONY: all build test lint lint-go lint-py lint-js lint-go-client lint-py-client format format-go format-py format-js format-go-client format-py-client package package-js package-py package-go clean venv-check
 
 VERSION ?= 0.0.1
 UV := $(shell command -v uv 2> /dev/null || echo "$$HOME/.local/bin/uv")
@@ -16,39 +16,44 @@ build: venv-check
 	@echo "Building Go orchestrator..."
 	mkdir -p bin
 	(cd qpi-interface && go build -o ../bin/qpi .)
-	@echo "Installing python package..."
+	@echo "Installing python driver package..."
 	$(UV) sync --project qpi-driver --extra cli --extra aer --extra quantify --dev
 	@if [ "$$(uname)" = "Darwin" ]; then \
 		echo "Fixing macOS codesign for q1asm_macos..."; \
 		codesign --force --deep --sign - qpi-driver/.venv/lib/python3.12/site-packages/qblox_instruments/assemblers/q1asm_macos 2>/dev/null || true; \
 	fi
+	@echo "Building JS client..."
+	(cd qpi-client/js && npm ci && npm run build)
 
+# ---------------------------------------------------------------------------
+# Test targets
+# ---------------------------------------------------------------------------
 
-test: test-go test-py test-e2e
+test: test-go test-py test-js-client test-go-client test-py-client test-e2e
 
 test-go:
-	@echo "Running Go unit tests..."
+	@echo "Running Go unit tests (orchestrator)..."
 	(cd qpi-interface && go test -v ./...)
 
 test-py: test-py-base test-py-cli test-py-aer test-py-quantify
 
 test-py-base:
-	@echo "Running Python tests with base deps only (mock executor)..."
+	@echo "Running Python driver tests with base deps only (mock executor)..."
 	$(UV) sync --project qpi-driver --dev
 	$(UV) run --project qpi-driver pytest qpi-driver/tests/ -v
 
 test-py-cli:
-	@echo "Running Python tests with [cli] extra..."
+	@echo "Running Python driver tests with [cli] extra..."
 	$(UV) sync --project qpi-driver --extra cli --dev
 	$(UV) run --project qpi-driver pytest qpi-driver/tests/ -v
 
 test-py-aer:
-	@echo "Running Python tests with [aer] extra..."
+	@echo "Running Python driver tests with [aer] extra..."
 	$(UV) sync --project qpi-driver --extra aer --dev
 	$(UV) run --project qpi-driver pytest qpi-driver/tests/ -v
 
 test-py-quantify:
-	@echo "Running Python tests with [quantify] extra..."
+	@echo "Running Python driver tests with [quantify] extra..."
 	$(UV) sync --project qpi-driver --extra quantify --dev
 	@if [ "$$(uname)" = "Darwin" ]; then \
 		echo "Fixing macOS codesign for q1asm_macos..."; \
@@ -56,35 +61,111 @@ test-py-quantify:
 	fi
 	$(UV) run --project qpi-driver pytest qpi-driver/tests/ -v
 
+test-js-client:
+	@echo "Running JS client tests..."
+	(cd qpi-client/js && npm ci && npm test)
+
+test-go-client:
+	@echo "Running Go client tests..."
+	(cd qpi-client/go && go test -v ./...)
+
+test-py-client:
+	@echo "Running Python client tests..."
+	$(UV) sync --project qpi-client/py --extra dev
+	$(UV) run --project qpi-client/py pytest qpi-client/py/tests/ -v
+
 test-e2e:
 	@echo "Running E2E tests..."
 	./e2e/run_tests.sh
 
-lint: lint-go lint-py
+# ---------------------------------------------------------------------------
+# Lint targets
+# ---------------------------------------------------------------------------
+
+lint: lint-go lint-py lint-js lint-go-client lint-py-client
 
 lint-go:
-	@echo "Linting Go files..."
+	@echo "Linting Go orchestrator files..."
 	(cd qpi-interface && go vet ./...)
 	(cd qpi-interface && gofmt -l -d .)
 
 lint-py:
-	@echo "Linting Python files..."
+	@echo "Linting Python driver files..."
 	$(UV) run --project qpi-driver ruff check qpi-driver/
 
-format: format-go format-py
+lint-js:
+	@echo "Linting JS client files..."
+	(cd qpi-client/js && npm ci && npm run lint)
+
+lint-go-client:
+	@echo "Linting Go client files..."
+	(cd qpi-client/go && go vet ./...)
+	(cd qpi-client/go && gofmt -l -d .)
+
+lint-py-client:
+	@echo "Linting Python client files..."
+	$(UV) run --project qpi-client/py ruff check qpi-client/py/qpi_client/ qpi-client/py/tests/
+
+# ---------------------------------------------------------------------------
+# Format targets
+# ---------------------------------------------------------------------------
+
+format: format-go format-py format-js format-go-client format-py-client
 
 format-go:
-	@echo "Formatting Go files..."
+	@echo "Formatting Go orchestrator files..."
 	(cd qpi-interface && go fmt ./...)
 
 format-py:
-	@echo "Formatting and sorting imports for Python files..."
+	@echo "Formatting and sorting imports for Python driver files..."
 	$(UV) run --project qpi-driver ruff format qpi-driver/
 	$(UV) run --project qpi-driver ruff check --select I --fix qpi-driver/
+
+format-js:
+	@echo "Formatting JS client files..."
+	(cd qpi-client/js && npm ci && npm run format)
+
+format-go-client:
+	@echo "Formatting Go client files..."
+	(cd qpi-client/go && go fmt ./...)
+
+format-py-client:
+	@echo "Formatting and sorting imports for Python client files..."
+	$(UV) run --project qpi-client/py ruff format qpi-client/py/qpi_client/ qpi-client/py/tests/
+	$(UV) run --project qpi-client/py ruff check --select I --fix qpi-client/py/qpi_client/ qpi-client/py/tests/
+
+# ---------------------------------------------------------------------------
+# Package / Publish targets
+# ---------------------------------------------------------------------------
 
 package:
 	@echo "Packaging Go application..."
 	./scripts/package.sh $(VERSION)
+
+package-js:
+	@echo "Packaging JS client..."
+	(cd qpi-client/js && npm ci && npm run build)
+
+package-py:
+	@echo "Packaging Python client..."
+	$(UV) build --project qpi-client/py/
+
+package-go:
+	@echo "Go client is a module — no packaging step required."
+	@echo "Consumers import it directly: go get github.com/sopherapps/qpi/qpi-client/go"
+
+publish-js:
+	@echo "Publishing JS client to npm..."
+	(cd qpi-client/js && npm publish --access public)
+
+publish-py:
+	@echo "Publishing Python client to PyPI..."
+	$(UV) build --project qpi-client/py/
+	$(UV) publish --project qpi-client/py/
+
+# ---------------------------------------------------------------------------
+# Clean
+# ---------------------------------------------------------------------------
 
 clean:
 	@echo "Cleaning up..."
@@ -94,3 +175,5 @@ clean:
 	find . -type d -name ".pytest_cache" -exec rm -rf {} +
 	find . -type d -name ".ruff_cache" -exec rm -rf {} +
 	rm -rf qpi-driver/build qpi-driver/dist qpi-driver/*.egg-info qpi-driver/.venv .venv
+	rm -rf qpi-client/js/dist qpi-client/js/node_modules
+	rm -rf qpi-client/py/build qpi-client/py/dist qpi-client/py/*.egg-info qpi-client/py/.venv

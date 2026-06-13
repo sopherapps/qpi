@@ -12,7 +12,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Rename workflow file reference or update steps
+  # -------------------------------------------------------------------------
+  # Core lint-and-test matrix (orchestrator + driver)
+  # -------------------------------------------------------------------------
   lint-and-test:
     runs-on: ubuntu-latest
     strategy:
@@ -74,7 +76,103 @@ jobs:
     - name: Run E2E Integration Tests for '${{ matrix.extra }}'
       run: ./e2e/run_tests.sh ${{ matrix.extra }}
 
-  publish-pypi:
+  # -------------------------------------------------------------------------
+  # qpi-client / Go SDK
+  # -------------------------------------------------------------------------
+  lint-and-test-go-client:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go-version: ['1.22.x', '1.23.x', '1.24.x', '1.25.x', '1.26.x']
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ matrix.go-version }}
+        cache-dependency-path: 'qpi-client/go/go.sum'
+
+    - name: Audit Go Client Formatting
+      run: |
+        if [ -n "$(gofmt -l qpi-client/go)" ]; then
+          echo "Go client formatting errors found:"
+          gofmt -d qpi-client/go
+          exit 1
+        fi
+
+    - name: Vet Go Client Code
+      run: cd qpi-client/go && go vet ./...
+
+    - name: Run Go Client Unit Tests
+      run: cd qpi-client/go && go test -v ./...
+
+  # -------------------------------------------------------------------------
+  # qpi-client / Python SDK
+  # -------------------------------------------------------------------------
+  lint-and-test-py-client:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.10', '3.11', '3.12']
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Set up uv
+      uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b
+      with:
+        python-version: ${{ matrix.python-version }}
+        enable-cache: true
+        cache-dependency-glob: "qpi-client/py/pyproject.toml"
+
+    - name: Install Python client dependencies
+      run: uv sync --project qpi-client/py --extra dev
+
+    - name: Audit Python Client Formatting & Style
+      run: |
+        uv run --project qpi-client/py ruff format --check qpi-client/py/
+        uv run --project qpi-client/py ruff check qpi-client/py/
+
+    - name: Run Python Client Unit Tests
+      run: uv run --project qpi-client/py pytest qpi-client/py/tests/ -v
+
+  # -------------------------------------------------------------------------
+  # qpi-client / JS SDK
+  # -------------------------------------------------------------------------
+  lint-and-test-js-client:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: ['18.x', '20.x', '22.x']
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Set up Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        cache-dependency-path: 'qpi-client/js/package-lock.json'
+
+    - name: Install JS client dependencies
+      run: cd qpi-client/js && npm ci
+
+    - name: Audit JS Client Type-check
+      run: cd qpi-client/js && npm run lint
+
+    - name: Run JS Client Unit Tests
+      run: cd qpi-client/js && npm test
+
+  # -------------------------------------------------------------------------
+  # Publish qpi-driver to PyPI
+  # -------------------------------------------------------------------------
+  publish-pypi-driver:
     needs: lint-and-test
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && vars.PUBLISH_TO_PYPI == 'true'
@@ -98,6 +196,69 @@ jobs:
       with:
         packages-dir: qpi-driver/dist/
 
+  # -------------------------------------------------------------------------
+  # Publish qpi-client/py to PyPI
+  # -------------------------------------------------------------------------
+  publish-pypi-client:
+    needs: lint-and-test-py-client
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && vars.PUBLISH_PY_CLIENT == 'true'
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Set up uv
+      uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b
+      with:
+        python-version: '3.12'
+
+    - name: Build Package
+      run: uv build --project qpi-client/py/
+
+    - name: Publish package distributions to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        packages-dir: qpi-client/py/dist/
+
+  # -------------------------------------------------------------------------
+  # Publish qpi-client/js to npm
+  # -------------------------------------------------------------------------
+  publish-npm-client:
+    needs: lint-and-test-js-client
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && vars.PUBLISH_JS_CLIENT == 'true'
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Set up Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        registry-url: 'https://registry.npmjs.org'
+        cache: 'npm'
+        cache-dependency-path: 'qpi-client/js/package-lock.json'
+
+    - name: Install dependencies & build
+      run: |
+        cd qpi-client/js
+        npm ci
+        npm run build
+
+    - name: Publish to npm
+      run: cd qpi-client/js && npm publish --provenance --access public
+      env:
+        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  # -------------------------------------------------------------------------
+  # Publish Go orchestrator binaries to GitHub Release
+  # -------------------------------------------------------------------------
   publish-go-release:
     needs: lint-and-test
     runs-on: ubuntu-latest

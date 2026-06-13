@@ -53,6 +53,14 @@ else
     $PYTHON -m pip install -e ./qpi-driver[cli,aer,quantify]
 fi
 
+# Install python client package for E2E smoke tests
+echo "[e2e] Installing Python qpi-client package..."
+if command -v uv >/dev/null 2>&1; then
+    uv pip install --python "$PYTHON" -e ./qpi-client/py
+else
+    $PYTHON -m pip install -e ./qpi-client/py
+fi
+
 # NOTE regarding pytest vs bash script:
 # We use this bash script for orchestration rather than pytest and pytest fixtures because
 # this integration test involves running and managing processes across multiple languages:

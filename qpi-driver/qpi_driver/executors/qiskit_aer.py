@@ -4,7 +4,7 @@ import xarray as xr
 from qiskit import transpile
 
 from qpi_driver.compat.qiskit_aer import IS_AER_INSTALLED, AerSimulator
-from qpi_driver.executors.base import CircuitPayload, Executor, JobPayload
+from qpi_driver.executors.base import Executor, JobPayload
 from qpi_driver.executors.utils.qiskit import load_qasm
 
 

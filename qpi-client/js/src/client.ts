@@ -35,7 +35,13 @@ export interface JobSubmitRequest {
 /** A job record returned by the server. */
 export interface JobRecord {
   id: string;
-  status: "pending" | "queued" | "running" | "completed" | "failed" | "cancelled";
+  status:
+    | "pending"
+    | "queued"
+    | "running"
+    | "completed"
+    | "failed"
+    | "cancelled";
   payload: unknown;
   results: unknown;
   created: string;
@@ -113,7 +119,9 @@ export class QPIClient {
     );
     const id = data.id ?? data.job_id;
     if (!id) {
-      throw new Error(`Server response did not contain a job ID: ${JSON.stringify(data)}`);
+      throw new Error(
+        `Server response did not contain a job ID: ${JSON.stringify(data)}`,
+      );
     }
     return id;
   }
@@ -125,7 +133,9 @@ export class QPIClient {
 
   /** List all jobs belonging to the authenticated user. */
   async listJobs(): Promise<JobRecord[]> {
-    const data = await this.get<JobRecord[] | { jobs: JobRecord[] }>("/api/jobs");
+    const data = await this.get<JobRecord[] | { jobs: JobRecord[] }>(
+      "/api/jobs",
+    );
     return Array.isArray(data) ? data : data.jobs;
   }
 
@@ -144,7 +154,9 @@ export class QPIClient {
    */
   async waitForJob(jobId: string, options?: WaitOptions): Promise<JobRecord> {
     const interval = options?.interval ?? 5_000;
-    const deadline = options?.timeout ? Date.now() + options.timeout : undefined;
+    const deadline = options?.timeout
+      ? Date.now() + options.timeout
+      : undefined;
 
     // eslint-disable-next-line no-constant-condition
     while (true) {
@@ -153,7 +165,9 @@ export class QPIClient {
         return job;
       }
       if (deadline && Date.now() >= deadline) {
-        throw new Error(`Job ${jobId} did not complete within ${options!.timeout}ms`);
+        throw new Error(
+          `Job ${jobId} did not complete within ${options!.timeout}ms`,
+        );
       }
       await sleep(interval);
     }

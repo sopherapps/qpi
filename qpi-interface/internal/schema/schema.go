@@ -53,13 +53,27 @@ func ensureUsersCollection(app core.App, cfg *config.AppConfig) error {
 		collection.ViewRule = types.Pointer("id = @request.auth.id")
 		collection.UpdateRule = types.Pointer("id = @request.auth.id")
 		collection.DeleteRule = types.Pointer("id = @request.auth.id")
+	}
 
-		// add extra fields in addition to the default ones
+	// Ensure extra fields exist (idempotent migration)
+	hasAPITokens := false
+	hasQpuSeconds := false
+	for _, f := range collection.Fields {
+		if f.GetName() == "api_tokens" {
+			hasAPITokens = true
+		}
+		if f.GetName() == "qpu_seconds" {
+			hasQpuSeconds = true
+		}
+	}
+	if !hasAPITokens {
 		collection.Fields.Add(
 			&core.JSONField{
 				Name: "api_tokens",
 			},
 		)
+	}
+	if !hasQpuSeconds {
 		collection.Fields.Add(
 			&core.NumberField{
 				Name: "qpu_seconds",

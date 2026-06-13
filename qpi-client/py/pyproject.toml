@@ -14,9 +14,19 @@ dependencies = [
     "qiskit>=1.0.0",
 ]
 
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "ruff>=0.3.0",
+]
+
 [project.urls]
 Homepage = "https://github.com/sopherapps/qpi"
 Repository = "https://github.com/sopherapps/qpi"
 
 [tool.setuptools.packages.find]
 include = ["qpi_client*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

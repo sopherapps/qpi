@@ -1,7 +1,7 @@
 import pytest
 import xarray as xr
 from qpi_driver.executors import resolve_executor
-from qpi_driver.executors.base import CircuitPayload, Executor, JobPayload
+from qpi_driver.executors.base import CircuitPayload, Executor
 from qpi_driver.executors.mock import MockExecutor
 
 

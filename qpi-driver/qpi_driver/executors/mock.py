@@ -4,7 +4,7 @@ import time
 import numpy as np
 import xarray as xr
 
-from qpi_driver.executors.base import CircuitPayload, Executor, JobPayload
+from qpi_driver.executors.base import Executor, JobPayload
 
 
 class MockExecutor(Executor):

@@ -1,5 +1,5 @@
 {
-  "name": "@qpi/client",
+  "name": "qpi-client",
   "version": "0.0.1",
   "description": "JavaScript/TypeScript client SDK for the QPI quantum computing platform",
   "main": "dist/index.js",
@@ -9,9 +9,17 @@
   ],
   "scripts": {
     "build": "tsc",
-    "prepublishOnly": "npm run build"
+    "test": "jest",
+    "lint": "tsc --noEmit",
+    "format": "prettier --write 'src/**/*.ts'",
+    "prepublishOnly": "npm run build && npm test"
   },
   "devDependencies": {
+    "@types/jest": "^29.5.0",
+    "@types/node": "^20.0.0",
+    "jest": "^29.7.0",
+    "prettier": "^3.0.0",
+    "ts-jest": "^29.1.0",
     "typescript": "^5.0.0"
   },
   "keywords": [

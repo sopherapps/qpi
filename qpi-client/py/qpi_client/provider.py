@@ -34,10 +34,10 @@ from qiskit.transpiler import Target
 
 from qpi_client.client import QPIClient
 
-
 # ---------------------------------------------------------------------------
 # QPIJob
 # ---------------------------------------------------------------------------
+
 
 class QPIJob(JobV1):
     """A Qiskit-compatible job handle backed by the QPI REST API.
@@ -101,9 +101,7 @@ class QPIJob(JobV1):
             results_data = data.get("results")
             if isinstance(results_data, dict):
                 error_msg = results_data.get("error", "")
-            raise RuntimeError(
-                f"Job {self.job_id()} failed: {error_msg}"
-            )
+            raise RuntimeError(f"Job {self.job_id()} failed: {error_msg}")
 
         if status == "cancelled":
             raise RuntimeError(f"Job {self.job_id()} was cancelled")
@@ -180,7 +178,9 @@ class QPIJob(JobV1):
 
             experiment_results.append(
                 ExperimentResult(
-                    shots=cr.get("shots", sum(hex_counts.values()) if hex_counts else 0),
+                    shots=cr.get(
+                        "shots", sum(hex_counts.values()) if hex_counts else 0
+                    ),
                     success=True,
                     data=exp_data,
                     header=cr.get("header"),
@@ -200,6 +200,7 @@ class QPIJob(JobV1):
 # ---------------------------------------------------------------------------
 # QPIBackend
 # ---------------------------------------------------------------------------
+
 
 class QPIBackend(BackendV2):
     """A Qiskit ``BackendV2`` that submits circuits to the QPI orchestrator.
@@ -267,7 +268,9 @@ class QPIBackend(BackendV2):
 
         shots: int = kwargs.get("shots", self._options.get("shots", 1024))
         meas_level: int = kwargs.get("meas_level", self._options.get("meas_level", 2))
-        meas_return: str = kwargs.get("meas_return", self._options.get("meas_return", "single"))
+        meas_return: str = kwargs.get(
+            "meas_return", self._options.get("meas_return", "single")
+        )
         parameter_values: list[dict[Any, float]] | None = kwargs.get("parameter_values")
 
         circuit_payloads: list[dict[str, Any]] = []
@@ -280,10 +283,12 @@ class QPIBackend(BackendV2):
                     qasm_str = qasm3_dumps(bound_qc)
                     # Order values according to qc.parameters for the payload
                     ordered_values = [float(pv[p]) for p in qc.parameters]
-                    circuit_payloads.append({
-                        "circuit": qasm_str,
-                        "parameter_values": [ordered_values],
-                    })
+                    circuit_payloads.append(
+                        {
+                            "circuit": qasm_str,
+                            "parameter_values": [ordered_values],
+                        }
+                    )
                     continue
 
             qasm_str = qasm3_dumps(qc)
