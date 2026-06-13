@@ -16,12 +16,63 @@ has_quantify = (
 )
 
 
-# TODO: Add a test also for  OPENQASM 3.0. Maybe use pytest.mark.parametize('qasm, expected', _TEST_QASM_AND_RESULTS)
+_QASM_PARAMS = [
+    # OpenQASM 2.0
+    """OPENQASM 2.0;
+include "qelib1.inc";
+qreg q[2];
+creg c[2];
+x q[0];
+measure q[0] -> c[0];
+measure q[1] -> c[1];""",
+    # OpenQASM 3.0
+    """OPENQASM 3.0;
+include "stdgates.inc";
+qubit[2] q;
+bit[2] c;
+x q[0];
+c[0] = measure q[0];
+c[1] = measure q[1];""",
+]
+
+
+_QASM_PARAMS_ONE_QUBIT = [
+    # OpenQASM 2.0
+    """OPENQASM 2.0;
+include "qelib1.inc";
+qreg q[1];
+creg c[1];
+x q[0];
+measure q[0] -> c[0];""",
+    # OpenQASM 3.0
+    """OPENQASM 3.0;
+include "stdgates.inc";
+qubit[1] q;
+bit[1] c;
+x q[0];
+c[0] = measure q[0];""",
+]
+
+_QASM_PARAMS_INVALID = [
+    # OpenQASM 2.0
+    """OPENQASM 2.0;
+include "qelib1.inc";
+qreg q[3];
+ccx q[0], q[1], q[2];""",
+    # OpenQASM 3.0
+    """OPENQASM 3.0;
+include "stdgates.inc";
+qubit[3] q;
+ccx q[0], q[1], q[2];""",
+]
+
+
 @pytest.mark.skipif(
     not has_quantify,
     reason="quantify-scheduler and qblox-instruments must be installed to run quantify tests",
 )
-def test_quantify_executor_execute_dummy():
+@pytest.mark.parametrize("qasm", _QASM_PARAMS)
+def test_quantify_executor_execute_dummy(qasm):
     """Verify that QuantifyExecutor compiles and executes successfully on a dummy cluster with standard output."""
     executor = resolve_executor(
         "quantify",
@@ -30,14 +81,6 @@ def test_quantify_executor_execute_dummy():
         quantify_device_config=_QUANTIFY_DEVICE_CONFIG,
     )
     assert isinstance(executor, QuantifyExecutor)
-
-    qasm = """OPENQASM 2.0;
-include "qelib1.inc";
-qreg q[2];
-creg c[2];
-x q[0];
-measure q[0] -> c[0];
-measure q[1] -> c[1];"""
 
     payload = JobPayload(qasm=qasm, shots=100, n_qubits=2)
     dataset = executor.execute(payload)
@@ -55,7 +98,8 @@ measure q[1] -> c[1];"""
     assert len(dataset.coords["acq_index_1"]) == 1
 
 
-def test_quantify_executor_with_config_fixture():
+@pytest.mark.parametrize("qasm", _QASM_PARAMS_ONE_QUBIT)
+def test_quantify_executor_with_config_fixture(qasm):
     """Verify that QuantifyExecutor correctly loads and validates hardware configuration from fixture."""
     executor = resolve_executor(
         "quantify",
@@ -65,13 +109,6 @@ def test_quantify_executor_with_config_fixture():
     )
     assert isinstance(executor, QuantifyExecutor)
     assert executor.hardware_config is not None
-
-    qasm = """OPENQASM 2.0;
-include "qelib1.inc";
-qreg q[1];
-creg c[1];
-x q[0];
-measure q[0] -> c[0];"""
 
     payload = JobPayload(qasm=qasm, shots=50, n_qubits=1)
     dataset = executor.execute(payload)
@@ -83,7 +120,8 @@ measure q[0] -> c[0];"""
     assert len(dataset.coords["acq_index_0"]) == 1
 
 
-def test_quantify_executor_invalid_gate_raises():
+@pytest.mark.parametrize("qasm", _QASM_PARAMS_INVALID)
+def test_quantify_executor_invalid_gate_raises(qasm):
     """Verify that invalid gates in QASM raise ValueError."""
     executor = resolve_executor(
         "quantify",
@@ -93,11 +131,6 @@ def test_quantify_executor_invalid_gate_raises():
     )
 
     # ccx is not a supported gate in QuantifyExecutor
-    qasm = """OPENQASM 2.0;
-include "qelib1.inc";
-qreg q[3];
-ccx q[0], q[1], q[2];"""
-
     payload = JobPayload(qasm=qasm, shots=10, n_qubits=3)
     with pytest.raises(ValueError) as excinfo:
         executor.execute(payload)
