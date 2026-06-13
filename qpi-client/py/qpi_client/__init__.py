@@ -5,16 +5,24 @@ Provides both a low-level HTTP client and Qiskit-compatible backend/job classes.
 
 Usage::
 
-    from qpi_client import QPIClient, QPIBackend
+    from qpi_client import QPIClient
 
     # Low-level client
     client = QPIClient("http://localhost:8090", api_token="my-token")
     job_id = client.submit_job([{"circuit": "OPENQASM 3.0; ..."}])
 
-    # Qiskit integration
-    backend = QPIBackend(client, num_qubits=5)
-    job = backend.run(my_circuit, shots=1024)
+    # Qiskit integration (preferred)
+    backend = client.get_backend(name="mock")
+    job = backend.run(circuit=my_circuit, shots=1024)
     result = job.result()
+
+    # Or submit raw QASM
+    job = backend.run(qasm="OPENQASM 3.0; ...", params=[[0.5]])
+    result = job.result()
+
+    # Retrieve a past job
+    past_job = client.job(job_id)
+    past_job = backend.job(job_id)
 """
 
 from qpi_client.client import QPIClient

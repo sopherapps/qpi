@@ -33,8 +33,10 @@ var (
 
 // registerRequest represents the JSON payload passed to /api/qpu/register.
 type registerRequest struct {
-	Name              string `json:"name"`
-	RegistrationToken string `json:"registration_token"`
+	Name              string         `json:"name"`
+	RegistrationToken string         `json:"registration_token"`
+	ExecutorType      string         `json:"executor_type,omitempty"`
+	DeviceConfig      map[string]any `json:"device_config,omitempty"`
 }
 
 // registerResponse represents the JSON payload returned by /api/qpu/register.
@@ -62,6 +64,7 @@ type circuitPayload struct {
 type jobSubmitRequest struct {
 	Circuits   []circuitPayload `json:"circuits"`
 	Shots      int              `json:"shots"`
+	N_Qubits   int              `json:"n_qubits,omitempty"`
 	MeasLevel  *int             `json:"meas_level,omitempty"`
 	MeasReturn string           `json:"meas_return,omitempty"`
 	QPUTarget  string           `json:"qpu_target,omitempty"`
@@ -97,11 +100,20 @@ func RegisterRoutes(e *core.ServeEvent) {
 	e.Router.PATCH("/api/admin/users/{id}", func(re *core.RequestEvent) error {
 		return handleUserUpdate(re)
 	})
+
+	// QPU discovery routes (public — no auth required)
+	e.Router.GET("/api/qpus", func(re *core.RequestEvent) error {
+		return handleQPUList(re)
+	})
+	e.Router.GET("/api/qpus/{name}", func(re *core.RequestEvent) error {
+		return handleQPUGet(re)
+	})
 }
 
 // resolveUserAuth resolves the authenticated user from the request.
 // It checks re.Auth first, then falls back to API token auth via
 // X-API-Token header or Authorization: Bearer <token> header.
+// API tokens are stored in the api_tokens collection with a user relation.
 func resolveUserAuth(re *core.RequestEvent) (*core.Record, error) {
 	// 1. Check if already authenticated via PocketBase session/JWT
 	if re.Auth != nil && re.Auth.Collection().Name == "users" {
@@ -117,13 +129,24 @@ func resolveUserAuth(re *core.RequestEvent) (*core.Record, error) {
 	}
 
 	if token != "" {
-		user, err := re.App.FindFirstRecordByFilter(
-			"users",
-			"api_tokens ~ {:token}",
+		cfg, err := config.GetConfigFromApp(re.App)
+		if err != nil {
+			return nil, err
+		}
+		// Look up token in the api_tokens collection and expand the user relation
+		tokenRec, err := re.App.FindFirstRecordByFilter(
+			cfg.CollectionAPITokens,
+			"token = {:token}",
 			dbx.Params{"token": token},
 		)
 		if err == nil {
-			return user, nil
+			userID := tokenRec.GetString("user")
+			if userID != "" {
+				user, err := re.App.FindRecordById("users", userID)
+				if err == nil {
+					return user, nil
+				}
+			}
 		}
 	}
 
@@ -328,7 +351,13 @@ func handleJobCancel(re *core.RequestEvent) error {
 }
 
 // handleUserUpdate handles PATCH /api/admin/users/{id} — admin-only endpoint to update user fields.
+// api_tokens are stored in a separate collection; this endpoint syncs them idempotently.
 func handleUserUpdate(re *core.RequestEvent) error {
+	cfg, err := config.GetConfigFromApp(re.App)
+	if err != nil {
+		return re.Error(http.StatusInternalServerError, "failed to retrieve configuration", err)
+	}
+
 	// Only superusers (admins) can access this endpoint
 	if !re.HasSuperuserAuth() {
 		return re.Error(http.StatusForbidden, "admin access required", nil)
@@ -348,18 +377,58 @@ func handleUserUpdate(re *core.RequestEvent) error {
 	if req.QpuSeconds != nil {
 		record.Set("qpu_seconds", *req.QpuSeconds)
 	}
+
+	// Sync api_tokens to the separate collection
 	if req.APITokens != nil {
-		record.Set("api_tokens", req.APITokens)
+		tokensCol, err := re.App.FindCollectionByNameOrId(cfg.CollectionAPITokens)
+		if err != nil {
+			return re.Error(http.StatusInternalServerError, "api_tokens collection not found", err)
+		}
+
+		// Delete existing tokens for this user
+		existing, err := re.App.FindRecordsByFilter(
+			cfg.CollectionAPITokens,
+			"user = {:userId}",
+			"", 0, 0,
+			dbx.Params{"userId": userID},
+		)
+		if err == nil {
+			for _, t := range existing {
+				_ = re.App.Delete(t)
+			}
+		}
+
+		// Create new token records
+		for _, tokenValue := range req.APITokens {
+			tokenRec := core.NewRecord(tokensCol)
+			tokenRec.Set("token", tokenValue)
+			tokenRec.Set("user", userID)
+			if err := re.App.Save(tokenRec); err != nil {
+				log.Printf("Warning: failed to create api_token record: %v", err)
+			}
+		}
 	}
 
 	if err := re.App.Save(record); err != nil {
 		return re.Error(http.StatusInternalServerError, "failed to update user", err)
 	}
 
+	// Return current tokens for the user
+	var currentTokens []string
+	tokenRecs, _ := re.App.FindRecordsByFilter(
+		cfg.CollectionAPITokens,
+		"user = {:userId}",
+		"", 0, 0,
+		dbx.Params{"userId": userID},
+	)
+	for _, t := range tokenRecs {
+		currentTokens = append(currentTokens, t.GetString("token"))
+	}
+
 	return re.JSON(http.StatusOK, map[string]any{
 		"id":          record.Id,
 		"qpu_seconds": record.GetFloat("qpu_seconds"),
-		"api_tokens":  record.Get("api_tokens"),
+		"api_tokens":  currentTokens,
 	})
 }
 
@@ -403,6 +472,13 @@ func handleQPURegister(re *core.RequestEvent) error {
 	}
 
 	qpu.Set("status", "online")
+	if req.ExecutorType != "" {
+		qpu.Set("executor_type", req.ExecutorType)
+	}
+	if req.DeviceConfig != nil {
+		deviceJSON, _ := json.Marshal(req.DeviceConfig)
+		qpu.Set("device_config", string(deviceJSON))
+	}
 	if err := re.App.Save(qpu); err != nil {
 		return re.Error(http.StatusInternalServerError, "cannot save QPU record", err)
 	}
@@ -433,6 +509,67 @@ func handleQPURegister(re *core.RequestEvent) error {
 		NNGResultPort:  resPort,
 		AuthToken:      token,
 	})
+}
+
+// handleQPUList handles GET /api/qpus — lists all online QPUs.
+func handleQPUList(re *core.RequestEvent) error {
+	cfg, err := config.GetConfigFromApp(re.App)
+	if err != nil {
+		return re.Error(http.StatusInternalServerError, "failed to retrieve configuration", err)
+	}
+
+	records, err := re.App.FindRecordsByFilter(
+		cfg.CollectionQPUs,
+		"status = 'online'",
+		"+created", 0, 0,
+	)
+	if err != nil {
+		return re.Error(http.StatusInternalServerError, "failed to query QPUs", err)
+	}
+
+	qpus := make([]map[string]any, 0, len(records))
+	for _, r := range records {
+		qpus = append(qpus, serializeQPU(r))
+	}
+	return re.JSON(http.StatusOK, qpus)
+}
+
+// handleQPUGet handles GET /api/qpus/{name} — retrieves a single QPU by name.
+// Since the QPUs collection uses "name" as its primary key, we can look up
+// directly by record ID.
+func handleQPUGet(re *core.RequestEvent) error {
+	cfg, err := config.GetConfigFromApp(re.App)
+	if err != nil {
+		return re.Error(http.StatusInternalServerError, "failed to retrieve configuration", err)
+	}
+
+	name := re.Request.PathValue("name")
+	record, err := re.App.FindRecordById(cfg.CollectionQPUs, name)
+	if err != nil {
+		return re.Error(http.StatusNotFound, "QPU not found", err)
+	}
+
+	return re.JSON(http.StatusOK, serializeQPU(record))
+}
+
+// serializeQPU converts a QPU record to a public JSON representation.
+func serializeQPU(r *core.Record) map[string]any {
+	deviceConfig := r.Get("device_config")
+	if deviceConfig == nil {
+		deviceConfig = map[string]any{}
+	}
+	return map[string]any{
+		"id":               r.Id,
+		"name":             r.GetString("name"),
+		"status":           r.GetString("status"),
+		"num_qubits":       r.GetInt("num_qubits"),
+		"executor_type":    r.GetString("executor_type"),
+		"device_config":    deviceConfig,
+		"nng_command_port": r.GetInt("nng_command_port"),
+		"nng_result_port":  r.GetInt("nng_result_port"),
+		"created":          r.GetString("created"),
+		"updated":          r.GetString("updated"),
+	}
 }
 
 // runDispatcher starts an NNG PUSH socket on the cmdPort, polling for pending quantum jobs

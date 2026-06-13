@@ -38,7 +38,14 @@ class HandshakeInfo:
     auth_token: str
 
 
-def do_handshake(host: str, port: int, token: str, name: str) -> HandshakeInfo:
+def do_handshake(
+    host: str,
+    port: int,
+    token: str,
+    name: str,
+    executor_type: str = "",
+    device_config: dict[str, Any] | None = None,
+) -> HandshakeInfo:
     """POST to /api/qpu/register and return dynamic port configurations.
 
     Args:
@@ -46,6 +53,8 @@ def do_handshake(host: str, port: int, token: str, name: str) -> HandshakeInfo:
         port: PocketBase HTTP port.
         token: Unique QPU registration token.
         name: Human-readable name for this QPU.
+        executor_type: The executor backend type (e.g. ``"mock"``, ``"qiskit_aer"``).
+        device_config: Optional device configuration dict to store on the QPU record.
 
     Returns:
         HandshakeInfo: Strongly typed port and token credentials.
@@ -58,7 +67,12 @@ def do_handshake(host: str, port: int, token: str, name: str) -> HandshakeInfo:
         raise ValueError("Registration token must be provided")
 
     register_url = f"http://{host}:{port}/api/qpu/register"
-    payload = {"name": name, "registration_token": token}
+    payload: dict[str, Any] = {"name": name, "registration_token": token}
+    if executor_type:
+        payload["executor_type"] = executor_type
+    if device_config:
+        payload["device_config"] = device_config
+
     log.info("Handshaking with %s …", register_url)
     resp = requests.post(register_url, json=payload, timeout=10)
     resp.raise_for_status()
@@ -465,8 +479,39 @@ def run_driver(
         data_dir: Directory where NetCDF files should be saved.
         executor_options: other options to pass to the executor.
     """
+    # Determine executor type string for registration
+    executor_type_str = ""
+    if isinstance(executor, str):
+        executor_type_str = executor
+    elif hasattr(executor, "name"):
+        executor_type_str = executor.name
+    elif hasattr(executor, "__name__"):
+        executor_type_str = executor.__name__
+
+    # Extract device config from executor options if present
+    device_config = executor_options.get("device_config")
+    if device_config is None:
+        # Try to build a minimal config from known options
+        cfg: dict[str, Any] = {}
+        for key in ("quantify_hardware_config", "quantify_device_config", "is_dummy"):
+            if key in executor_options:
+                val = executor_options[key]
+                if hasattr(val, "__fspath__"):
+                    cfg[key] = str(val)
+                else:
+                    cfg[key] = val
+        if cfg:
+            device_config = cfg
+
     # do_handshake returns strongly typed dataclass
-    info = do_handshake(host, port, token, name)
+    info = do_handshake(
+        host,
+        port,
+        token,
+        name,
+        executor_type=executor_type_str,
+        device_config=device_config,
+    )
     cmd_port = info.nng_command_port
     res_port = info.nng_result_port
 

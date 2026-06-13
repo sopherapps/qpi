@@ -24,6 +24,9 @@ func EnsureSchema(app core.App) error {
 	if err := ensureUsersCollection(app, cfg); err != nil {
 		return fmt.Errorf("users collection: %w", err)
 	}
+	if err := ensureAPITokensCollection(app, cfg); err != nil {
+		return fmt.Errorf("api_tokens collection: %w", err)
+	}
 	if err := ensureQPUsCollection(app, cfg); err != nil {
 		return fmt.Errorf("qpus collection: %w", err)
 	}
@@ -56,22 +59,11 @@ func ensureUsersCollection(app core.App, cfg *config.AppConfig) error {
 	}
 
 	// Ensure extra fields exist (idempotent migration)
-	hasAPITokens := false
 	hasQpuSeconds := false
 	for _, f := range collection.Fields {
-		if f.GetName() == "api_tokens" {
-			hasAPITokens = true
-		}
 		if f.GetName() == "qpu_seconds" {
 			hasQpuSeconds = true
 		}
-	}
-	if !hasAPITokens {
-		collection.Fields.Add(
-			&core.JSONField{
-				Name: "api_tokens",
-			},
-		)
 	}
 	if !hasQpuSeconds {
 		collection.Fields.Add(
@@ -114,12 +106,100 @@ func ensureUsersCollection(app core.App, cfg *config.AppConfig) error {
 	return app.Save(collection)
 }
 
+// ensureAPITokensCollection creates the collection storing API tokens with
+// user relation, optional expiry, and metadata.
+func ensureAPITokensCollection(app core.App, cfg *config.AppConfig) error {
+	col, err := app.FindCollectionByNameOrId(cfg.CollectionAPITokens)
+	if err == nil {
+		// Already exists — idempotent field check
+		hasToken := false
+		hasUser := false
+		hasExpiresAt := false
+		hasName := false
+		for _, f := range col.Fields {
+			switch f.GetName() {
+			case "token":
+				hasToken = true
+			case "user":
+				hasUser = true
+			case "expires_at":
+				hasExpiresAt = true
+			case "name":
+				hasName = true
+			}
+		}
+		usersCol, _ := app.FindCollectionByNameOrId("users")
+		if !hasToken {
+			col.Fields.Add(&core.TextField{Name: "token", Required: true})
+		}
+		if !hasUser && usersCol != nil {
+			col.Fields.Add(&core.RelationField{
+				Name:         "user",
+				CollectionId: usersCol.Id,
+				MaxSelect:    1,
+				Required:     true,
+			})
+		}
+		if !hasExpiresAt {
+			col.Fields.Add(&core.DateField{Name: "expires_at"})
+		}
+		if !hasName {
+			col.Fields.Add(&core.TextField{Name: "name"})
+		}
+		return app.Save(col)
+	}
+
+	// Create new collection
+	col = core.NewBaseCollection(cfg.CollectionAPITokens)
+	col.Fields.Add(&core.TextField{Name: "token", Required: true})
+
+	usersCol, _ := app.FindCollectionByNameOrId("users")
+	if usersCol != nil {
+		col.Fields.Add(&core.RelationField{
+			Name:         "user",
+			CollectionId: usersCol.Id,
+			MaxSelect:    1,
+			Required:     true,
+		})
+	}
+	col.Fields.Add(&core.DateField{Name: "expires_at"})
+	col.Fields.Add(&core.TextField{Name: "name"})
+	return app.Save(col)
+}
+
 // ensureQPUsCollection creates the collection storing QPU hardware properties, statuses, and ports.
 func ensureQPUsCollection(app core.App, cfg *config.AppConfig) error {
-	if _, err := app.FindCollectionByNameOrId(cfg.CollectionQPUs); err == nil {
-		return nil // already exists
+	col, err := app.FindCollectionByNameOrId(cfg.CollectionQPUs)
+	if err == nil {
+		// Idempotent field check — add missing fields to existing collection
+		hasNumQubits := false
+		hasExecutorType := false
+		hasDeviceConfig := false
+		for _, f := range col.Fields {
+			switch f.GetName() {
+			case "num_qubits":
+				hasNumQubits = true
+			case "executor_type":
+				hasExecutorType = true
+			case "device_config":
+				hasDeviceConfig = true
+			}
+		}
+		if !hasNumQubits {
+			col.Fields.Add(&core.NumberField{Name: "num_qubits", Min: types.Pointer(1.0)})
+		}
+		if !hasExecutorType {
+			col.Fields.Add(&core.TextField{Name: "executor_type"})
+		}
+		if !hasDeviceConfig {
+			col.Fields.Add(&core.JSONField{Name: "device_config"})
+		}
+		return app.Save(col)
 	}
-	col := core.NewBaseCollection(cfg.CollectionQPUs)
+
+	// Create new collection — use name as the primary key
+	col = core.NewBaseCollection(cfg.CollectionQPUs)
+	col.Id = "name"
 	col.Fields.Add(&core.TextField{Name: "name", Required: true})
 	col.Fields.Add(&core.TextField{Name: "registration_token", Required: true})
 	col.Fields.Add(&core.SelectField{
@@ -130,6 +210,9 @@ func ensureQPUsCollection(app core.App, cfg *config.AppConfig) error {
 	})
 	col.Fields.Add(&core.NumberField{Name: "nng_command_port"})
 	col.Fields.Add(&core.NumberField{Name: "nng_result_port"})
+	col.Fields.Add(&core.NumberField{Name: "num_qubits", Min: types.Pointer(1.0)})
+	col.Fields.Add(&core.TextField{Name: "executor_type"})
+	col.Fields.Add(&core.JSONField{Name: "device_config"})
 	return app.Save(col)
 }
 

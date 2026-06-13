@@ -15,6 +15,7 @@ from qpi_client.provider import QPIBackend, QPIJob
 @pytest.fixture
 def mock_client() -> MagicMock:
     client = MagicMock(spec=QPIClient)
+    client.get_qpu.return_value = {"name": "qpi", "num_qubits": 5}
     client.submit_job.return_value = "job-123"
     client.get_job.return_value = {
         "id": "job-123",
@@ -29,7 +30,7 @@ def mock_client() -> MagicMock:
 
 @pytest.fixture
 def backend(mock_client: MagicMock) -> QPIBackend:
-    return QPIBackend(mock_client, num_qubits=5)
+    return QPIBackend(mock_client)
 
 
 class TestQPIBackend:
@@ -99,6 +100,67 @@ class TestQPIBackend:
         assert opts.get("shots") == 1024
         assert opts.get("meas_level") == 2
         assert opts.get("meas_return") == "single"
+
+    def test_resolve_num_qubits_missing_raises(self, mock_client: MagicMock) -> None:
+        mock_client.get_qpu.return_value = {"name": "qpi"}  # no num_qubits key
+        with pytest.raises(RuntimeError, match="no valid num_qubits"):
+            QPIBackend(mock_client)
+
+    def test_resolve_num_qubits_null_raises(self, mock_client: MagicMock) -> None:
+        mock_client.get_qpu.return_value = {"name": "qpi", "num_qubits": None}
+        with pytest.raises(RuntimeError, match="no valid num_qubits"):
+            QPIBackend(mock_client)
+
+    def test_resolve_num_qubits_api_failure_raises(
+        self, mock_client: MagicMock
+    ) -> None:
+        mock_client.get_qpu.side_effect = RuntimeError("connection refused")
+        with pytest.raises(RuntimeError, match="connection refused"):
+            QPIBackend(mock_client)
+
+    def test_run_qasm(self, backend: QPIBackend, mock_client: MagicMock) -> None:
+        job = backend.run(
+            qasm="OPENQASM 3.0; qubit[2] q; bit[2] c; h q[0]; cnot q[0], q[1]; c = measure q;",
+            shots=512,
+        )
+
+        assert isinstance(job, QPIJob)
+        assert job.job_id() == "job-123"
+        mock_client.submit_job.assert_called_once()
+        args, kwargs = mock_client.submit_job.call_args
+        assert kwargs["shots"] == 512
+        assert len(kwargs["circuits"]) == 1
+        assert (
+            kwargs["circuits"][0]["circuit"]
+            == "OPENQASM 3.0; qubit[2] q; bit[2] c; h q[0]; cnot q[0], q[1]; c = measure q;"
+        )
+
+    def test_run_qasm_with_parameter_values(
+        self, backend: QPIBackend, mock_client: MagicMock
+    ) -> None:
+        job = backend.run(qasm="OPENQASM 3.0; ...", parameter_values=[[0.5, 1.0]])
+
+        args, kwargs = mock_client.submit_job.call_args
+        assert kwargs["circuits"][0]["parameter_values"] == [[0.5, 1.0]]
+
+    def test_run_neither_circuit_nor_qasm_raises(self, backend: QPIBackend) -> None:
+        with pytest.raises(
+            ValueError, match="Either 'circuit' or 'qasm' must be provided"
+        ):
+            backend.run()
+
+    def test_run_both_circuit_and_qasm_raises(self, backend: QPIBackend) -> None:
+        qc = QuantumCircuit(1, 1)
+        with pytest.raises(
+            ValueError, match="Only one of 'circuit' or 'qasm' should be provided"
+        ):
+            backend.run(circuit=qc, qasm="OPENQASM 3.0; ...")
+
+    def test_backend_job(self, backend: QPIBackend, mock_client: MagicMock) -> None:
+        job = backend.job("job-456")
+        assert isinstance(job, QPIJob)
+        assert job.job_id() == "job-456"
+        assert job.backend() is backend
 
 
 class TestQPIJob:

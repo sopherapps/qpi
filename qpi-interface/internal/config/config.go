@@ -25,6 +25,7 @@ type AppConfig struct {
 	CollectionQPUs           string
 	CollectionTimeSlots      string
 	CollectionQuantumJobs    string
+	CollectionAPITokens      string
 	IdleThreshold            time.Duration
 	RecoveryInterval         time.Duration
 	JobTimeout               time.Duration
@@ -56,6 +57,7 @@ var (
 	flagCollectionQPUs           string
 	flagCollectionTimeSlots      string
 	flagCollectionQuantumJobs    string
+	flagCollectionAPITokens      string
 	flagIdleThreshold            time.Duration
 	flagRecoveryInterval         time.Duration
 	flagJobTimeout               time.Duration
@@ -72,6 +74,7 @@ func BindFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().StringVar(&flagCollectionQPUs, "qpus-collection", "qpus", "Collection name for QPUs")
 	cmd.PersistentFlags().StringVar(&flagCollectionTimeSlots, "timeslots-collection", "time_slots", "Collection name for Time Slots")
 	cmd.PersistentFlags().StringVar(&flagCollectionQuantumJobs, "jobs-collection", "quantum_jobs", "Collection name for Quantum Jobs")
+	cmd.PersistentFlags().StringVar(&flagCollectionAPITokens, "api-tokens-collection", "api_tokens", "Collection name for API Tokens")
 	cmd.PersistentFlags().DurationVar(&flagIdleThreshold, "idle-threshold", 5*time.Second, "Idle fallback threshold")
 	cmd.PersistentFlags().DurationVar(&flagRecoveryInterval, "recovery-interval", 10*time.Second, "Stale job recovery check interval")
 	cmd.PersistentFlags().DurationVar(&flagJobTimeout, "job-timeout", 20*time.Second, "Stale job execution timeout")
@@ -91,6 +94,7 @@ func NewFromFlags(cmd *cobra.Command) *AppConfig {
 	cfg.CollectionQPUs = "qpus"
 	cfg.CollectionTimeSlots = "time_slots"
 	cfg.CollectionQuantumJobs = "quantum_jobs"
+	cfg.CollectionAPITokens = "api_tokens"
 	cfg.IdleThreshold = 5 * time.Second
 	cfg.RecoveryInterval = 10 * time.Second
 	cfg.JobTimeout = 20 * time.Second
@@ -121,6 +125,7 @@ func NewFromFlags(cmd *cobra.Command) *AppConfig {
 				CollectionQPUs           *string                     `json:"qpusCollection" yaml:"qpusCollection"`
 				CollectionTimeSlots      *string                     `json:"timeslotsCollection" yaml:"timeslotsCollection"`
 				CollectionQuantumJobs    *string                     `json:"jobsCollection" yaml:"jobsCollection"`
+				CollectionAPITokens      *string                     `json:"apiTokensCollection" yaml:"apiTokensCollection"`
 				IdleThreshold            *string                     `json:"idleThreshold" yaml:"idleThreshold"`
 				RecoveryInterval         *string                     `json:"recoveryInterval" yaml:"recoveryInterval"`
 				JobTimeout               *string                     `json:"jobTimeout" yaml:"jobTimeout"`
@@ -148,6 +153,9 @@ func NewFromFlags(cmd *cobra.Command) *AppConfig {
 				}
 				if fileCfg.CollectionQuantumJobs != nil {
 					cfg.CollectionQuantumJobs = *fileCfg.CollectionQuantumJobs
+				}
+				if fileCfg.CollectionAPITokens != nil {
+					cfg.CollectionAPITokens = *fileCfg.CollectionAPITokens
 				}
 				if fileCfg.IdleThreshold != nil {
 					if d, err := time.ParseDuration(*fileCfg.IdleThreshold); err == nil {
@@ -257,6 +265,7 @@ func NewFromFlags(cmd *cobra.Command) *AppConfig {
 	cfg.CollectionQPUs = resolveString("qpus-collection", "QPI_QPUS_COLLECTION", cfg.CollectionQPUs)
 	cfg.CollectionTimeSlots = resolveString("timeslots-collection", "QPI_TIMESLOTS_COLLECTION", cfg.CollectionTimeSlots)
 	cfg.CollectionQuantumJobs = resolveString("jobs-collection", "QPI_JOBS_COLLECTION", cfg.CollectionQuantumJobs)
+	cfg.CollectionAPITokens = resolveString("api-tokens-collection", "QPI_API_TOKENS_COLLECTION", cfg.CollectionAPITokens)
 	cfg.IdleThreshold = resolveDuration("idle-threshold", "QPI_IDLE_THRESHOLD", cfg.IdleThreshold)
 	cfg.RecoveryInterval = resolveDuration("recovery-interval", "QPI_RECOVERY_INTERVAL", cfg.RecoveryInterval)
 	cfg.JobTimeout = resolveDuration("job-timeout", "QPI_JOB_TIMEOUT", cfg.JobTimeout)

@@ -119,6 +119,59 @@ class QPIClient:
         resp.raise_for_status()
         return resp.json()
 
+    # -- high-level helpers --------------------------------------------------
+
+    def get_backend(self, name: str = "qpi") -> "QPIBackend":
+        """Return a :class:`QPIBackend` handle for the named QPU.
+
+        Args:
+            name: Backend / QPU name (e.g. ``"mock"``, ``"qiskit_aer"``).
+
+        Returns:
+            A configured :class:`QPIBackend` instance bound to this client.
+        """
+        from qpi_client.provider import QPIBackend
+
+        return QPIBackend(self, name=name)
+
+    def job(self, job_id: str) -> "QPIJob":
+        """Retrieve an existing job by ID.
+
+        Args:
+            job_id: The server-assigned job ID.
+
+        Returns:
+            A :class:`QPIJob` handle (backend will be *None*).
+        """
+        from qpi_client.provider import QPIJob
+
+        return QPIJob(backend=None, job_id=job_id, client=self)
+
+    # -- QPU discovery -------------------------------------------------------
+
+    def list_qpus(self) -> list[dict[str, Any]]:
+        """List all online QPUs.
+
+        Returns:
+            A list of QPU record dicts.
+        """
+        resp = self._session.get(f"{self.base_url}/api/qpus")
+        resp.raise_for_status()
+        return resp.json()
+
+    def get_qpu(self, name: str) -> dict[str, Any]:
+        """Retrieve a single QPU by name.
+
+        Args:
+            name: The QPU's unique name.
+
+        Returns:
+            A QPU record dict.
+        """
+        resp = self._session.get(f"{self.base_url}/api/qpus/{name}")
+        resp.raise_for_status()
+        return resp.json()
+
     # -- lifecycle -----------------------------------------------------------
 
     def close(self) -> None:

@@ -142,3 +142,63 @@ class TestContextManager:
             with client:
                 pass
             mock_close.assert_called_once()
+
+
+class TestGetBackend:
+    def test_get_backend_returns_backend(self, client: QPIClient) -> None:
+        from qpi_client.provider import QPIBackend
+
+        with patch.object(
+            client, "get_qpu", return_value={"name": "mock", "num_qubits": 5}
+        ):
+            backend = client.get_backend(name="mock")
+
+        assert isinstance(backend, QPIBackend)
+        assert backend.name == "mock"
+
+    def test_get_backend_default_name(self, client: QPIClient) -> None:
+        with patch.object(
+            client, "get_qpu", return_value={"name": "qpi", "num_qubits": 5}
+        ):
+            backend = client.get_backend()
+
+        assert backend.name == "qpi"
+
+
+class TestJob:
+    def test_job_returns_job(self, client: QPIClient) -> None:
+        job = client.job("job-789")
+        from qpi_client.provider import QPIJob
+
+        assert isinstance(job, QPIJob)
+        assert job.job_id() == "job-789"
+
+
+class TestQPU:
+    def test_list_qpus(self, client: QPIClient, mock_response: MagicMock) -> None:
+        mock_response.json.return_value = [
+            {"id": "qpu-1", "name": "mock", "num_qubits": 5},
+        ]
+        with patch.object(
+            client._session, "get", return_value=mock_response
+        ) as mock_get:
+            qpus = client.list_qpus()
+
+        assert len(qpus) == 1
+        assert qpus[0]["name"] == "mock"
+        mock_get.assert_called_once_with("http://localhost:8090/api/qpus")
+
+    def test_get_qpu(self, client: QPIClient, mock_response: MagicMock) -> None:
+        mock_response.json.return_value = {
+            "id": "mock",
+            "name": "mock",
+            "num_qubits": 5,
+        }
+        with patch.object(
+            client._session, "get", return_value=mock_response
+        ) as mock_get:
+            qpu = client.get_qpu("mock")
+
+        assert qpu["name"] == "mock"
+        assert qpu["num_qubits"] == 5
+        mock_get.assert_called_once_with("http://localhost:8090/api/qpus/mock")

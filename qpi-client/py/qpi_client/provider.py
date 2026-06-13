@@ -42,13 +42,13 @@ from qpi_client.client import QPIClient
 class QPIJob(JobV1):
     """A Qiskit-compatible job handle backed by the QPI REST API.
 
-    Instances are created by :meth:`QPIBackend.run`; you should not need to
-    instantiate this class directly.
+    Instances are created by :meth:`QPIBackend.run` or :meth:`QPIClient.job`;
+    you should not need to instantiate this class directly.
     """
 
     def __init__(
         self,
-        backend: "QPIBackend",
+        backend: "QPIBackend" | None,
         job_id: str,
         client: QPIClient,
         **kwargs: Any,
@@ -56,6 +56,11 @@ class QPIJob(JobV1):
         super().__init__(backend, job_id, **kwargs)
         self._client = client
         self._result: Result | None = None
+
+    @property
+    def id(self) -> str:
+        """Server-assigned job ID."""
+        return self.job_id()
 
     # -- JobV1 interface -----------------------------------------------------
 
@@ -208,7 +213,9 @@ class QPIBackend(BackendV2):
     Args:
         client: An authenticated :class:`QPIClient` instance.
         name: Human-readable backend name (default ``"qpi"``).
-        num_qubits: Number of qubits the backend advertises.
+        num_qubits: Number of qubits the backend advertises to the Qiskit
+            transpiler.  Defaults to a large value so circuits of any
+            reasonable size compile without resizing the target.
         **kwargs: Forwarded to :class:`BackendV2.__init__`.
     """
 
@@ -216,19 +223,32 @@ class QPIBackend(BackendV2):
         self,
         client: QPIClient,
         name: str = "qpi",
-        num_qubits: int = 5,
         **kwargs: Any,
     ) -> None:
         super().__init__(name=name, **kwargs)
         self._client = client
-        self._num_qubits = num_qubits
-        self._target = Target(num_qubits=num_qubits)
+        self._num_qubits = self._resolve_num_qubits(name)
+        self._target = Target(num_qubits=self._num_qubits)
         self._options = Options()
         self._options.update_options(
             shots=1024,
             meas_level=2,
             meas_return="single",
         )
+
+    def _resolve_num_qubits(self, name: str) -> int:
+        """Query the orchestrator for QPU info and return its num_qubits.
+
+        Raises:
+            RuntimeError: If the QPU cannot be found or has no valid num_qubits.
+        """
+        qpu = self._client.get_qpu(name)
+        try:
+            return int(qpu["num_qubits"])
+        except (TypeError, KeyError) as exp:
+            raise RuntimeError(
+                f"QPU '{name}' has no valid num_qubits (got {qpu.get('num_qubits')!r})"
+            ) from exp
 
     # -- BackendV2 required properties ---------------------------------------
 
@@ -250,49 +270,81 @@ class QPIBackend(BackendV2):
 
     def run(
         self,
-        circuits: QuantumCircuit | Sequence[QuantumCircuit],
+        circuit: QuantumCircuit | Sequence[QuantumCircuit] | None = None,
+        qasm: str | None = None,
+        shots: int = 1024,
+        meas_level: int = 2,
+        meas_return: str = "single",
+        parameter_values: list[list[float]] | list[dict[Any, float]] | None = None,
         **kwargs: Any,
     ) -> QPIJob:
-        """Transpile, serialise, and submit *circuits* to QPI.
+        """Submit a quantum job to QPI.
+
+        Exactly one of ``circuit`` or ``qasm`` must be provided.
 
         Args:
-            circuits: A single :class:`QuantumCircuit` or a list thereof.
-            **kwargs: Override options such as ``shots``, ``meas_level``,
-                ``meas_return``, ``parameter_values``.
+            circuit: A single :class:`QuantumCircuit` or a list thereof.
+            qasm: A raw OpenQASM string (alternative to ``circuit``).
+            shots: Number of shots.
+            meas_level: Measurement level (``2`` = classified bits).
+            meas_return: ``"single"`` or ``"avg"``.
+            parameter_values: Parameter bindings.  For circuits this may be a
+                list of dicts mapping :class:`Parameter` objects to floats.
+                For raw QASM this should be a list of lists
+                (``[[0.5, 1.0]]``).
 
         Returns:
             A :class:`QPIJob` handle that can be polled or awaited.
+
+        Raises:
+            ValueError: If neither or both of ``circuit`` and ``qasm`` are
+                supplied.
         """
-        if isinstance(circuits, QuantumCircuit):
-            circuits = [circuits]
+        if circuit is None and qasm is None:
+            raise ValueError("Either 'circuit' or 'qasm' must be provided")
+        if circuit is not None and qasm is not None:
+            raise ValueError("Only one of 'circuit' or 'qasm' should be provided")
 
-        shots: int = kwargs.get("shots", self._options.get("shots", 1024))
-        meas_level: int = kwargs.get("meas_level", self._options.get("meas_level", 2))
-        meas_return: str = kwargs.get(
-            "meas_return", self._options.get("meas_return", "single")
-        )
-        parameter_values: list[dict[Any, float]] | None = kwargs.get("parameter_values")
-
+        pv = parameter_values
         circuit_payloads: list[dict[str, Any]] = []
-        for idx, qc in enumerate(circuits):
-            # Handle parameter binding
-            if parameter_values and idx < len(parameter_values):
-                pv = parameter_values[idx]
-                if pv:
-                    bound_qc = qc.assign_parameters(pv)
-                    qasm_str = qasm3_dumps(bound_qc)
-                    # Order values according to qc.parameters for the payload
-                    ordered_values = [float(pv[p]) for p in qc.parameters]
-                    circuit_payloads.append(
-                        {
-                            "circuit": qasm_str,
-                            "parameter_values": [ordered_values],
-                        }
-                    )
-                    continue
 
-            qasm_str = qasm3_dumps(qc)
-            circuit_payloads.append({"circuit": qasm_str})
+        if circuit is not None:
+            if isinstance(circuit, QuantumCircuit):
+                circuits = [circuit]
+            else:
+                circuits = list(circuit)
+
+            # Grow the transpiler target if the circuit is larger than expected
+            max_qubits = max(qc.num_qubits for qc in circuits)
+            if max_qubits > self._num_qubits:
+                self._num_qubits = max_qubits
+                self._target = Target(num_qubits=max_qubits)
+
+            for idx, qc in enumerate(circuits):
+                if pv and idx < len(pv):
+                    pval = pv[idx]
+                    if isinstance(pval, dict) and pval:
+                        bound_qc = qc.assign_parameters(pval)
+                        qasm_str = qasm3_dumps(bound_qc)
+                        ordered_values = [float(pval[p]) for p in qc.parameters]
+                        circuit_payloads.append(
+                            {
+                                "circuit": qasm_str,
+                                "parameter_values": [ordered_values],
+                            }
+                        )
+                        continue
+
+                qasm_str = qasm3_dumps(qc)
+                circuit_payloads.append({"circuit": qasm_str})
+        else:
+            payload: dict[str, Any] = {"circuit": qasm}
+            if pv:
+                # Normalise single list to list of lists
+                if isinstance(pv[0], (int, float)):
+                    pv = [pv]  # type: ignore[assignment]
+                payload["parameter_values"] = pv
+            circuit_payloads.append(payload)
 
         job_id = self._client.submit_job(
             circuits=circuit_payloads,
@@ -300,4 +352,15 @@ class QPIBackend(BackendV2):
             meas_level=meas_level,
             meas_return=meas_return,
         )
+        return QPIJob(self, job_id, self._client)
+
+    def job(self, job_id: str) -> QPIJob:
+        """Retrieve an existing job by ID.
+
+        Args:
+            job_id: The server-assigned job ID.
+
+        Returns:
+            A :class:`QPIJob` bound to this backend.
+        """
         return QPIJob(self, job_id, self._client)
