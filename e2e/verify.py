@@ -9,15 +9,19 @@ Steps:
   5. Test job cancellation via the API.
   6. Test the recovery engine: manually mark one job as "running" and
      confirm it is reset to "pending" after the recovery interval.
-  7. Smoke-test the Python client SDK.
+  7. Smoke-test the Python, Go, and JavaScript client SDKs.
 
 Usage:
     ADMIN_EMAIL=admin@example.com ADMIN_PASSWORD=secret python verify.py
+    python verify.py --driver          # driver-focused tests only
+    python verify.py --client-py       # Python client smoke only
+    python verify.py --client-js       # JS client smoke only
+    python verify.py --client-go       # Go client smoke only
 
 The script exits 0 on success, 1 on failure.
 """
 
-import os, sys, time, requests, json
+import argparse, os, sys, time, requests, json
 from datetime import datetime, timezone
 
 HOST  = os.getenv("GO_SERVER_HOST", "127.0.0.1")
@@ -373,13 +377,14 @@ def test_recovery_engine():
     return False
 
 
-def main():
+def run_driver_tests():
+    """Run tests that exercise the driver + core API (no client SDKs)."""
     admin_auth()
     jobs = wait_for_completion()
 
     if jobs is None:
         print("\n[verify] ✗ FAILED — not all jobs completed within timeout")
-        sys.exit(1)
+        return False
 
     print(f"\n[verify] ✓ All {len(jobs)} jobs completed!")
     print_summary(jobs)
@@ -398,20 +403,43 @@ def main():
     if not test_job_cancel():
         all_passed = False
 
-    if not test_python_client_smoke():
-        all_passed = False
-
-    if not test_go_client_smoke():
-        all_passed = False
-
-    if not test_js_client_smoke():
-        all_passed = False
-
     if not test_qiskit_hadamard_circuit():
         all_passed = False
 
     if not test_recovery_engine():
         all_passed = False
+
+    return all_passed
+
+
+def main():
+    parser = argparse.ArgumentParser(description="QPi E2E verification script")
+    parser.add_argument("--driver", action="store_true", help="Run driver-focused tests only")
+    parser.add_argument("--client-py", action="store_true", help="Run Python client smoke test only")
+    parser.add_argument("--client-js", action="store_true", help="Run JS client smoke test only")
+    parser.add_argument("--client-go", action="store_true", help="Run Go client smoke test only")
+    args = parser.parse_args()
+
+    # If no specific subset requested, run everything
+    run_all = not (args.driver or args.client_py or args.client_js or args.client_go)
+
+    all_passed = True
+
+    if run_all or args.driver:
+        if not run_driver_tests():
+            all_passed = False
+
+    if run_all or args.client_py:
+        if not test_python_client_smoke():
+            all_passed = False
+
+    if run_all or args.client_go:
+        if not test_go_client_smoke():
+            all_passed = False
+
+    if run_all or args.client_js:
+        if not test_js_client_smoke():
+            all_passed = False
 
     if not all_passed:
         print("\n[verify] ✗ FAILED — one or more checks failed")

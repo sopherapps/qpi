@@ -16,7 +16,8 @@ Env vars:
     ADMIN_PASSWORD
 """
 
-import os, json, requests
+import os
+import requests
 from datetime import datetime, timezone, timedelta
 
 HOST  = os.getenv("GO_SERVER_HOST", "127.0.0.1")

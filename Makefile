@@ -74,9 +74,23 @@ test-py-client:
 	$(UV) sync --project qpi-client/py --extra dev
 	$(UV) run --project qpi-client/py pytest qpi-client/py/tests/ -v
 
-test-e2e:
-	@echo "Running E2E tests..."
-	./e2e/run_tests.sh
+test-e2e: test-e2e-driver test-e2e-client-py test-e2e-client-js test-e2e-client-go
+
+test-e2e-driver:
+	@echo "Running E2E driver tests..."
+	./e2e/test_driver.sh
+
+test-e2e-client-py:
+	@echo "Running E2E Python client tests..."
+	./e2e/test_client_py.sh
+
+test-e2e-client-js:
+	@echo "Running E2E JavaScript client tests..."
+	./e2e/test_client_js.sh
+
+test-e2e-client-go:
+	@echo "Running E2E Go client tests..."
+	./e2e/test_client_go.sh
 
 # ---------------------------------------------------------------------------
 # Lint targets
