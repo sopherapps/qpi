@@ -98,7 +98,7 @@ class MyCustomExecutor(Executor):
 ```
 
 Built-in executors include:
-* `MockExecutor` (`mock`): Simulates random multinomial measurement outcomes.
+* `MockExecutor` (`mock`): Simulates quantum circuits using Qiskit's `BasicSimulator`.
 * `QiskitAerExecutor` (`qiskit_aer`): Runs quantum circuit simulations using `qiskit-aer`.
 * `QuantifyExecutor` (`quantify`): Executes quantum circuits using `quantify-scheduler` and a Qblox cluster compiler.
 * Placeholder executors: `QbloxExecutor` (`qblox`) and `PrestoExecutor` (`presto`).
@@ -187,11 +187,11 @@ If the workflow runs on a `push` to `main`/`master` and the repository environme
 
 ## TODOs
 
-- [ ] Add CRUD (authenticated/authorized) for submitting/viewing/cancelling jobs by users
+- [x] Add CRUD (authenticated/authorized) for submitting/viewing/cancelling jobs by users
+- [x] Add tracking of QPU time used by a user on job execution (or failure or error)
+- [x] Add qiskit-based python client library for submitting jobs, viewing results
 - [ ] Add CRUD (authenticated/authorized) for submitting/viewing/cancelling booking slots by users
 - [ ] Add CRUD (authenticated/authorized) for requesting/approving/rejecting/viewing QPU time by users
-- [ ] Add tracking of QPU time used by a user on job execution (or failure or error)
 - [ ] Add off/on-switch for QPI-drivers
 - [ ] Add dashboard for viewing jobs, admins allocating QPU time, setting maintenance, scheduling
   announcements, viewing QPU calibration data, viewing job results and statuses etc.
-- [ ] Add qiskit-based python client library for submitting jobs, viewing results
