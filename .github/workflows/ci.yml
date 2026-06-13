@@ -41,11 +41,11 @@ jobs:
     - name: Install dependencies & formatting tools
       run: |
         if [ "${{ matrix.extra }}" = "mock" ]; then
-          uv sync --project qpi-driver --extra cli --extra test
+          uv sync --project qpi-driver --extra cli --dev
         elif [ "${{ matrix.extra }}" = "aer" ]; then
-          uv sync --project qpi-driver --extra cli --extra aer --extra test
+          uv sync --project qpi-driver --extra cli --extra aer --dev
         elif [ "${{ matrix.extra }}" = "quantify" ]; then
-          uv sync --project qpi-driver --extra cli --extra quantify --extra test
+          uv sync --project qpi-driver --extra cli --extra quantify --dev
         fi
         sudo apt-get update && sudo apt-get install -y zip
 

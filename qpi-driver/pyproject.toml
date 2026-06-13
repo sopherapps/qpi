@@ -29,10 +29,6 @@ quantify = [
     "quantify-scheduler",
     "qblox-instruments"
 ]
-test = [
-    "pytest>=8.0.0",
-    "ruff>=0.3.0"
-]
 
 [dependency-groups]
 dev = [

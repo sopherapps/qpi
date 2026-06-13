@@ -3,8 +3,12 @@ from contextlib import suppress
 from pathlib import Path
 from typing import Any
 
+import numpy as np
+import qiskit.circuit
 import xarray as xr
 import yaml
+from qiskit import QuantumCircuit
+from qiskit.circuit import library as qiskit_library
 
 from qpi_driver.compat.quantify import (
     CNOT,
@@ -20,14 +24,19 @@ from qpi_driver.compat.quantify import (
     InstrumentModule,
     InstrumentType,
     Measure,
+    Operation,
     ParameterBase,
     QbloxHardwareCompilationConfig,
     QuantumDevice,
     Reset,
     Rxy,
     Rz,
+    S,
     Schedule,
+    SDagger,
     SerialCompiler,
+    T,
+    TDagger,
     X,
     Y,
     Z,
@@ -101,9 +110,7 @@ class QuantifyExecutor(Executor):
             xr.Dataset: Standardised counts/frequencies dataset.
         """
         # Parse QASM circuit
-        circuit = load_qasm(payload.qasm)
-
-        n_qubits = circuit.num_qubits
+        circuit = load_qasm(payload.qasm, num_qubits=payload.n_qubits)
         shots = payload.shots
 
         # Translate Qiskit QuantumCircuit to Quantify Schedule
@@ -111,62 +118,11 @@ class QuantifyExecutor(Executor):
         acq_indices = {}
 
         for instruction in circuit.data:
-            gate = instruction.operation
-            qubits = instruction.qubits
-            qubit_indices = [circuit.find_bit(q).index for q in qubits]
-
-            name = gate.name.lower()
-            if name == "reset":
-                for idx in qubit_indices:
-                    schedule.add(Reset(f"q{idx}"))
-            elif name == "x":
-                for idx in qubit_indices:
-                    schedule.add(X(f"q{idx}"))
-            elif name == "y":
-                for idx in qubit_indices:
-                    schedule.add(Y(f"q{idx}"))
-            elif name == "z":
-                for idx in qubit_indices:
-                    schedule.add(Z(f"q{idx}"))
-            elif name == "h":
-                for idx in qubit_indices:
-                    schedule.add(H(f"q{idx}"))
-            elif name in ("cx", "cnot"):
-                ctrl = f"q{qubit_indices[0]}"
-                tgt = f"q{qubit_indices[1]}"
-                schedule.add(CNOT(ctrl, tgt))
-            elif name == "cz":
-                ctrl = f"q{qubit_indices[0]}"
-                tgt = f"q{qubit_indices[1]}"
-                schedule.add(CZ(ctrl, tgt))
-            elif name == "rx":
-                import numpy as np
-
-                theta_deg = float(np.degrees(gate.params[0]))
-                for idx in qubit_indices:
-                    schedule.add(Rxy(theta_deg, 0, f"q{idx}"))
-            elif name == "ry":
-                import numpy as np
-
-                theta_deg = float(np.degrees(gate.params[0]))
-                for idx in qubit_indices:
-                    schedule.add(Rxy(theta_deg, 90, f"q{idx}"))
-            elif name == "rz":
-                import numpy as np
-
-                theta_deg = float(np.degrees(gate.params[0]))
-                for idx in qubit_indices:
-                    schedule.add(Rz(theta_deg, f"q{idx}"))
-            elif name == "measure":
-                for idx in qubit_indices:
-                    acq_idx = acq_indices.get(idx, 0)
-                    # Use unique acq_channel per qubit to avoid overlaps
-                    schedule.add(Measure(f"q{idx}", acq_channel=idx, acq_index=acq_idx))
-                    acq_indices[idx] = acq_idx + 1
-            elif name == "barrier":
-                pass
-            else:
-                raise ValueError(f"Gate '{name}' is not supported by QuantifyExecutor")
+            parsed_ops = _to_quantify_gates(
+                circuit=circuit, instruction=instruction, acq_indices=acq_indices
+            )
+            for op in parsed_ops:
+                schedule.add(op)
 
         compiled_sched = self._compiler.compile(schedule=schedule)
 
@@ -183,6 +139,122 @@ class QuantifyExecutor(Executor):
 
         with suppress(Exception):
             self._instrument_coordinator.close()
+
+
+def _to_quantify_gates(
+    circuit: QuantumCircuit,
+    instruction: qiskit.circuit.CircuitInstruction,
+    acq_indices: dict[int, int],
+) -> list[Operation]:
+    """Converts a qiskit Instruction to Quantify gate operations.
+
+    Args:
+        circuit: The circuit in which the instruction is.
+        instruction: The instruction to convert.
+        acq_indices: A mapping of qubit and current acquisitions/measurements done on said qubit in circuit..
+
+    Returns:
+        list of quantify Operations
+
+    Raises:
+        ValueError: if the gate is not supported by QuantifyExecutor
+    """
+    gate = instruction.operation
+    name = instruction.name
+    params = instruction.params
+
+    qubit_indices = [circuit.find_bit(q).index for q in instruction.qubits]
+    qubits = [f"q{idx}" for idx in qubit_indices]
+
+    if isinstance(gate, qiskit_library.Reset):
+        return [Reset(q) for q in qubits]
+
+    if isinstance(gate, qiskit_library.XGate):
+        return [X(q) for q in qubits]
+
+    if isinstance(gate, qiskit_library.YGate):
+        return [Y(q) for q in qubits]
+
+    if isinstance(gate, qiskit_library.ZGate):
+        return [Z(q) for q in qubits]
+
+    if isinstance(gate, qiskit_library.HGate):
+        return [H(q) for q in qubits]
+
+    if isinstance(gate, qiskit_library.SGate):
+        return [S(q) for q in qubits]
+
+    if isinstance(gate, qiskit_library.SdgGate):
+        return [SDagger(q) for q in qubits]
+
+    if isinstance(gate, qiskit_library.TGate):
+        return [T(q) for q in qubits]
+
+    if isinstance(gate, qiskit_library.TdgGate):
+        return [TDagger(q) for q in qubits]
+
+    if isinstance(gate, qiskit_library.SXGate):
+        return [Rxy(theta=90.0, phi=0.0, qubit=q) for q in qubits]
+
+    if isinstance(gate, qiskit_library.SXdgGate):
+        return [Rxy(theta=-90.0, phi=0.0, qubit=q) for q in qubits]
+
+    if isinstance(gate, qiskit_library.CXGate):
+        return [CNOT(qC=c, qT=t) for c, t in zip(qubits[0::2], qubits[1::2])]
+
+    if isinstance(gate, qiskit_library.CZGate):
+        return [CZ(qC=c, qT=t) for c, t in zip(qubits[0::2], qubits[1::2])]
+
+    if isinstance(gate, qiskit_library.SwapGate):
+        # Expands each control/target pair into 3 CNOT operations sequentially
+        return [
+            gate
+            for c, t in zip(qubits[0::2], qubits[1::2])
+            for gate in [CNOT(qC=c, qT=t), CNOT(qC=t, qT=c), CNOT(qC=c, qT=t)]
+        ]
+
+    if isinstance(gate, qiskit_library.RXGate):
+        theta_deg = float(np.degrees(params[0]))
+        return [Rxy(theta_deg, 0, q) for q in qubits]
+
+    if isinstance(gate, qiskit_library.RYGate):
+        theta_deg = float(np.degrees(params[0]))
+        return [Rxy(theta_deg, 90, q) for q in qubits]
+
+    if isinstance(gate, (qiskit_library.RZGate, qiskit_library.PhaseGate)):
+        theta_deg = float(np.degrees(params[0]))
+        return [Rz(theta_deg, q) for q in qubits]
+
+    elif isinstance(gate, qiskit_library.UGate):
+        theta_deg = float(np.degrees(params[0]))
+        phi_deg = float(np.degrees(params[1]))
+        lam_deg = float(np.degrees(params[2]))
+
+        # Flattening a 1-to-3 sequence per qubit using a nested list comprehension
+        return [
+            gate
+            for q in qubits
+            for gate in [
+                Rz(theta=lam_deg, qubit=q),
+                Rxy(theta=theta_deg, phi=90.0, qubit=q),
+                Rz(theta=phi_deg, qubit=q),
+            ]
+        ]
+
+    if isinstance(gate, qiskit_library.Measure):
+        result = []
+        for idx in qubit_indices:
+            acq_idx = acq_indices.get(idx, 0)
+            # Use unique acq_channel per qubit to avoid overlaps
+            result.append(Measure(f"q{idx}", acq_channel=idx, acq_index=acq_idx))
+            # update the measurement count for that qubit to allow for multiple measurements on a qubit
+            acq_indices[idx] = acq_idx + 1
+        return result
+
+    if isinstance(gate, qiskit_library.Barrier):
+        return []
+
+    raise ValueError(f"Gate '{name}' is not supported by QuantifyExecutor")
 
 
 def _load_quantify_hardware_config(

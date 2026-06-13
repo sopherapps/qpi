@@ -1,5 +1,7 @@
 """Module containing compatibility imports for typer-related libraries"""
 
+from qpi_driver.compat.shared import BasicCompatClass
+
 try:
     from typer import Exit, Option, Typer, echo
 
@@ -7,14 +9,11 @@ try:
 except ImportError:
     IS_TYPER_INSTALLED: bool = False
 
-    def Option(*args, **kwargs):
-        pass
+    class Option(BasicCompatClass): ...
 
-    def Typer(*args, **kwargs):
-        pass
+    class Typer(BasicCompatClass): ...
 
-    def Exit(*args, **kwargs):
-        pass
+    class Exit(BasicCompatClass): ...
 
     def echo(*args, **kwargs):
         pass

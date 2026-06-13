@@ -13,6 +13,13 @@ class JobPayload:
     shots: int = 1024
     n_qubits: int = 2
 
+    def __post_init__(self):
+        if not self.id.strip():
+            raise ValueError("id cannot be empty or just whitespace.")
+
+        if not self.qasm.strip():
+            raise ValueError("qasm cannot be empty or just whitespace.")
+
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "JobPayload":
         qasm = data.get("qasm") or data.get("circuit_qasm") or data.get("circuit") or ""

@@ -1,9 +1,23 @@
-import xarray as xr
+from typing import Any
 
+import xarray as xr
+from qiskit import QuantumCircuit, transpile
+
+from qpi_driver.compat.qiskit_aer import IS_AER_INSTALLED, AerSimulator
 from qpi_driver.executors.base import Executor, JobPayload
+from qpi_driver.executors.utils.qiskit import load_qasm
 
 
 class QiskitAerExecutor(Executor):
+    def __init__(self, name: str = "qiskit_aer", **kwargs: Any):
+        if not IS_AER_INSTALLED:
+            raise ImportError(
+                "qiskit-aer is not installed. Install the [aer] extra to use QiskitAerExecutor."
+            )
+
+        super().__init__(name, **kwargs)
+        self._simulator = AerSimulator()
+
     def execute(self, payload: JobPayload) -> xr.Dataset:
         """Run quantum circuit simulation using Qiskit Aer backend.
 
@@ -17,41 +31,14 @@ class QiskitAerExecutor(Executor):
             ImportError: If qiskit-aer is not installed.
             ValueError: If the provided QASM circuit cannot be loaded.
         """
-        try:
-            from qiskit import QuantumCircuit, transpile
-            from qiskit_aer import AerSimulator
-        except ImportError as exc:
-            raise ImportError(
-                "qiskit-aer is not installed. Install the [aer] extra to use QiskitAerExecutor."
-            ) from exc
-
         n_qubits = payload.n_qubits
         shots = payload.shots
         qasm_str = payload.qasm
+        circuit = load_qasm(qasm_str, n_qubits)
 
-        if qasm_str is None or qasm_str == "":
-            raise ValueError("No circuit provided in payload")
-        if (
-            qasm_str
-            and isinstance(qasm_str, str)
-            and ("OPENQASM" in qasm_str or "qreg" in qasm_str or "include" in qasm_str)
-        ):
-            try:
-                try:
-                    import qiskit.qasm3 as qasm3
-
-                    qc = qasm3.loads(qasm_str)
-                except Exception:
-                    qc = QuantumCircuit.from_qasm_str(qasm_str)
-            except Exception as exc:
-                raise ValueError(f"Failed to parse QASM circuit: {exc}") from exc
-        else:
-            raise ValueError("Invalid circuit provided in payload")
-
-        simulator = AerSimulator()
-        t_qc = transpile(qc, simulator)
-        sim_result = simulator.run(t_qc, shots=shots).result()
-        counts = sim_result.get_counts(t_qc)
+        t_qc = transpile(circuit, self._simulator)
+        result = self._simulator.run(t_qc, shots=shots).result()
+        counts = result.get_counts(t_qc)
 
         # Standardise counts keys to binary string representation and pad to 2^n_qubits states
         states_list = [format(i, f"0{n_qubits}b") for i in range(2**n_qubits)]
@@ -67,5 +54,5 @@ class QiskitAerExecutor(Executor):
                     freqs_list, dims=["state"], coords={"state": states_list}
                 ),
             },
-            attrs={"shots": shots, "n_qubits": n_qubits, "backend": "qiskit_aer"},
+            attrs={"shots": shots, "n_qubits": n_qubits, "backend": self.name},
         )

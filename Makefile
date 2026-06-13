@@ -17,7 +17,7 @@ build: venv-check
 	mkdir -p bin
 	(cd qpi-interface && go build -o ../bin/qpi .)
 	@echo "Installing python package..."
-	$(UV) sync --project qpi-driver --extra cli --extra aer --extra quantify --extra test
+	$(UV) sync --project qpi-driver --extra cli --extra aer --extra quantify --dev
 
 test:
 	@echo "Running Go unit tests..."
