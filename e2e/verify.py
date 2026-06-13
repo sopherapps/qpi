@@ -238,6 +238,58 @@ def test_python_client_smoke():
     return True
 
 
+def test_go_client_smoke():
+    """Smoke-test the Go client SDK against the running server."""
+    print("\n[verify] Testing Go client SDK smoke …")
+    import subprocess
+
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    env = os.environ.copy()
+    env["QPI_BASE_URL"] = BASE
+    env["QPI_API_TOKEN"] = TEST_API_TOKEN
+
+    result = subprocess.run(
+        ["go", "run", "smoke_go.go"],
+        cwd=script_dir,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        print(f"[verify] ✗ Go client smoke test failed:\n{result.stderr}")
+        return False
+
+    for line in result.stdout.strip().splitlines():
+        print(f"[verify]   {line}")
+    return True
+
+
+def test_js_client_smoke():
+    """Smoke-test the JavaScript client SDK against the running server."""
+    print("\n[verify] Testing JS client SDK smoke …")
+    import subprocess
+
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    env = os.environ.copy()
+    env["QPI_BASE_URL"] = BASE
+    env["QPI_API_TOKEN"] = TEST_API_TOKEN
+
+    result = subprocess.run(
+        ["node", "smoke_js.mjs"],
+        cwd=script_dir,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        print(f"[verify] ✗ JS client smoke test failed:\n{result.stderr}")
+        return False
+
+    for line in result.stdout.strip().splitlines():
+        print(f"[verify]   {line}")
+    return True
+
+
 def test_qiskit_hadamard_circuit():
     """Build a Hadamard circuit with Qiskit, submit it, and verify completion."""
     print("\n[verify] Testing Qiskit Hadamard circuit submission …")
@@ -346,6 +398,12 @@ def main():
         all_passed = False
 
     if not test_python_client_smoke():
+        all_passed = False
+
+    if not test_go_client_smoke():
+        all_passed = False
+
+    if not test_js_client_smoke():
         all_passed = False
 
     if not test_qiskit_hadamard_circuit():

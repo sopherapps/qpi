@@ -31,6 +31,10 @@ echo "[e2e] Building Go orchestrator..."
 mkdir -p bin
 (cd qpi-interface && go build -o ../bin/qpi .)
 
+# Build JS client SDK for E2E smoke tests
+echo "[e2e] Building JS client SDK..."
+(cd qpi-client/js && npm ci && npm run build)
+
 # Detect Python interpreter.
 # If the developer has already activated a virtual environment, we respect that environment
 # and use the active python in PATH. Otherwise, we look for the local qpi-driver/.venv folder,
