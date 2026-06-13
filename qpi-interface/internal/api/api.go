@@ -4,6 +4,9 @@ package api
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -76,6 +79,46 @@ type userUpdateRequest struct {
 	APITokens  []string `json:"api_tokens,omitempty"`
 }
 
+// tokenCreateRequest represents the JSON payload for POST /api/tokens.
+type tokenCreateRequest struct {
+	Name      string `json:"name,omitempty"`
+	ExpiresAt string `json:"expires_at,omitempty"` // ISO 8601 date string
+}
+
+// tokenCreateResponse represents the JSON payload returned by POST /api/tokens.
+type tokenCreateResponse struct {
+	ID        string `json:"id"`
+	Token     string `json:"token"`
+	Name      string `json:"name"`
+	ExpiresAt string `json:"expires_at,omitempty"`
+	Created   string `json:"created"`
+}
+
+// tokenUpdateRequest represents the JSON payload for PATCH /api/tokens/{id}.
+type tokenUpdateRequest struct {
+	Name      *string `json:"name,omitempty"`
+	ExpiresAt *string `json:"expires_at,omitempty"`
+}
+
+// hashToken returns a SHA-256 hex digest of the raw token value.
+func hashToken(raw string) string {
+	h := sha256.Sum256([]byte(raw))
+	return hex.EncodeToString(h[:])
+}
+
+// generateAPIToken creates a new random API token string.
+func generateAPIToken() string {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		// Fallback to timestamp-based entropy if crypto/rand fails
+		for i := range b {
+			b[i] = byte(time.Now().UnixNano() % 256)
+			time.Sleep(1 * time.Nanosecond)
+		}
+	}
+	return "qpi_" + hex.EncodeToString(b)
+}
+
 // RegisterRoutes sets up custom HTTP routes for QPU interactions.
 func RegisterRoutes(e *core.ServeEvent) {
 	e.Router.POST("/api/qpu/register", func(re *core.RequestEvent) error {
@@ -108,6 +151,23 @@ func RegisterRoutes(e *core.ServeEvent) {
 	e.Router.GET("/api/qpus/{name}", func(re *core.RequestEvent) error {
 		return handleQPUGet(re)
 	})
+
+	// API token CRUD routes (owner-only)
+	e.Router.POST("/api/tokens", func(re *core.RequestEvent) error {
+		return handleTokenCreate(re)
+	})
+	e.Router.GET("/api/tokens", func(re *core.RequestEvent) error {
+		return handleTokenList(re)
+	})
+	e.Router.GET("/api/tokens/{id}", func(re *core.RequestEvent) error {
+		return handleTokenGet(re)
+	})
+	e.Router.PATCH("/api/tokens/{id}", func(re *core.RequestEvent) error {
+		return handleTokenUpdate(re)
+	})
+	e.Router.DELETE("/api/tokens/{id}", func(re *core.RequestEvent) error {
+		return handleTokenDelete(re)
+	})
 }
 
 // resolveUserAuth resolves the authenticated user from the request.
@@ -133,11 +193,11 @@ func resolveUserAuth(re *core.RequestEvent) (*core.Record, error) {
 		if err != nil {
 			return nil, err
 		}
-		// Look up token in the api_tokens collection and expand the user relation
+		// Look up hashed token in the api_tokens collection and expand the user relation
 		tokenRec, err := re.App.FindFirstRecordByFilter(
 			cfg.CollectionAPITokens,
-			"token = {:token}",
-			dbx.Params{"token": token},
+			"token = {:token} && (expires_at = '' || expires_at >= {:now})",
+			dbx.Params{"token": hashToken(token), "now": time.Now().UTC().Format("2006-01-02 15:04:05.000Z")},
 		)
 		if err == nil {
 			userID := tokenRec.GetString("user")
@@ -378,30 +438,25 @@ func handleUserUpdate(re *core.RequestEvent) error {
 		record.Set("qpu_seconds", *req.QpuSeconds)
 	}
 
-	// Sync api_tokens to the separate collection
+	// Sync api_tokens to the separate collection (append-only; does NOT delete existing)
 	if req.APITokens != nil {
 		tokensCol, err := re.App.FindCollectionByNameOrId(cfg.CollectionAPITokens)
 		if err != nil {
 			return re.Error(http.StatusInternalServerError, "api_tokens collection not found", err)
 		}
 
-		// Delete existing tokens for this user
-		existing, err := re.App.FindRecordsByFilter(
-			cfg.CollectionAPITokens,
-			"user = {:userId}",
-			"", 0, 0,
-			dbx.Params{"userId": userID},
-		)
-		if err == nil {
-			for _, t := range existing {
-				_ = re.App.Delete(t)
-			}
-		}
-
-		// Create new token records
 		for _, tokenValue := range req.APITokens {
+			// Skip if this token already exists for the user
+			_, err := re.App.FindFirstRecordByFilter(
+				cfg.CollectionAPITokens,
+				"token = {:token} && user = {:userId}",
+				dbx.Params{"token": hashToken(tokenValue), "userId": userID},
+			)
+			if err == nil {
+				continue // already exists
+			}
 			tokenRec := core.NewRecord(tokensCol)
-			tokenRec.Set("token", tokenValue)
+			tokenRec.Set("token", hashToken(tokenValue))
 			tokenRec.Set("user", userID)
 			if err := re.App.Save(tokenRec); err != nil {
 				log.Printf("Warning: failed to create api_token record: %v", err)
@@ -413,23 +468,221 @@ func handleUserUpdate(re *core.RequestEvent) error {
 		return re.Error(http.StatusInternalServerError, "failed to update user", err)
 	}
 
-	// Return current tokens for the user
-	var currentTokens []string
+	// Return current token metadata for the user (hashes are never exposed)
 	tokenRecs, _ := re.App.FindRecordsByFilter(
 		cfg.CollectionAPITokens,
 		"user = {:userId}",
 		"", 0, 0,
 		dbx.Params{"userId": userID},
 	)
+	tokenMeta := make([]map[string]any, 0, len(tokenRecs))
 	for _, t := range tokenRecs {
-		currentTokens = append(currentTokens, t.GetString("token"))
+		tokenMeta = append(tokenMeta, map[string]any{
+			"id":         t.Id,
+			"name":       t.GetString("name"),
+			"expires_at": t.GetString("expires_at"),
+			"created":    t.GetString("created"),
+		})
 	}
 
 	return re.JSON(http.StatusOK, map[string]any{
 		"id":          record.Id,
 		"qpu_seconds": record.GetFloat("qpu_seconds"),
-		"api_tokens":  currentTokens,
+		"api_tokens":  tokenMeta,
 	})
+}
+
+// handleTokenCreate handles POST /api/tokens — creates a new API token for the authenticated user.
+// Returns the raw token exactly once; only the hash is stored in the database.
+func handleTokenCreate(re *core.RequestEvent) error {
+	cfg, err := config.GetConfigFromApp(re.App)
+	if err != nil {
+		return re.Error(http.StatusInternalServerError, "failed to retrieve configuration", err)
+	}
+
+	user, err := resolveUserAuth(re)
+	if err != nil {
+		return re.Error(http.StatusUnauthorized, "authentication required", err)
+	}
+
+	var req tokenCreateRequest
+	if err := re.BindBody(&req); err != nil {
+		return re.Error(http.StatusBadRequest, "invalid request body", err)
+	}
+
+	tokensCol, err := re.App.FindCollectionByNameOrId(cfg.CollectionAPITokens)
+	if err != nil {
+		return re.Error(http.StatusInternalServerError, "api_tokens collection not found", err)
+	}
+
+	rawToken := generateAPIToken()
+	tokenRec := core.NewRecord(tokensCol)
+	tokenRec.Set("token", hashToken(rawToken))
+	tokenRec.Set("user", user.Id)
+	if req.Name != "" {
+		tokenRec.Set("name", req.Name)
+	}
+	if req.ExpiresAt != "" {
+		tokenRec.Set("expires_at", req.ExpiresAt)
+	}
+
+	if err := re.App.Save(tokenRec); err != nil {
+		return re.Error(http.StatusInternalServerError, "failed to create token", err)
+	}
+
+	return re.JSON(http.StatusCreated, tokenCreateResponse{
+		ID:        tokenRec.Id,
+		Token:     rawToken,
+		Name:      tokenRec.GetString("name"),
+		ExpiresAt: tokenRec.GetString("expires_at"),
+		Created:   tokenRec.GetString("created"),
+	})
+}
+
+// handleTokenList handles GET /api/tokens — lists metadata for tokens belonging to the authenticated user.
+// Never exposes the raw token hash.
+func handleTokenList(re *core.RequestEvent) error {
+	cfg, err := config.GetConfigFromApp(re.App)
+	if err != nil {
+		return re.Error(http.StatusInternalServerError, "failed to retrieve configuration", err)
+	}
+
+	user, err := resolveUserAuth(re)
+	if err != nil {
+		return re.Error(http.StatusUnauthorized, "authentication required", err)
+	}
+
+	records, err := re.App.FindRecordsByFilter(
+		cfg.CollectionAPITokens,
+		"user = {:userId}",
+		"-created", 0, 0,
+		dbx.Params{"userId": user.Id},
+	)
+	if err != nil {
+		return re.Error(http.StatusInternalServerError, "failed to query tokens", err)
+	}
+
+	tokens := make([]map[string]any, 0, len(records))
+	for _, r := range records {
+		tokens = append(tokens, map[string]any{
+			"id":         r.Id,
+			"name":       r.GetString("name"),
+			"expires_at": r.GetString("expires_at"),
+			"created":    r.GetString("created"),
+			"updated":    r.GetString("updated"),
+		})
+	}
+	return re.JSON(http.StatusOK, tokens)
+}
+
+// handleTokenGet handles GET /api/tokens/{id} — retrieves metadata for a single token.
+// Only the owner (or a superuser) may access it.
+func handleTokenGet(re *core.RequestEvent) error {
+	cfg, err := config.GetConfigFromApp(re.App)
+	if err != nil {
+		return re.Error(http.StatusInternalServerError, "failed to retrieve configuration", err)
+	}
+
+	user, err := resolveUserAuth(re)
+	if err != nil {
+		return re.Error(http.StatusUnauthorized, "authentication required", err)
+	}
+
+	tokenID := re.Request.PathValue("id")
+	record, err := re.App.FindRecordById(cfg.CollectionAPITokens, tokenID)
+	if err != nil {
+		return re.Error(http.StatusNotFound, "token not found", err)
+	}
+
+	if record.GetString("user") != user.Id && !re.HasSuperuserAuth() {
+		return re.Error(http.StatusForbidden, "access denied", nil)
+	}
+
+	return re.JSON(http.StatusOK, map[string]any{
+		"id":         record.Id,
+		"name":       record.GetString("name"),
+		"expires_at": record.GetString("expires_at"),
+		"created":    record.GetString("created"),
+		"updated":    record.GetString("updated"),
+	})
+}
+
+// handleTokenUpdate handles PATCH /api/tokens/{id} — updates name or expiry for a token.
+// Only the owner (or a superuser) may update it.
+func handleTokenUpdate(re *core.RequestEvent) error {
+	cfg, err := config.GetConfigFromApp(re.App)
+	if err != nil {
+		return re.Error(http.StatusInternalServerError, "failed to retrieve configuration", err)
+	}
+
+	user, err := resolveUserAuth(re)
+	if err != nil {
+		return re.Error(http.StatusUnauthorized, "authentication required", err)
+	}
+
+	tokenID := re.Request.PathValue("id")
+	record, err := re.App.FindRecordById(cfg.CollectionAPITokens, tokenID)
+	if err != nil {
+		return re.Error(http.StatusNotFound, "token not found", err)
+	}
+
+	if record.GetString("user") != user.Id && !re.HasSuperuserAuth() {
+		return re.Error(http.StatusForbidden, "access denied", nil)
+	}
+
+	var req tokenUpdateRequest
+	if err := re.BindBody(&req); err != nil {
+		return re.Error(http.StatusBadRequest, "invalid request body", err)
+	}
+
+	if req.Name != nil {
+		record.Set("name", *req.Name)
+	}
+	if req.ExpiresAt != nil {
+		record.Set("expires_at", *req.ExpiresAt)
+	}
+
+	if err := re.App.Save(record); err != nil {
+		return re.Error(http.StatusInternalServerError, "failed to update token", err)
+	}
+
+	return re.JSON(http.StatusOK, map[string]any{
+		"id":         record.Id,
+		"name":       record.GetString("name"),
+		"expires_at": record.GetString("expires_at"),
+		"created":    record.GetString("created"),
+		"updated":    record.GetString("updated"),
+	})
+}
+
+// handleTokenDelete handles DELETE /api/tokens/{id} — removes a token.
+// Only the owner (or a superuser) may delete it.
+func handleTokenDelete(re *core.RequestEvent) error {
+	cfg, err := config.GetConfigFromApp(re.App)
+	if err != nil {
+		return re.Error(http.StatusInternalServerError, "failed to retrieve configuration", err)
+	}
+
+	user, err := resolveUserAuth(re)
+	if err != nil {
+		return re.Error(http.StatusUnauthorized, "authentication required", err)
+	}
+
+	tokenID := re.Request.PathValue("id")
+	record, err := re.App.FindRecordById(cfg.CollectionAPITokens, tokenID)
+	if err != nil {
+		return re.Error(http.StatusNotFound, "token not found", err)
+	}
+
+	if record.GetString("user") != user.Id && !re.HasSuperuserAuth() {
+		return re.Error(http.StatusForbidden, "access denied", nil)
+	}
+
+	if err := re.App.Delete(record); err != nil {
+		return re.Error(http.StatusInternalServerError, "failed to delete token", err)
+	}
+
+	return re.JSON(http.StatusOK, map[string]string{"status": "deleted"})
 }
 
 // handleQPURegister registers a new hardware driver node, allocating dynamic command/result ports
