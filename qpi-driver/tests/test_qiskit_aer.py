@@ -9,6 +9,7 @@ from qpi_driver.executors.qiskit_aer import QiskitAerExecutor
 has_aer = importlib.util.find_spec("qiskit_aer") is not None
 
 
+# TODO: Add a test also for  OPENQASM 3.0. Maybe use pytest.mark.parametize('qasm, expected', _TEST_QASM_AND_RESULTS)
 @pytest.mark.skipif(
     not has_aer, reason="qiskit-aer must be installed to run qiskit-aer tests"
 )
@@ -29,15 +30,10 @@ measure q -> c;"""
     dataset = executor.execute(payload)
 
     assert isinstance(dataset, xr.Dataset)
-    assert "counts" in dataset
-    assert "frequencies" in dataset
+    assert "0" in dataset
+    assert "1" in dataset
+    assert len(dataset.coords["acq_index_0"]) == 100
+    assert len(dataset.coords["acq_index_1"]) == 100
     assert dataset.attrs["shots"] == 100
     assert dataset.attrs["n_qubits"] == 2
     assert dataset.attrs["backend"] == "qiskit_aer"
-
-    counts_da = dataset["counts"]
-    states = counts_da.coords["state"].values.tolist()
-    counts = counts_da.values.tolist()
-
-    assert len(states) == 4
-    assert sum(counts) == 100

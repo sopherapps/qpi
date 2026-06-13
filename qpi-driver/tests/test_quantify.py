@@ -5,9 +5,10 @@ import xarray as xr
 from qpi_driver.executors import resolve_executor
 from qpi_driver.executors.base import JobPayload
 from qpi_driver.executors.quantify import QuantifyExecutor
-from utils import load_json_fixture
+from utils import load_json_fixture, load_yaml_fixture
 
 _QUANTIFY_HARDWARE_CONFIG: dict = load_json_fixture("quantify.hardware.json")
+_QUANTIFY_DEVICE_CONFIG: dict = load_yaml_fixture("quantify.device.yml")
 
 has_quantify = (
     importlib.util.find_spec("quantify_scheduler") is not None
@@ -15,6 +16,7 @@ has_quantify = (
 )
 
 
+# TODO: Add a test also for  OPENQASM 3.0. Maybe use pytest.mark.parametize('qasm, expected', _TEST_QASM_AND_RESULTS)
 @pytest.mark.skipif(
     not has_quantify,
     reason="quantify-scheduler and qblox-instruments must be installed to run quantify tests",
@@ -22,7 +24,10 @@ has_quantify = (
 def test_quantify_executor_execute_dummy():
     """Verify that QuantifyExecutor compiles and executes successfully on a dummy cluster with standard output."""
     executor = resolve_executor(
-        "quantify", is_dummy=True, quantify_hardware_config=_QUANTIFY_HARDWARE_CONFIG
+        "quantify",
+        is_dummy=True,
+        quantify_hardware_config=_QUANTIFY_HARDWARE_CONFIG,
+        quantify_device_config=_QUANTIFY_DEVICE_CONFIG,
     )
     assert isinstance(executor, QuantifyExecutor)
 
@@ -39,25 +44,24 @@ measure q[1] -> c[1];"""
 
     # Assert standardised output format
     assert isinstance(dataset, xr.Dataset)
-    assert "counts" in dataset
-    assert "frequencies" in dataset
+    assert 0 in dataset or "0" in dataset
+    assert 1 in dataset or "1" in dataset
     assert dataset.attrs["shots"] == 100
     assert dataset.attrs["n_qubits"] == 2
     assert dataset.attrs["backend"] == "quantify"
 
-    counts_da = dataset["counts"]
-    assert "state" in counts_da.coords
-    states = counts_da.coords["state"].values.tolist()
-    counts = counts_da.values.tolist()
-
-    assert len(states) == 4
-    assert sum(counts) == 100
+    # In dummy mode without real hardware, the coord length is 1 for each acquisition channel
+    assert len(dataset.coords["acq_index_0"]) == 1
+    assert len(dataset.coords["acq_index_1"]) == 1
 
 
 def test_quantify_executor_with_config_fixture():
     """Verify that QuantifyExecutor correctly loads and validates hardware configuration from fixture."""
     executor = resolve_executor(
-        "quantify", quantify_hardware_config=_QUANTIFY_HARDWARE_CONFIG, is_dummy=True
+        "quantify",
+        quantify_hardware_config=_QUANTIFY_HARDWARE_CONFIG,
+        quantify_device_config=_QUANTIFY_DEVICE_CONFIG,
+        is_dummy=True,
     )
     assert isinstance(executor, QuantifyExecutor)
     assert executor.hardware_config is not None
@@ -73,9 +77,10 @@ measure q[0] -> c[0];"""
     dataset = executor.execute(payload)
 
     assert isinstance(dataset, xr.Dataset)
-    assert "counts" in dataset
+    assert 0 in dataset or "0" in dataset
     assert dataset.attrs["shots"] == 50
     assert dataset.attrs["n_qubits"] == 1
+    assert len(dataset.coords["acq_index_0"]) == 1
 
 
 def test_quantify_executor_invalid_gate_raises():
@@ -84,6 +89,7 @@ def test_quantify_executor_invalid_gate_raises():
         "quantify",
         is_dummy=True,
         quantify_hardware_config=_QUANTIFY_HARDWARE_CONFIG,
+        quantify_device_config=_QUANTIFY_DEVICE_CONFIG,
     )
 
     # ccx is not a supported gate in QuantifyExecutor

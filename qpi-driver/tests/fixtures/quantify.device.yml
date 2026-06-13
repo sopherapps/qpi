@@ -22,7 +22,7 @@ q1:
   clock_freqs:
     f01: 5e9
     f12: 4.8e9
-    readout: 6e9
+    readout: 6.010e9
   measure:
     pulse_amp: 0.25
     pulse_duration: 300e-9

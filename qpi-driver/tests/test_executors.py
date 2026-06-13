@@ -7,7 +7,7 @@ from qpi_driver.executors.mock import MockExecutor
 
 def test_mock_executor_execute():
     """Verify that MockExecutor runs successfully and returns the correct xarray.Dataset format."""
-    executor = MockExecutor()
+    executor = MockExecutor(name="mock")
     from qpi_driver.executors.base import JobPayload
 
     payload_dict = {"n_qubits": 2, "shots": 500, "circuit": "bell_state"}
@@ -18,19 +18,14 @@ def test_mock_executor_execute():
     assert isinstance(dataset, xr.Dataset)
 
     # Assert data variables and coordinates
-    assert "counts" in dataset
-    counts_da = dataset["counts"]
-    assert "state" in counts_da.coords
+    assert "0" in dataset
+    assert "1" in dataset
+    assert len(dataset.coords["acq_index_0"]) == 500
+    assert len(dataset.coords["acq_index_1"]) == 500
 
     # Assert attributes
     assert dataset.attrs.get("shots") == 500
     assert dataset.attrs.get("backend") == "mock"
-
-    # Check count values sum to total shots
-    states = counts_da.coords["state"].values.tolist()
-    counts = counts_da.values.tolist()
-    assert len(states) == 4  # 2^2 states: '00', '01', '10', '11'
-    assert sum(counts) == 500
 
 
 def test_resolve_executor():

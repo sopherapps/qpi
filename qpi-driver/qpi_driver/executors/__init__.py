@@ -44,6 +44,10 @@ def resolve_executor(
         return executor
 
     if isinstance(executor, type) and issubclass(executor, Executor):
+        if "name" not in kwargs:
+            kwargs["name"] = (
+                executor.__name__.lower().replace("executor", "") or "executor"
+            )
         return executor(**kwargs)
 
     if isinstance(executor, str):
@@ -59,6 +63,8 @@ def resolve_executor(
                 f"Unknown executor name '{executor}'. Registered executors: {list(registry.keys())}"
             ) from exp
 
+        if "name" not in kwargs:
+            kwargs["name"] = executor
         return cls(**kwargs)
 
     raise TypeError(

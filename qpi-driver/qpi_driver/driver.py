@@ -2,6 +2,7 @@ import json
 import logging
 import multiprocessing
 import os
+import pickle
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -84,7 +85,7 @@ def execute_job(
 ) -> None:
     """
     Worker process: pulls job dicts from job_queue, executes them using the resolved
-    executor, saves the resulting xarray.Dataset as a NetCDF file, and pushes the file path
+    executor, saves the resulting xarray.Dataset as a pickle file, and pushes the file path
     to result_queue.
 
     Args:
@@ -92,7 +93,7 @@ def execute_job(
         result_queue: multiprocessing.Queue for sending results (file paths or errors)
         executor: Executor specification (string key, class, or instance)
         custom_executors: Optional dict of custom executors for resolving string keys
-        data_dir: Directory where NetCDF files should be saved
+        data_dir: Directory where pickle files should be saved
         executor_options: additional kwargs to pass when instantiating the executor
     """
     # Override logging config inside worker process
@@ -106,9 +107,10 @@ def execute_job(
     from qpi_driver.executors import resolve_executor
 
     try:
-        executor_instance = resolve_executor(
-            executor, custom_executors, **executor_options
-        )
+        options = executor_options.copy()
+        if "data_dir" not in options:
+            options["data_dir"] = data_dir
+        executor_instance = resolve_executor(executor, custom_executors, **options)
     except Exception as exc:
         w_log.error("Failed to resolve executor: %s", exc)
         result_queue.put(
@@ -140,9 +142,10 @@ def execute_job(
                 payload = JobPayload.from_dict(payload_dict)
                 dataset = executor_instance.execute(payload)
 
-                # Save dataset to a NetCDF file
-                filepath = data_dir / f"job_{job_id}.nc"
-                dataset.to_netcdf(filepath, engine="scipy")
+                # Save dataset to a pickle file
+                filepath = data_dir / f"job_{job_id}.pkl"
+                with open(filepath, "wb") as f:
+                    pickle.dump(dataset, f)
 
                 result_queue.put({"job_id": job_id, "filepath": filepath})
                 w_log.info(
@@ -197,14 +200,50 @@ def process_results(
             dict: Qiskit results format mapped to hex counts, shots, and status keys.
         """
         counts_da = dataset.get("counts")
-        if counts_da is None:
-            return {"raw": str(dataset)}
+        if counts_da is not None:
+            states = counts_da.coords["state"].values.tolist()
+            counts = counts_da.values.tolist()
+            counts_dict = {s: int(c) for s, c in zip(states, counts)}
+            shots = int(dataset.attrs.get("shots", sum(counts)))
+            backend = dataset.attrs.get("backend", "mock")
+        else:
+            # Parse Quantify-style dataset containing qubit index keys
+            qubit_vars = []
+            for var in dataset.data_vars:
+                try:
+                    qubit_vars.append(int(var))
+                except ValueError:
+                    pass
+            if not qubit_vars:
+                return {"raw": str(dataset)}
 
-        states = counts_da.coords["state"].values.tolist()
-        counts = counts_da.values.tolist()
-        counts_dict = {s: int(c) for s, c in zip(states, counts)}
-        shots = int(dataset.attrs.get("shots", sum(counts)))
-        backend = dataset.attrs.get("backend", "mock")
+            qubit_vars.sort()
+            q0_key = qubit_vars[0] if qubit_vars[0] in dataset else str(qubit_vars[0])
+            shots = int(dataset.attrs.get("shots", len(dataset[q0_key])))
+            backend = dataset.attrs.get("backend", "mock")
+            n_qubits = len(qubit_vars)
+
+            counts_dict = {}
+            num_samples = len(dataset[q0_key])
+            for s in range(num_samples):
+                state_chars = []
+                for q_idx in reversed(qubit_vars):
+                    var_key = q_idx if q_idx in dataset else str(q_idx)
+                    val = dataset[var_key].values[s]
+                    state_chars.append("1" if val.real > 0.5 else "0")
+                state_str = "".join(state_chars)
+                counts_dict[state_str] = counts_dict.get(state_str, 0) + 1
+
+            if num_samples == 1 and shots > 1:
+                # scale the single outcome to total shots
+                state_str = list(counts_dict.keys())[0]
+                counts_dict = {state_str: shots}
+
+            # Pad with 0 counts for all 2^N states to standardise length
+            states_list = [format(i, f"0{n_qubits}b") for i in range(2**n_qubits)]
+            for st in states_list:
+                if st not in counts_dict:
+                    counts_dict[st] = 0
 
         # Build a minimal Qiskit Result object and serialise
         expt_data = ExperimentResultData(
@@ -261,7 +300,8 @@ def process_results(
                     t_log.info("Translator process loading dataset from %s", filepath)
                     try:
                         # Load dataset into memory
-                        dataset = xr.load_dataset(filepath, engine="scipy")
+                        with open(filepath, "rb") as f:
+                            dataset = pickle.load(f)
 
                         # Delete file immediately
                         try:
@@ -326,7 +366,7 @@ def run_driver(
     result_queue = multiprocessing.Queue()
 
     # add extra args to be passed to the executor
-    executor_options.update(dict(name=name, data_dir=data_dir))
+    executor_options.update(dict(name=name))
 
     # 2. Start Worker Process
     worker = multiprocessing.Process(

@@ -1,6 +1,6 @@
 import uuid
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 import xarray as xr
@@ -8,8 +8,8 @@ import xarray as xr
 
 @dataclass
 class JobPayload:
-    id: str
     qasm: str
+    id: str = field(default_factory=lambda: str(uuid.uuid4()))
     shots: int = 1024
     n_qubits: int = 2
 
@@ -27,12 +27,12 @@ class JobPayload:
             raise ValueError("No QASM string/circuit provided in payload")
         shots = data.get("shots") or 1024
         n_qubits = data.get("n_qubits") or 2
-        identifier = data.get("id", str(uuid.uuid4()))
+        identifier = data.get("id") or str(uuid.uuid4())
         return cls(qasm=qasm, shots=shots, n_qubits=n_qubits, id=identifier)
 
 
 class Executor(ABC):
-    def __init__(self, name: str, **kwargs: Any) -> None:
+    def __init__(self, name: str = "executor", **kwargs: Any) -> None:
         self.name = name
 
     @abstractmethod

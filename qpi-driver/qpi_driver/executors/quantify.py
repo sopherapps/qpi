@@ -1,3 +1,4 @@
+import copy
 import importlib
 from contextlib import suppress
 from pathlib import Path
@@ -61,7 +62,7 @@ class QuantifyExecutor(Executor):
 
     def __init__(
         self,
-        name: str,
+        name: str = "quantify",
         quantify_hardware_config: QbloxHardwareCompilationConfig | Path | dict = Path(
             "quantify.hardware.json"
         ),
@@ -91,6 +92,7 @@ class QuantifyExecutor(Executor):
         self._is_dummy = is_dummy
         self._acquisition_timeout = acquisition_timeout
         hardware_config = _load_quantify_hardware_config(quantify_hardware_config)
+        self._hardware_config = hardware_config
         self._device = _load_quantum_device(name=name, config=quantify_device_config)
         self._instrument_coordinator = _load_instrument_coordinator(
             f"{name}_ic", hardware_config=hardware_config, is_dummy=is_dummy
@@ -99,6 +101,10 @@ class QuantifyExecutor(Executor):
         self._compiler = SerialCompiler(
             name=f"{name}_compiler", quantum_device=self._device
         )
+
+    @property
+    def hardware_config(self) -> QbloxHardwareCompilationConfig:
+        return self._hardware_config
 
     def execute(self, payload: JobPayload) -> xr.Dataset:
         """Execute quantum instructions using the Quantify scheduler.
@@ -129,7 +135,15 @@ class QuantifyExecutor(Executor):
         self._instrument_coordinator.prepare(compiled_sched)
         self._instrument_coordinator.start()
         self._instrument_coordinator.wait_done(timeout_sec=self._acquisition_timeout)
-        return self._instrument_coordinator.retrieve_acquisition()
+        dataset = self._instrument_coordinator.retrieve_acquisition()
+        dataset.attrs.update(
+            {
+                "shots": shots,
+                "n_qubits": payload.n_qubits,
+                "backend": self.name,
+            }
+        )
+        return dataset
 
     def close(self) -> None:
         """Release resources."""
@@ -299,6 +313,8 @@ def _load_quantum_device(name: str, config: Path | dict) -> QuantumDevice:
     if isinstance(config, Path):
         with open(config, "r") as file:
             config: dict = yaml.safe_load(file)
+    else:
+        config = copy.deepcopy(config)
 
     quantum_device = QuantumDevice(name=name)
 
@@ -310,10 +326,10 @@ def _load_quantum_device(name: str, config: Path | dict) -> QuantumDevice:
             )
 
         try:
-            module_path, element_cls_name = element_name.rsplit(".", 1)
+            module_path, element_cls_name = element_type.rsplit(".", 1)
         except ValueError:
             raise ValueError(
-                f"Element '{element_name}' is not a valid full import path for element type."
+                f"Element type '{element_type}' is not a valid full import path for element class."
             )
 
         module = importlib.import_module(module_path)
@@ -325,6 +341,17 @@ def _load_quantum_device(name: str, config: Path | dict) -> QuantumDevice:
         quantum_device.add_element(element_instance)
 
     return quantum_device
+
+
+def _to_num(value: Any) -> Any:
+    """Convert a string value to float or int if it represents a number."""
+    if isinstance(value, str):
+        try:
+            val = float(value)
+            return int(val) if val.is_integer() else val
+        except ValueError:
+            pass
+    return value
 
 
 def _apply_parameters(obj: InstrumentModule | ParameterBase, data: dict):
@@ -339,6 +366,7 @@ def _apply_parameters(obj: InstrumentModule | ParameterBase, data: dict):
         AttributeError: if obj does not have the attribute set on it in the data
     """
     if not isinstance(data, dict):
+        data = _to_num(data)
         try:
             obj(data)
         except TypeError as exp:

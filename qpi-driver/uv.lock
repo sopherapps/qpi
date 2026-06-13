@@ -52,6 +52,15 @@ wheels = [
 ]
 
 [[package]]
+name = "antlr4-python3-runtime"
+version = "4.13.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/33/5f/2cdf6f7aca3b20d3f316e9f505292e1f256a32089bd702034c29ebde6242/antlr4_python3_runtime-4.13.2.tar.gz", hash = "sha256:909b647e1d2fc2b70180ac586df3933e38919c85f98ccc656a96cd3f25ef3916", size = 117467 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/89/03/a851e84fcbb85214dc637b6378121ef9a0dd61b4c65264675d8a5c9b1ae7/antlr4_python3_runtime-4.13.2-py3-none-any.whl", hash = "sha256:fe3835eb8d33daece0e799090eda89719dbccee7aa39ef94eed3818cafa5a7e8", size = 144462 },
+]
+
+[[package]]
 name = "appnope"
 version = "0.1.4"
 source = { registry = "https://pypi.org/simple" }
@@ -1028,6 +1037,20 @@ wheels = [
 ]
 
 [[package]]
+name = "openqasm3"
+version = "1.0.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/92/a0/678ce1e4efbeb1cf06a7728b4056754e52bfd2c5cad174dae0f2a17b2d03/openqasm3-1.0.1.tar.gz", hash = "sha256:c589dc05d4ced50ca24167d14e0f2c916e717499ba0442e0ff2a3030ef312d0a", size = 536861 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/75/dd/2aa7698341948f3229f7a1cb75e84d9677444d9c730632d1907716574dc5/openqasm3-1.0.1-py3-none-any.whl", hash = "sha256:0d3a1ebe3465e3ea619bcaa369858bba8944cbb0c49604b24f94662d3ec41d41", size = 541545 },
+]
+
+[package.optional-dependencies]
+parser = [
+    { name = "antlr4-python3-runtime" },
+]
+
+[[package]]
 name = "opentelemetry-api"
 version = "1.42.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1637,6 +1660,19 @@ wheels = [
 ]
 
 [[package]]
+name = "qiskit-qasm3-import"
+version = "0.6.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "openqasm3", extra = ["parser"] },
+    { name = "qiskit" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/ea/e4/0229893ae295763a9273e47a7b1a8f10599ee49c2963750440d56a4b0023/qiskit_qasm3_import-0.6.0.tar.gz", hash = "sha256:6b763ee58538b33eaf5aaa8126b687f3c03f26c4d28e6a4f04f9be24a6b184ff", size = 37141 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/3e/7e/b8bbfbf1acfe0b40872727ef4741b54794beb65da34c4c327dc31a73d35d/qiskit_qasm3_import-0.6.0-py3-none-any.whl", hash = "sha256:2109b65a6859bec4a51e7b61bd525365f298f67f19b3952bf602423c6d21d697", size = 29490 },
+]
+
+[[package]]
 name = "qpi-driver"
 version = "0.0.1"
 source = { editable = "." }
@@ -1645,6 +1681,7 @@ dependencies = [
     { name = "pynng" },
     { name = "pyyaml" },
     { name = "qiskit" },
+    { name = "qiskit-qasm3-import" },
     { name = "requests" },
     { name = "scipy" },
     { name = "xarray" },
@@ -1676,6 +1713,7 @@ requires-dist = [
     { name = "qblox-instruments", marker = "extra == 'quantify'" },
     { name = "qiskit", specifier = ">=1.0.0" },
     { name = "qiskit-aer", marker = "extra == 'aer'", specifier = ">=0.14.0" },
+    { name = "qiskit-qasm3-import" },
     { name = "quantify-scheduler", marker = "extra == 'quantify'" },
     { name = "requests", specifier = ">=2.31.0" },
     { name = "scipy", specifier = ">=1.10.0" },

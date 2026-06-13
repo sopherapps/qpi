@@ -18,6 +18,11 @@ build: venv-check
 	(cd qpi-interface && go build -o ../bin/qpi .)
 	@echo "Installing python package..."
 	$(UV) sync --project qpi-driver --extra cli --extra aer --extra quantify --dev
+	@if [ "$$(uname)" = "Darwin" ]; then \
+		echo "Fixing macOS codesign for q1asm_macos..."; \
+		codesign --force --deep --sign - qpi-driver/.venv/lib/python3.12/site-packages/qblox_instruments/assemblers/q1asm_macos 2>/dev/null || true; \
+	fi
+
 
 test:
 	@echo "Running Go unit tests..."

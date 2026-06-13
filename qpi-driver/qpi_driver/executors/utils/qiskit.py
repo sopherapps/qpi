@@ -17,7 +17,7 @@ def load_qasm(value: str, num_qubits: int | None = None) -> QuantumCircuit:
     try:
         try:
             return qasm3.loads(value, num_qubits=num_qubits)
-        except qasm3.QASM3Error:
+        except Exception:
             return qasm2.loads(value, strict=True)
     except Exception as exc:
         raise ValueError(f"Failed to parse QASM circuit: {exc}") from exc

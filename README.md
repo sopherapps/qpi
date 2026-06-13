@@ -18,7 +18,7 @@ The architecture consists of two primary components:
 1. **PocketBase Go Orchestrator (`qpi-interface/main.go`):** Extends PocketBase with Go, handling job queues, session-based bookings, and real-time job dispatching. Actively listens for LAN connections on dynamically allocated network ports.
 2. **Python Hardware Driver (`qpi-driver`):** Runs on isolated hardware nodes controlling the QPU. Uses Python's `multiprocessing` library to isolate network handling, quantum circuit compilation/simulation, and translation into separate processes.
 
-To avoid pickling overhead over multiprocessing queues, intermediate `xarray` datasets are saved as NetCDF `.nc` files to a local directory (e.g. `bin/data/`) and the filepaths are passed between the worker and translator processes. The translator deletes the files immediately after loading them.
+To avoid pickling/serialization overhead over multiprocessing queues, intermediate `xarray` datasets are saved as pickled `.pkl` files to a local directory (e.g. `bin/data/`) and the filepaths are passed between the worker and translator processes. The translator deletes the files immediately after loading them.
 
 ```mermaid
 graph TD
@@ -33,7 +33,7 @@ graph TD
         MainProc[Main Process: NNG PULL]
         Worker[Worker Process: Executor]
         Translator[Translator Process: NNG PUSH]
-        DataDir[(bin/data/ .nc files)]
+        DataDir[(bin/data/ .pkl files)]
     end
 
     %% Client Interactions

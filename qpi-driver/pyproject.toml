@@ -19,7 +19,8 @@ dependencies = [
     "requests>=2.31.0",
     "qiskit>=1.0.0",
     "scipy>=1.10.0",
-    "pyyaml>=6.0"
+    "pyyaml>=6.0",
+    "qiskit_qasm3_import"
 ]
 
 [project.optional-dependencies]

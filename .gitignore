@@ -278,3 +278,5 @@ quantify.device.yaml
 
 **.hex
 **.q1asm
+**.nc
+**.pkl

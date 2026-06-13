@@ -58,7 +58,7 @@ if typer.IS_TYPER_INSTALLED:
                 "--data-dir",
                 "-d",
                 envvar="QPI_DATA_DIR",
-                help="Directory where intermediate netCDF datasets are written",
+                help="Directory where intermediate pickled datasets are written",
                 writable=True,
                 readable=True,
                 dir_okay=True,
