@@ -6,7 +6,7 @@
 set -e
 
 VERSION=${1:-"0.0.1"}
-SRC_DIR="qpi-interface"
+SRC_DIR="qpi-ui"
 DIST_DIR="bin/dist"
 
 echo "=== Starting compilation and packaging for version: $VERSION ==="

@@ -40,7 +40,7 @@ trap cleanup EXIT
 build_orchestrator() {
     echo "[e2e] Building Go orchestrator..."
     mkdir -p "${PROJECT_ROOT}/bin"
-    (cd "${PROJECT_ROOT}/qpi-interface" && go build -o ../bin/qpi .)
+    (cd "${PROJECT_ROOT}/qpi-ui" && go build -o ../bin/qpi .)
 }
 
 build_js_client() {

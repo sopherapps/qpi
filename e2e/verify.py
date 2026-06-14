@@ -373,7 +373,7 @@ def test_recovery_engine():
             return True
 
     print("[verify] ✗ Recovery engine did NOT reset job within 35s "
-          "(may need longer if jobTimeout > 20s in qpi-interface/main.go)")
+          "(may need longer if jobTimeout > 20s in qpi-ui/main.go)")
     return False
 
 

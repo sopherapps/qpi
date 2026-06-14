@@ -31,7 +31,7 @@ jobs:
       uses: actions/setup-go@v5
       with:
         go-version: ${{ matrix.go-version }}
-        cache-dependency-path: 'qpi-interface/go.sum'
+        cache-dependency-path: 'qpi-ui/go.sum'
 
     - name: Set up uv
       uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b
@@ -53,14 +53,14 @@ jobs:
 
     - name: Audit Go Code Formatting
       run: |
-        if [ -n "$(gofmt -l qpi-interface)" ]; then
+        if [ -n "$(gofmt -l qpi-ui)" ]; then
           echo "Go formatting errors found:"
-          gofmt -d qpi-interface
+          gofmt -d qpi-ui
           exit 1
         fi
 
     - name: Vet Go Code
-      run: cd qpi-interface && go vet ./...
+      run: cd qpi-ui && go vet ./...
 
     - name: Audit Python Code Formatting & Style
       run: |
@@ -68,7 +68,7 @@ jobs:
         uv run --project qpi-driver ruff check qpi-driver/
 
     - name: Run Go Unit Tests
-      run: cd qpi-interface && go test -v ./...
+      run: cd qpi-ui && go test -v ./...
 
     - name: Run Python Unit Tests for '${{ matrix.extra }}'
       run: uv run --project qpi-driver pytest qpi-driver/tests/

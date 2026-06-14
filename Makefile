@@ -15,7 +15,7 @@ venv-check:
 build: venv-check build-dashboard
 	@echo "Building Go orchestrator..."
 	mkdir -p bin
-	(cd qpi-interface && go build -o ../bin/qpi .)
+	(cd qpi-ui && go build -o ../bin/qpi .)
 	@echo "Installing python driver package..."
 	$(UV) sync --project qpi-driver --extra cli --extra aer --extra quantify --dev
 	@if [ "$$(uname)" = "Darwin" ]; then \
@@ -27,7 +27,7 @@ build: venv-check build-dashboard
 
 build-dashboard:
 	@echo "Building React dashboard..."
-	(cd qpi-interface/internal/dashboard && npm ci && npm run build)
+	(cd qpi-ui/internal/dashboard && npm ci && npm run build)
 
 # ---------------------------------------------------------------------------
 # Test targets
@@ -37,7 +37,7 @@ test: test-go test-py test-js-client test-go-client test-py-client test-e2e
 
 test-go:
 	@echo "Running Go unit tests (orchestrator)..."
-	(cd qpi-interface && go test -v ./...)
+	(cd qpi-ui && go test -v ./...)
 
 test-py: test-py-base test-py-cli test-py-aer test-py-quantify
 
@@ -104,8 +104,8 @@ lint: lint-go lint-py lint-js lint-go-client lint-py-client
 
 lint-go:
 	@echo "Linting Go orchestrator files..."
-	(cd qpi-interface && go vet ./...)
-	(cd qpi-interface && gofmt -l -d .)
+	(cd qpi-ui && go vet ./...)
+	(cd qpi-ui && gofmt -l -d .)
 
 lint-py:
 	@echo "Linting Python driver files..."
@@ -132,7 +132,7 @@ format: format-go format-py format-js format-go-client format-py-client
 
 format-go:
 	@echo "Formatting Go orchestrator files..."
-	(cd qpi-interface && go fmt ./...)
+	(cd qpi-ui && go fmt ./...)
 
 format-py:
 	@echo "Formatting and sorting imports for Python driver files..."
