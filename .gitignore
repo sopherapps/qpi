@@ -54,3 +54,5 @@ cover/
 
 # Ruff stuff:
 .ruff_cache/
+
+**/qpi
