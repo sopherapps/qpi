@@ -39,6 +39,9 @@ func EnsureSchema(app core.App) error {
 	if err := ensureQPUTimeRequestsCollection(app, cfg); err != nil {
 		return fmt.Errorf("qpu_time_requests collection: %w", err)
 	}
+	if err := ensureNotificationsCollection(app, cfg); err != nil {
+		return fmt.Errorf("notifications collection: %w", err)
+	}
 
 	log.Println("[QPi] Schema OK")
 	return nil
@@ -394,8 +397,93 @@ func ensureQPUTimeRequestsCollection(app core.App, cfg *config.AppConfig) error 
 	col.ListRule = types.Pointer("@request.auth.id != \"\" && user = @request.auth.id")
 	col.ViewRule = types.Pointer("@request.auth.id != \"\" && user = @request.auth.id")
 	col.CreateRule = types.Pointer("@request.auth.id != \"\" && user = @request.auth.id && status = \"pending\"")
-	col.UpdateRule = types.Pointer("") // Disallowed for regular users; superusers bypass
+	col.UpdateRule = nil // Disallowed for regular users; superusers bypass
 	col.DeleteRule = types.Pointer("@request.auth.id != \"\" && user = @request.auth.id && status = \"pending\"")
+
+	return app.Save(col)
+}
+
+// ensureNotificationsCollection creates/updates the collection storing admin notifications
+// that can target specific users or all users (empty target_users = broadcast).
+func ensureNotificationsCollection(app core.App, cfg *config.AppConfig) error {
+	col, err := app.FindCollectionByNameOrId(cfg.CollectionNotifications)
+	if err != nil {
+		col = core.NewBaseCollection(cfg.CollectionNotifications)
+	}
+
+	hasTitle := false
+	hasDescription := false
+	hasTargetUsers := false
+	hasStartTime := false
+	hasEndTime := false
+	hasDismissedBy := false
+
+	for _, f := range col.Fields {
+		switch f.GetName() {
+		case "title":
+			hasTitle = true
+		case "description":
+			hasDescription = true
+		case "target_users":
+			hasTargetUsers = true
+		case "start_time":
+			hasStartTime = true
+		case "end_time":
+			hasEndTime = true
+		case "dismissed_by":
+			hasDismissedBy = true
+		}
+	}
+
+	if !hasTitle {
+		col.Fields.Add(&core.TextField{Name: "title", Required: true})
+	}
+	if !hasDescription {
+		col.Fields.Add(&core.TextField{Name: "description"})
+	}
+
+	usersCol, err := app.FindCollectionByNameOrId("users")
+	if err == nil {
+		if !hasTargetUsers {
+			col.Fields.Add(&core.RelationField{
+				Name:         "target_users",
+				CollectionId: usersCol.Id,
+				MaxSelect:    0, // 0 = unlimited
+			})
+		}
+		if !hasDismissedBy {
+			col.Fields.Add(&core.RelationField{
+				Name:         "dismissed_by",
+				CollectionId: usersCol.Id,
+				MaxSelect:    0, // 0 = unlimited
+			})
+		}
+	}
+
+	if !hasStartTime {
+		col.Fields.Add(&core.DateField{Name: "start_time"})
+	}
+	if !hasEndTime {
+		col.Fields.Add(&core.DateField{Name: "end_time"})
+	}
+
+	// Visibility rules:
+	// - authenticated users only
+	// - target_users empty (broadcast) OR current user is in target_users
+	// - within start_time / end_time window (if set)
+	// - not dismissed by current user
+	visibilityRule := "@request.auth.id != \"\" && " +
+		"(@request.auth.id ?= target_users.id || target_users:length = 0) && " +
+		"(start_time = '' || start_time <= @now) && " +
+		"(end_time = '' || end_time >= @now) && " +
+		"(dismissed_by:length = 0 || dismissed_by.id ?!= @request.auth.id)"
+
+	col.ListRule = types.Pointer(visibilityRule)
+	col.ViewRule = types.Pointer(visibilityRule)
+	// nil = disabled for regular users; superusers bypass API rules
+	col.CreateRule = nil
+	col.UpdateRule = nil
+	col.DeleteRule = nil
 
 	return app.Save(col)
 }

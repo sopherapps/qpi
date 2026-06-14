@@ -714,7 +714,16 @@ def test_qpu_time_requests_validation():
         return False
     print("[verify] ✓ User A deleted their own pending request successfully")
 
-    # 9. Admin approves User A's request
+    # 9. User A tries to update their own request (should fail — update disabled for regular users)
+    resp = user_session.patch(f"{BASE}/api/collections/qpu_time_requests/records/{req_id}", json={
+        "requested_reason": "Changed",
+    })
+    if resp.status_code not in (403, 404):
+        print(f"[verify] ✗ User A was allowed to update their own request: {resp.status_code}")
+        return False
+    print("[verify] ✓ User A updating own request was rejected")
+
+    # 10. Admin approves User A's request
     resp = s.patch(f"{BASE}/api/collections/qpu_time_requests/records/{req_id}", json={
         "status": "approved",
     })
@@ -739,7 +748,7 @@ def test_qpu_time_requests_validation():
         return False
     print(f"[verify] ✓ User credited successfully (New balance: {updated_seconds})")
 
-    # 10. Admin tries to change status from approved to pending or rejected (should fail)
+    # 11. Admin tries to change status from approved to pending or rejected (should fail)
     resp = s.patch(f"{BASE}/api/collections/qpu_time_requests/records/{req_id}", json={
         "status": "pending",
     })
@@ -748,7 +757,7 @@ def test_qpu_time_requests_validation():
         return False
     print("[verify] ✓ Modifying processed request status was rejected correctly")
 
-    # 11. User A tries to delete the approved request (should fail because status is not pending)
+    # 12. User A tries to delete the approved request (should fail because status is not pending)
     resp = user_session.delete(f"{BASE}/api/collections/qpu_time_requests/records/{req_id}")
     if resp.status_code == 204:
         print("[verify] ✗ User A successfully deleted an approved request!")
@@ -757,6 +766,190 @@ def test_qpu_time_requests_validation():
 
     # Cleanup: Admin deletes the request
     s.delete(f"{BASE}/api/collections/qpu_time_requests/records/{req_id}")
+    return True
+
+
+def test_notifications_crud():
+    """Verify notifications CRUD, visibility rules, and dismiss functionality."""
+    print("\n[verify] Testing Notifications CRUD & Visibility …")
+
+    # 1. Authenticate User A
+    user_session = requests.Session()
+    resp = user_session.post(f"{BASE}/api/collections/users/auth-with-password",
+                             json={"identity": "user@example.com", "password": "userpassword1234"})
+    if resp.status_code != 200:
+        print(f"[verify] ✗ Failed to authenticate User A: {resp.text}")
+        return False
+    user_token = resp.json()["token"]
+    user_id = resp.json()["record"]["id"]
+    user_session.headers["Authorization"] = user_token
+    print("[verify] User A authenticated")
+
+    # 2. Admin creates a broadcast notification (no target_users)
+    now = datetime.now(timezone.utc)
+    past_start = (now - timedelta(hours=1)).strftime("%Y-%m-%d %H:%M:%S.000Z")
+    future_end = (now + timedelta(hours=1)).strftime("%Y-%m-%d %H:%M:%S.000Z")
+    resp = s.post(f"{BASE}/api/collections/notifications/records", json={
+        "title": "System Maintenance",
+        "description": "Scheduled maintenance tonight.",
+        "start_time": past_start,
+        "end_time": future_end,
+    })
+    if resp.status_code not in (200, 201):
+        print(f"[verify] ✗ Admin failed to create broadcast notification: {resp.status_code} {resp.text}")
+        return False
+    broadcast_id = resp.json()["id"]
+    print("[verify] ✓ Admin created broadcast notification")
+
+    # 3. Admin creates a targeted notification for User A only
+    resp = s.post(f"{BASE}/api/collections/notifications/records", json={
+        "title": "Personal Alert",
+        "description": "Your QPU time is low.",
+        "target_users": [user_id],
+        "start_time": past_start,
+        "end_time": future_end,
+    })
+    if resp.status_code not in (200, 201):
+        print(f"[verify] ✗ Admin failed to create targeted notification: {resp.status_code} {resp.text}")
+        return False
+    targeted_id = resp.json()["id"]
+    print("[verify] ✓ Admin created targeted notification")
+
+    # 4. Admin creates a future notification (not yet visible)
+    future_start = (now + timedelta(hours=2)).strftime("%Y-%m-%d %H:%M:%S.000Z")
+    future_end_2 = (now + timedelta(hours=3)).strftime("%Y-%m-%d %H:%M:%S.000Z")
+    resp = s.post(f"{BASE}/api/collections/notifications/records", json={
+        "title": "Future Announcement",
+        "description": "This should not be visible yet.",
+        "start_time": future_start,
+        "end_time": future_end_2,
+    })
+    if resp.status_code not in (200, 201):
+        print(f"[verify] ✗ Admin failed to create future notification: {resp.status_code} {resp.text}")
+        return False
+    future_id = resp.json()["id"]
+    print("[verify] ✓ Admin created future notification")
+
+    # 5. User A lists notifications — should see broadcast + targeted, not future
+    resp = user_session.get(f"{BASE}/api/collections/notifications/records")
+    if resp.status_code != 200:
+        print(f"[verify] ✗ User A failed to list notifications: {resp.text}")
+        return False
+    items = resp.json()["items"]
+    ids = {i["id"] for i in items}
+    if broadcast_id not in ids:
+        print("[verify] ✗ User A cannot see broadcast notification")
+        return False
+    if targeted_id not in ids:
+        print("[verify] ✗ User A cannot see targeted notification")
+        return False
+    if future_id in ids:
+        print("[verify] ✗ User A can see future notification (should be hidden)")
+        return False
+    print(f"[verify] ✓ User A sees correct notifications ({len(items)} visible)")
+
+    # 6. User B lists notifications — should see broadcast only, not targeted
+    userB_session = requests.Session()
+    resp = userB_session.post(f"{BASE}/api/collections/users/auth-with-password",
+                              json={"identity": "userB@example.com", "password": "userBpassword1234"})
+    if resp.status_code != 200:
+        print(f"[verify] ✗ Failed to authenticate User B: {resp.text}")
+        return False
+    userB_session.headers["Authorization"] = resp.json()["token"]
+
+    resp = userB_session.get(f"{BASE}/api/collections/notifications/records")
+    if resp.status_code != 200:
+        print(f"[verify] ✗ User B failed to list notifications: {resp.text}")
+        return False
+    itemsB = resp.json()["items"]
+    idsB = {i["id"] for i in itemsB}
+    if broadcast_id not in idsB:
+        print("[verify] ✗ User B cannot see broadcast notification")
+        return False
+    if targeted_id in idsB:
+        print("[verify] ✗ User B can see targeted notification meant for User A")
+        return False
+    print("[verify] ✓ User B sees only broadcast notification")
+
+    # 7. User A dismisses the broadcast notification
+    resp = user_session.post(f"{BASE}/api/notifications/{broadcast_id}/dismiss")
+    if resp.status_code != 200:
+        print(f"[verify] ✗ User A failed to dismiss notification: {resp.status_code} {resp.text}")
+        return False
+    print("[verify] ✓ User A dismissed broadcast notification")
+
+    # 8. User A lists again — broadcast should be gone, targeted still visible
+    resp = user_session.get(f"{BASE}/api/collections/notifications/records")
+    if resp.status_code != 200:
+        print(f"[verify] ✗ User A failed to list notifications after dismiss: {resp.text}")
+        return False
+    items = resp.json()["items"]
+    ids = {i["id"] for i in items}
+    if broadcast_id in ids:
+        print("[verify] ✗ Dismissed broadcast still visible to User A")
+        return False
+    if targeted_id not in ids:
+        print("[verify] ✗ Targeted notification disappeared after unrelated dismiss")
+        return False
+    print("[verify] ✓ Dismissed notification hidden from User A")
+
+    # 9. User B still sees broadcast (not dismissed by them)
+    resp = userB_session.get(f"{BASE}/api/collections/notifications/records")
+    itemsB = resp.json()["items"]
+    idsB = {i["id"] for i in itemsB}
+    if broadcast_id not in idsB:
+        print("[verify] ✗ Broadcast hidden from User B after User A dismissed it")
+        return False
+    print("[verify] ✓ User B still sees broadcast after User A dismissed")
+
+    # 10. Non-admin user tries to create a notification (should fail)
+    resp = user_session.post(f"{BASE}/api/collections/notifications/records", json={
+        "title": "Unauthorized",
+        "description": "Should not be allowed.",
+    })
+    if resp.status_code not in (403, 404):
+        print(f"[verify] ✗ Non-admin was allowed to create notification: {resp.status_code}")
+        return False
+    print("[verify] ✓ Non-admin creation rejected")
+
+    # 11. Non-admin user tries to update a notification (should fail)
+    resp = user_session.patch(f"{BASE}/api/collections/notifications/records/{broadcast_id}", json={
+        "title": "Hacked",
+    })
+    if resp.status_code not in (403, 404):
+        print(f"[verify] ✗ Non-admin was allowed to update notification: {resp.status_code}")
+        return False
+    print("[verify] ✓ Non-admin update rejected")
+
+    # 12. Non-admin user tries to delete a notification (should fail)
+    resp = user_session.delete(f"{BASE}/api/collections/notifications/records/{broadcast_id}")
+    if resp.status_code not in (403, 404):
+        print(f"[verify] ✗ Non-admin was allowed to delete notification: {resp.status_code}")
+        return False
+    print("[verify] ✓ Non-admin delete rejected")
+
+    # 13. Admin updates notification
+    resp = s.patch(f"{BASE}/api/collections/notifications/records/{broadcast_id}", json={
+        "title": "Updated Maintenance",
+    })
+    if resp.status_code != 200:
+        print(f"[verify] ✗ Admin failed to update notification: {resp.status_code} {resp.text}")
+        return False
+    if resp.json()["title"] != "Updated Maintenance":
+        print("[verify] ✗ Notification title not updated")
+        return False
+    print("[verify] ✓ Admin updated notification")
+
+    # 14. Admin deletes future notification
+    resp = s.delete(f"{BASE}/api/collections/notifications/records/{future_id}")
+    if resp.status_code != 204:
+        print(f"[verify] ✗ Admin failed to delete notification: {resp.status_code} {resp.text}")
+        return False
+    print("[verify] ✓ Admin deleted notification")
+
+    # Cleanup remaining notifications
+    s.delete(f"{BASE}/api/collections/notifications/records/{broadcast_id}")
+    s.delete(f"{BASE}/api/collections/notifications/records/{targeted_id}")
     return True
 
 
@@ -799,6 +992,9 @@ def run_driver_tests():
         all_passed = False
 
     if not test_qpu_toggle_switch():
+        all_passed = False
+
+    if not test_notifications_crud():
         all_passed = False
 
     return all_passed

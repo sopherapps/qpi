@@ -99,6 +99,11 @@ type tokenUpdateRequest struct {
 	ExpiresAt *string `json:"expires_at,omitempty"`
 }
 
+// dismissRequest represents the JSON payload for POST /api/notifications/{id}/dismiss.
+type dismissRequest struct {
+	UserID string `json:"user_id,omitempty"`
+}
+
 // HashToken returns a SHA-256 hex digest of the raw token value.
 func HashToken(raw string) string {
 	h := sha256.Sum256([]byte(raw))
@@ -169,6 +174,11 @@ func RegisterRoutes(e *core.ServeEvent) {
 	})
 	e.Router.DELETE("/api/tokens/{id}", func(re *core.RequestEvent) error {
 		return handleTokenDelete(re)
+	})
+
+	// Notification dismiss route (authenticated users only)
+	e.Router.POST("/api/notifications/{id}/dismiss", func(re *core.RequestEvent) error {
+		return handleNotificationDismiss(re)
 	})
 }
 
@@ -655,6 +665,60 @@ func handleTokenUpdate(re *core.RequestEvent) error {
 		"created":    record.GetString("created"),
 		"updated":    record.GetString("updated"),
 	})
+}
+
+// handleNotificationDismiss handles POST /api/notifications/{id}/dismiss —
+// adds the authenticated user to the notification's dismissed_by relation.
+func handleNotificationDismiss(re *core.RequestEvent) error {
+	cfg, err := config.GetConfigFromApp(re.App)
+	if err != nil {
+		return re.Error(http.StatusInternalServerError, "failed to retrieve configuration", err)
+	}
+
+	user, err := resolveUserAuth(re)
+	if err != nil {
+		return re.Error(http.StatusUnauthorized, "authentication required", err)
+	}
+
+	notifID := re.Request.PathValue("id")
+	record, err := re.App.FindRecordById(cfg.CollectionNotifications, notifID)
+	if err != nil {
+		return re.Error(http.StatusNotFound, "notification not found", err)
+	}
+
+	// Verify the user is allowed to see this notification (target_users empty or includes user)
+	targetUsers := record.GetStringSlice("target_users")
+	if len(targetUsers) > 0 {
+		found := false
+		for _, uid := range targetUsers {
+			if uid == user.Id {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return re.Error(http.StatusForbidden, "access denied", nil)
+		}
+	}
+
+	// Add user to dismissed_by if not already present
+	dismissedBy := record.GetStringSlice("dismissed_by")
+	alreadyDismissed := false
+	for _, uid := range dismissedBy {
+		if uid == user.Id {
+			alreadyDismissed = true
+			break
+		}
+	}
+	if !alreadyDismissed {
+		dismissedBy = append(dismissedBy, user.Id)
+		record.Set("dismissed_by", dismissedBy)
+		if err := re.App.Save(record); err != nil {
+			return re.Error(http.StatusInternalServerError, "failed to dismiss notification", err)
+		}
+	}
+
+	return re.JSON(http.StatusOK, map[string]string{"status": "dismissed"})
 }
 
 // handleTokenDelete handles DELETE /api/tokens/{id} — removes a token.

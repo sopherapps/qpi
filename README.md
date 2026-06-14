@@ -52,9 +52,9 @@ graph TD
 
 ### Key Orchestrator Features
 * **Session-Based Booking with Opportunistic FIFO:** Dispatches jobs prioritizing users who have booked the current time slot. Fallback mechanism allows other users' pending jobs to execute if the slot booker is idle.
-* **Session-Based Booking with Opportunistic FIFO:** Dispatches jobs prioritizing users who have booked the current time slot. Fallback mechanism allows other users' pending jobs to execute if the slot booker is idle.
-* **Auto-Schema Migration & Port Allocation:** Automatically creates required database collections (`qpus`, `time_slots`, `quantum_jobs`) and dynamically allocates race-free TCP ports for registered QPUs.
+* **Auto-Schema Migration & Port Allocation:** Automatically creates required database collections (`qpus`, `time_slots`, `quantum_jobs`, `qpu_time_requests`, `notifications`) and dynamically allocates race-free TCP ports for registered QPUs.
 * **Stale Job Recovery:** A background ticking routine monitors running jobs and resets them to `pending` if their driver hangs or disconnects (timeout default: 20 seconds).
+* **Admin Notifications:** Broadcast or targeted notifications with time-window visibility and per-user dismiss support. Only superusers can create, update, or delete notifications. Authenticated users see only notifications relevant to them (broadcast or targeted) that are within their active time window and not dismissed.
 
 ### Orchestrator Configuration Options
 
@@ -66,6 +66,7 @@ The Go orchestrator can be configured via CLI flags, environment variables, or a
 | `--qpus-collection` | `QPI_QPUS_COLLECTION` | `qpus` | Collection name for QPUs. |
 | `--timeslots-collection` | `QPI_TIMESLOTS_COLLECTION` | `time_slots` | Collection name for Reservation Time Slots. |
 | `--jobs-collection` | `QPI_JOBS_COLLECTION` | `quantum_jobs` | Collection name for Quantum Jobs. |
+| `--notifications-collection` | `QPI_NOTIFICATIONS_COLLECTION` | `notifications` | Collection name for Notifications. |
 | `--idle-threshold` | `QPI_IDLE_THRESHOLD` | `5s` | Time to wait before running fallback FIFO jobs. |
 | `--recovery-interval` | `QPI_RECOVERY_INTERVAL` | `10s` | Interval for resetting hung/stale jobs. |
 | `--job-timeout` | `QPI_JOB_TIMEOUT` | `20s` | Max execution time before a job is reset. |
@@ -74,6 +75,45 @@ The Go orchestrator can be configured via CLI flags, environment variables, or a
 | `--port-range-end` | `QPI_PORT_RANGE_END` | `7000` | NNG port range end. |
 | `--disable-email-password-auth` | `QPI_DISABLE_EMAIL_PASSWORD_AUTH` | `false` | Disable email/password login on the users collection. |
 | `--oauth2-providers` | `QPI_OAUTH2_PROVIDERS` | | JSON string representing OAuth2 providers config. |
+
+---
+
+## Orchestrator API & Collections
+
+The orchestrator exposes both **custom HTTP routes** and **PocketBase collection endpoints** for client interaction.
+
+### Custom Routes
+
+| Method | Route | Auth | Description |
+|---|---|---|---|
+| `POST` | `/api/op/qpu/register` | Registration token | Registers a QPU driver and returns assigned NNG ports + JWT. |
+| `POST` | `/api/op/qpu/toggle` | Superuser | Enables or disables a QPU by name. |
+| `POST` | `/api/jobs` | Authenticated | Submits a new quantum job. |
+| `GET`  | `/api/jobs` | Authenticated | Lists jobs for the authenticated user. |
+| `GET`  | `/api/jobs/{id}` | Authenticated | Retrieves a specific job. |
+| `POST` | `/api/jobs/{id}/cancel` | Authenticated | Cancels a pending job. |
+| `GET`  | `/api/qpus` | Public | Lists all registered QPUs. |
+| `GET`  | `/api/qpus/{name}` | Public | Retrieves a specific QPU. |
+| `POST` | `/api/tokens` | Authenticated | Creates a new API token. |
+| `GET`  | `/api/tokens` | Authenticated | Lists API tokens for the authenticated user. |
+| `GET`  | `/api/tokens/{id}` | Authenticated | Retrieves a specific API token. |
+| `PATCH`| `/api/tokens/{id}` | Authenticated | Updates an API token (name/expiry). |
+| `DELETE`| `/api/tokens/{id}` | Authenticated | Deletes an API token. |
+| `PATCH`| `/api/admin/users/{id}` | Superuser | Updates `qpu_seconds` or `api_tokens` on any user. |
+| `POST` | `/api/notifications/{id}/dismiss` | Authenticated | Dismisses a notification for the current user. |
+
+### PocketBase Collections
+
+All collection endpoints follow the standard PocketBase REST pattern: `/api/collections/{name}/records`.
+
+| Collection | Auth Rules | Description |
+|---|---|---|
+| `users` | Owner-only | Authenticated users with `qpu_seconds` balance. |
+| `qpus` | Public read; superuser CUD | QPU hardware records with status, ports, and config. |
+| `time_slots` | Owner-only CRUD; superuser bypass | Calendar reservations linked to `users`. |
+| `quantum_jobs` | Public read; authenticated create | Job queue with payload, status, and results. |
+| `qpu_time_requests` | Owner-only CRUD; superuser update | Requests for additional QPU time (pending/approved/rejected). |
+| `notifications` | Authenticated read (visibility-filtered); superuser CUD | Admin announcements with broadcast/targeted reach, time windows, and dismiss tracking. |
 
 ---
 
@@ -196,8 +236,7 @@ If the workflow runs on a `push` to `main`/`master` and the repository environme
 - [x] Add CRUD (authenticated/authorized) for submitting/viewing/cancelling booking slots by users
 - [x] Add CRUD (authenticated/authorized) for requesting/approving/rejecting/viewing QPU time by users
 - [x] Add off/on-switch for QPI-drivers
-- [ ] Add CRUD for notifications, which can target a list of users or all users (i.e. target_user: nil). Users can dismiss a notification for themselves such that when they query for notifications by default, they don't see dismissed notifications. Users can see their own notifications but admins have access to all notifications. Only admins can create/delete/update notifications. Notifications
-can have a start timestamp and an end timestamp. Before the start and after the end, normal users cannot see them. They have a title and description.
+- [x] Add CRUD for notifications, which can target a list of users or all users (i.e. target_users: empty = broadcast). Users can dismiss a notification for themselves such that when they query for notifications by default, they don't see dismissed notifications. Users can see their own notifications but admins have access to all notifications. Only admins can create/delete/update notifications. Notifications can have a start timestamp and an end timestamp. Before the start and after the end, normal users cannot see them. They have a title and description.
 - [ ] Update js,py, and go qpi-clients to use the pocketbase SDK and access all possible routes provided by qpi-interface
 - [ ] Add dashboard for viewing jobs, admins allocating QPU time, setting maintenance, scheduling
   announcements, viewing QPU calibration data, viewing job results and statuses (probably using the qpi-client (js)) etc. It needs to be embedded in qpi-interface and served as static files
