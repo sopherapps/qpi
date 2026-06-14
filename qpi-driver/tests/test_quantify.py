@@ -145,3 +145,36 @@ def test_quantify_executor_invalid_gate_raises(qasm):
     with pytest.raises(ValueError) as excinfo:
         executor.execute(payload)
     assert "not supported" in str(excinfo.value)
+
+
+@pytest.mark.skipif(
+    not has_quantify,
+    reason="quantify-scheduler and qblox-instruments must be installed to run quantify tests",
+)
+def test_quantify_executor_payload_rotation_threshold():
+    """Verify that QuantifyExecutor respects acq_rotation and acq_threshold in JobPayload."""
+    executor = resolve_executor(
+        "quantify",
+        is_dummy=True,
+        quantify_hardware_config=_QUANTIFY_HARDWARE_CONFIG,
+        quantify_device_config=_QUANTIFY_DEVICE_CONFIG,
+    )
+    qasm = """OPENQASM 2.0;
+include "qelib1.inc";
+qreg q[1];
+creg c[1];
+x q[0];
+measure q[0] -> c[0];"""
+    payload = JobPayload(
+        circuits=[CircuitPayload(circuit=qasm)],
+        shots=10,
+        meas_level=2,
+        acq_rotation=45.0,
+        acq_threshold=0.1,
+    )
+    dataset = executor.execute(payload)
+    assert dataset.attrs.get("acq_rotation") == 45.0
+    assert dataset.attrs.get("acq_threshold") == 0.1
+
+    res = executor.process_result(dataset, "job-rotation-threshold")
+    assert "counts" in res

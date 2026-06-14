@@ -22,6 +22,8 @@ class JobPayload:
     shots: int = 1024
     meas_level: int = 2  # 2=counts, 1=kerneled IQ, 0=raw IQ
     meas_return: str = "single"  # "single" or "avg"
+    acq_rotation: float | None = None
+    acq_threshold: float | None = None
 
     @property
     def qasm(self) -> str:
@@ -53,6 +55,12 @@ class JobPayload:
         identifier = data.get("id") or str(uuid.uuid4())
         meas_level = data.get("meas_level", 2)
         meas_return = data.get("meas_return", "single")
+        acq_rotation = data.get("acq_rotation")
+        if acq_rotation is not None:
+            acq_rotation = float(acq_rotation)
+        acq_threshold = data.get("acq_threshold")
+        if acq_threshold is not None:
+            acq_threshold = float(acq_threshold)
 
         # New-style: list of circuit dicts under "circuits"
         raw_circuits = data.get("circuits")
@@ -103,6 +111,8 @@ class JobPayload:
             id=identifier,
             meas_level=meas_level,
             meas_return=meas_return,
+            acq_rotation=acq_rotation,
+            acq_threshold=acq_threshold,
         )
 
 
@@ -119,6 +129,26 @@ class Executor(ABC):
 
         Returns:
             xr.Dataset: Dataset mimicking the raw measurement counts and frequencies.
+        """
+        pass
+
+    @abstractmethod
+    def process_result(self, dataset: xr.Dataset, job_id: str) -> dict:
+        """Convert a raw xr.Dataset from execute() into a Qiskit-compatible result dict.
+
+        Each executor knows its own data format and how to:
+        - Perform state discrimination (if meas_level=2)
+        - Return IQ memory (if meas_level=1)
+        - Return raw traces (if meas_level=0)
+        - Handle meas_return averaging
+
+        Args:
+            dataset: The xr.Dataset returned by execute().
+            job_id: The unique ID of the quantum job.
+
+        Returns:
+            dict: Qiskit-compatible result dict with keys like 'counts', 'memory',
+                  'shots', 'backend', 'success', etc.
         """
         pass
 

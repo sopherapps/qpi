@@ -6,6 +6,7 @@ from qiskit import transpile
 from qpi_driver.compat.qiskit_aer import IS_AER_INSTALLED, AerSimulator
 from qpi_driver.executors.base import Executor, JobPayload
 from qpi_driver.executors.utils.qiskit import load_qasm, memory_to_dataset
+from qpi_driver.executors.utils.result import build_qiskit_result, iq_memory_avg
 
 
 class QiskitAerExecutor(Executor):
@@ -55,9 +56,7 @@ class QiskitAerExecutor(Executor):
                 memory = result.get_memory(t_qc)
                 n_qubits = circuit.num_qubits
 
-                ds = memory_to_dataset(
-                    memory, n_qubits, circ_shots, payload.meas_level
-                )
+                ds = memory_to_dataset(memory, n_qubits, circ_shots, payload.meas_level)
                 sub_datasets.append(ds)
 
         # Backward compatible: single result → flat dataset (no circuit_index)
@@ -86,3 +85,94 @@ class QiskitAerExecutor(Executor):
             }
         )
         return combined
+
+    def process_result(self, dataset: xr.Dataset, job_id: str) -> dict:
+        """Convert the simulator's xr.Dataset into a Qiskit-compatible result dict.
+
+        Supports meas_level 1 (IQ memory) and 2 (classified counts).
+        meas_level 0 is not supported for simulators.
+
+        Args:
+            dataset: xr.Dataset from execute().
+            job_id: Unique job ID.
+
+        Returns:
+            dict: Qiskit-compatible result dict.
+        """
+        meas_level = int(dataset.attrs.get("meas_level", 2))
+        meas_return = str(dataset.attrs.get("meas_return", "single"))
+        backend = dataset.attrs.get("backend", self.name)
+
+        # Handle multi-circuit datasets
+        if "circuit_index" in dataset.dims:
+            circuit_results = []
+            for ci in range(dataset.sizes["circuit_index"]):
+                sub_ds = dataset.isel(circuit_index=ci)
+                sub_ds.attrs.update(dataset.attrs)
+                circuit_results.append(
+                    self._single_dataset_to_result(sub_ds, meas_level, meas_return)
+                )
+            return build_qiskit_result(circuit_results, job_id, backend)
+
+        # Single circuit
+        single = self._single_dataset_to_result(dataset, meas_level, meas_return)
+        return build_qiskit_result([single], job_id, backend)
+
+    @staticmethod
+    def _single_dataset_to_result(
+        dataset: xr.Dataset, meas_level: int, meas_return: str
+    ) -> dict:
+        """Extract counts or IQ memory from a single-circuit dataset slice."""
+        # Identify qubit variables (integer-named data vars)
+        qubit_vars = []
+        for var in dataset.data_vars:
+            try:
+                qubit_vars.append(int(var))
+            except ValueError:
+                pass
+        if not qubit_vars:
+            return {"raw": str(dataset), "shots": 0}
+
+        qubit_vars.sort()
+        q0_key = str(qubit_vars[0])
+        shots = int(dataset.attrs.get("shots", len(dataset[q0_key])))
+
+        # meas_level=1: return IQ memory
+        if meas_level == 1:
+            memory: list[list[list[float]]] = []
+            num_samples = len(dataset[q0_key])
+            for s in range(num_samples):
+                shot_iq = []
+                for q_idx in qubit_vars:
+                    val = dataset[str(q_idx)].values[s]
+                    shot_iq.append([float(val.real), float(val.imag)])
+                memory.append(shot_iq)
+
+            if meas_return == "avg" and memory:
+                memory = iq_memory_avg(memory, len(qubit_vars))
+
+            return {"memory": memory, "shots": shots}
+
+        # meas_level=2: classified counts
+        n_qubits = len(qubit_vars)
+        counts_dict: dict[str, int] = {}
+        num_samples = len(dataset[q0_key])
+        for s in range(num_samples):
+            state_chars = []
+            for q_idx in reversed(qubit_vars):
+                val = dataset[str(q_idx)].values[s]
+                state_chars.append("1" if val.real > 0.5 else "0")
+            state_str = "".join(state_chars)
+            counts_dict[state_str] = counts_dict.get(state_str, 0) + 1
+
+        if num_samples == 1 and shots > 1:
+            state_str = list(counts_dict.keys())[0]
+            counts_dict = {state_str: shots}
+
+        # Pad with 0 counts for all 2^N states
+        states_list = [format(i, f"0{n_qubits}b") for i in range(2**n_qubits)]
+        for st in states_list:
+            if st not in counts_dict:
+                counts_dict[st] = 0
+
+        return {"counts": counts_dict, "shots": shots}

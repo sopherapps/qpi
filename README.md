@@ -18,7 +18,7 @@ The architecture consists of two primary components:
 1. **PocketBase Go Orchestrator (`qpi-interface/main.go`):** Extends PocketBase with Go, handling job queues, session-based bookings, and real-time job dispatching. Actively listens for LAN connections on dynamically allocated network ports.
 2. **Python Hardware Driver (`qpi-driver`):** Runs on isolated hardware nodes controlling the QPU. Uses Python's `multiprocessing` library to isolate network handling, quantum circuit compilation/simulation, and translation into separate processes.
 
-To avoid pickling/serialization overhead over multiprocessing queues, intermediate `xarray` datasets are saved as pickled `.pkl` files to a local directory (e.g. `bin/data/`) and the filepaths are passed between the worker and translator processes. The translator deletes the files immediately after loading them.
+To optimize performance and simplify communication over multiprocessing queues, the worker process executes the quantum job, processes the resulting `xarray` dataset into a Qiskit-compatible result dictionary using the executor's `process_result()` method, and directly sends the results via the queue to the result sender process. This removes file-system serialization overhead.
 
 ```mermaid
 graph TD
@@ -32,8 +32,7 @@ graph TD
     subgraph python_driver [Python Hardware Driver Package]
         MainProc[Main Process: NNG PULL]
         Worker[Worker Process: Executor]
-        Translator[Translator Process: NNG PUSH]
-        DataDir[(bin/data/ .pkl files)]
+        ResultSender[Result Sender Process: NNG PUSH]
     end
 
     %% Client Interactions
@@ -46,10 +45,9 @@ graph TD
     %% Multiprocessing Communication
     Dispatcher -->|NNG PUSH Command Port| MainProc
     MainProc -->|multiprocessing.Queue Job Payload| Worker
-    Worker -->|1. Executes Circuit & Saves Dataset| DataDir
-    Worker -->|2. Queue File Path| Translator
-    Translator -->|3. Loads & Deletes Dataset| DataDir
-    Translator -->|4. NNG PUSH Result Port| Listener
+    Worker -->|1. Executes & Processes Results| Worker
+    Worker -->|2. Queue Qiskit-format Dict| ResultSender
+    ResultSender -->|3. NNG PUSH Result Port| Listener
 ```
 
 ### Key Orchestrator Features
@@ -87,14 +85,19 @@ The Python driver has been modularized as a standard package structure inside th
 The package introduces an abstract base `Executor` class (`base.py`) which library users can extend to implement custom hardware/simulator backends:
 
 ```python
-from qpi_driver import Executor
+from qpi_driver import Executor, JobPayload
 import xarray as xr
 
 class MyCustomExecutor(Executor):
-    def execute(self, payload: dict) -> xr.Dataset:
+    def execute(self, payload: JobPayload) -> xr.Dataset:
         # Implement custom control/simulation logic here
         ...
         return xr.Dataset(...)
+
+    def process_result(self, dataset: xr.Dataset, job_id: str) -> dict:
+        # Convert dataset to Qiskit-compatible results dict
+        ...
+        return {"counts": {...}, "shots": ...}
 ```
 
 Built-in executors include:
@@ -195,3 +198,4 @@ If the workflow runs on a `push` to `main`/`master` and the repository environme
 - [ ] Add off/on-switch for QPI-drivers
 - [ ] Add dashboard for viewing jobs, admins allocating QPU time, setting maintenance, scheduling
   announcements, viewing QPU calibration data, viewing job results and statuses etc.
+- [ ] Add support for the Qblox Scheduler (`qblox-scheduler`) package once a stable release is available on PyPI.
