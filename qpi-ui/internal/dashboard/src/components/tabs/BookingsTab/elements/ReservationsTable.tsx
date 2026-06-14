@@ -8,10 +8,17 @@ interface Props {
   onDelete: (id: string) => void;
 }
 
-export function ReservationsTable({ bookings, currentUserId, isAdmin, onDelete }: Props) {
+export function ReservationsTable({
+  bookings,
+  currentUserId,
+  isAdmin,
+  onDelete,
+}: Props) {
   return (
     <>
-      <h3 className="text-lg font-semibold text-white font-geist">Scheduled Reservations</h3>
+      <h3 className="text-lg font-semibold text-white font-geist">
+        Scheduled Reservations
+      </h3>
       <div className="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
@@ -26,17 +33,26 @@ export function ReservationsTable({ bookings, currentUserId, isAdmin, onDelete }
             <tbody className="text-sm text-zinc-300 divide-y divide-zinc-800/50">
               {bookings.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="py-8 px-4 text-center text-zinc-500 font-medium">
+                  <td
+                    colSpan={4}
+                    className="py-8 px-4 text-center text-zinc-500 font-medium"
+                  >
                     No booking slots scheduled yet.
                   </td>
                 </tr>
               ) : (
                 bookings.map((slot) => {
                   const isOwner = slot.booked_by === currentUserId;
-                  const bookedByName = slot.expand?.booked_by?.email || slot.booked_by;
+                  const bookedByName =
+                    slot.expand?.booked_by?.email || slot.booked_by;
                   return (
-                    <tr key={slot.id} className="hover:bg-zinc-800/20 transition-colors">
-                      <td className="py-3.5 px-4 font-medium text-white">{bookedByName}</td>
+                    <tr
+                      key={slot.id}
+                      className="hover:bg-zinc-800/20 transition-colors"
+                    >
+                      <td className="py-3.5 px-4 font-medium text-white">
+                        {bookedByName}
+                      </td>
                       <td className="py-3.5 px-4 text-zinc-400">
                         {new Date(slot.start_time).toLocaleString()}
                       </td>
@@ -44,7 +60,7 @@ export function ReservationsTable({ bookings, currentUserId, isAdmin, onDelete }
                         {new Date(slot.end_time).toLocaleString()}
                       </td>
                       <td className="py-3.5 px-4 text-right">
-                        {(isOwner || isAdmin) ? (
+                        {isOwner || isAdmin ? (
                           <button
                             onClick={() => onDelete(slot.id)}
                             className="text-red-400 hover:text-red-300 p-1.5 rounded hover:bg-red-500/10 transition-colors focus:outline-none"
@@ -52,7 +68,9 @@ export function ReservationsTable({ bookings, currentUserId, isAdmin, onDelete }
                             <Trash2 className="w-4 h-4" />
                           </button>
                         ) : (
-                          <span className="text-xs text-zinc-600 font-medium">Read-Only</span>
+                          <span className="text-xs text-zinc-600 font-medium">
+                            Read-Only
+                          </span>
                         )}
                       </td>
                     </tr>

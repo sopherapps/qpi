@@ -4,16 +4,25 @@ import type { QPU } from "@/types";
 
 interface Props {
   qpus: QPU[];
-  onSubmitJob: (qpuId: string, qasm: string, shots: number, measLevel: number) => Promise<string>;
+  onSubmitJob: (
+    qpuId: string,
+    qasm: string,
+    shots: number,
+    measLevel: number,
+  ) => Promise<string>;
   onJobSubmitted: (jobId: string) => void;
 }
 
-export const JobSubmissionPanel: React.FC<Props> = ({ qpus, onSubmitJob, onJobSubmitted }) => {
+export const JobSubmissionPanel: React.FC<Props> = ({
+  qpus,
+  onSubmitJob,
+  onJobSubmitted,
+}) => {
   const activeQpus = qpus.filter((q) => q.status === "online");
 
   const [targetQpu, setTargetQpu] = useState("");
   const [qasmCode, setQasmCode] = useState(
-    'OPENQASM 3.0;\ninclude "stdgates.inc";\nqubit[2] q;\nbit[2] c;\nh q[0];\ncx q[0], q[1];\nc = measure q;'
+    'OPENQASM 3.0;\ninclude "stdgates.inc";\nqubit[2] q;\nbit[2] c;\nh q[0];\ncx q[0], q[1];\nc = measure q;',
   );
   const [shots, setShots] = useState(1000);
   const [measLevel, setMeasLevel] = useState(2);
@@ -29,7 +38,7 @@ export const JobSubmissionPanel: React.FC<Props> = ({ qpus, onSubmitJob, onJobSu
 
   const loadExample = () => {
     setQasmCode(
-      'OPENQASM 3.0;\ninclude "stdgates.inc";\nqubit[2] q;\nbit[2] c;\nh q[0];\ncx q[0], q[1];\nc = measure q;'
+      'OPENQASM 3.0;\ninclude "stdgates.inc";\nqubit[2] q;\nbit[2] c;\nh q[0];\ncx q[0], q[1];\nc = measure q;',
     );
   };
 
@@ -43,7 +52,8 @@ export const JobSubmissionPanel: React.FC<Props> = ({ qpus, onSubmitJob, onJobSu
       const newJobId = await onSubmitJob(targetQpu, qasmCode, shots, measLevel);
       onJobSubmitted(newJobId);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Job submission failed";
+      const message =
+        err instanceof Error ? err.message : "Job submission failed";
       alert(`Job submission failed: ${message}`);
     } finally {
       setExecuting(false);
@@ -119,7 +129,9 @@ export const JobSubmissionPanel: React.FC<Props> = ({ qpus, onSubmitJob, onJobSu
         <div>
           <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2 flex justify-between">
             Meas Level
-            <span className="text-indigo-400 font-medium">{getMeasLevelLabel(measLevel)}</span>
+            <span className="text-indigo-400 font-medium">
+              {getMeasLevelLabel(measLevel)}
+            </span>
           </label>
           <input
             type="range"

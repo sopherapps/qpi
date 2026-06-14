@@ -9,14 +9,18 @@ QPI is a distributed quantum control stack architecture designed to control mult
 
 * **Go**: `>= 1.22` (tested up to `1.26`)
 * **Python**: `~= 3.12`
+* **Nodejs**: `>= 18.x` (tested up to `22.x`)
 
 ---
 
 ## System Architecture
 
 The architecture consists of two primary components:
-1. **PocketBase Go Orchestrator (`qpi-ui/main.go`):** Extends PocketBase with Go, handling job queues, session-based bookings, and real-time job dispatching. Actively listens for LAN connections on dynamically allocated network ports.
-2. **Python Hardware Driver (`qpi-driver`):** Runs on isolated hardware nodes controlling the QPU. Uses Python's `multiprocessing` library to isolate network handling, quantum circuit compilation/simulation, and translation into separate processes.
+1. **UI (API and dashboard) (`qpi-ui/main.go`):** Extends PocketBase with Go, handling job queues, session-based bookings, and real-time job dispatching. Actively listens for LAN connections on dynamically allocated network ports.
+2. **QPU Driver (`qpi-driver`):** Runs on isolated hardware nodes controlling the QPU. Uses Python's `multiprocessing` library to isolate network handling, quantum circuit compilation/simulation, and translation into separate processes.
+3. **QPI Clients (Python, JavaScript, Go):** SDKs for submitting
+jobs to the quantum computer using OpenQASM specification (and
+Qiskit circuits if one uses the Python client)
 
 To optimize performance and simplify communication over multiprocessing queues, the worker process executes the quantum job, processes the resulting `xarray` dataset into a Qiskit-compatible result dictionary using the executor's `process_result()` method, and directly sends the results via the queue to the result sender process. This removes file-system serialization overhead.
 

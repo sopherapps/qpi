@@ -31,8 +31,8 @@ export const LoginModal: React.FC<LoginModalProps> = ({
         await pb.collection("users").authWithPassword(identity, password);
       }
       onLoginSuccess();
-    } catch (err: any) {
-      setError(err?.message || "Invalid credentials. Please try again.");
+    } catch (err: unknown) {
+      setError((err as Error)?.message || "Invalid credentials. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -45,8 +45,12 @@ export const LoginModal: React.FC<LoginModalProps> = ({
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-zinc-800 text-white mb-4 border border-zinc-700">
             <Lock className="w-6 h-6" />
           </div>
-          <h2 className="text-2xl font-geist font-bold text-white">Sign in to QPI</h2>
-          <p className="text-sm text-zinc-400 mt-1">Access your quantum computing environment</p>
+          <h2 className="text-2xl font-geist font-bold text-white">
+            Sign in to QPI
+          </h2>
+          <p className="text-sm text-zinc-400 mt-1">
+            Access your quantum computing environment
+          </p>
         </div>
 
         {/* Role tabs */}
@@ -92,7 +96,9 @@ export const LoginModal: React.FC<LoginModalProps> = ({
               value={identity}
               onChange={(e) => setIdentity(e.target.value)}
               className="w-full bg-zinc-950 border border-zinc-800 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-zinc-500 transition-colors"
-              placeholder={role === "admin" ? "admin@example.com" : "user@example.com"}
+              placeholder={
+                role === "admin" ? "admin@example.com" : "user@example.com"
+              }
             />
           </div>
           <div>

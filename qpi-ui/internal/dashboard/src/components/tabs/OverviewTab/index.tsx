@@ -29,7 +29,9 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-geist text-white">Overview</h1>
-          <p className="text-sm text-zinc-400 mt-1">System status and resource consumption.</p>
+          <p className="text-sm text-zinc-400 mt-1">
+            System status and resource consumption.
+          </p>
         </div>
         <div className="flex gap-3 w-full md:w-auto">
           <button
@@ -48,7 +50,12 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
       </div>
 
       {/* Metrics Row */}
-      <MetricsRow qpus={qpus} jobs={jobs} qpuSeconds={qpuSeconds} bookings={bookings} />
+      <MetricsRow
+        qpus={qpus}
+        jobs={jobs}
+        qpuSeconds={qpuSeconds}
+        bookings={bookings}
+      />
 
       {/* Split Table / Notifications */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -59,7 +66,10 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
 
         {/* Notifications Sidebar */}
         <div className="lg:col-span-4">
-          <NotificationsPanel notifications={notifications} onDismiss={onDismissNotification} />
+          <NotificationsPanel
+            notifications={notifications}
+            onDismiss={onDismissNotification}
+          />
         </div>
       </div>
     </div>

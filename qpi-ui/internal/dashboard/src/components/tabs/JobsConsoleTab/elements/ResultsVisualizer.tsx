@@ -17,7 +17,11 @@ export function ResultsVisualizer({ viewedJob, activeTab }: Props) {
   if (viewedJob.status !== "completed") {
     return (
       <div className="text-zinc-500 text-sm">
-        Job status is currently <span className="text-warning capitalize font-semibold">{viewedJob.status}</span>. Waiting for completion...
+        Job status is currently{" "}
+        <span className="text-warning capitalize font-semibold">
+          {viewedJob.status}
+        </span>
+        . Waiting for completion...
       </div>
     );
   }
@@ -28,10 +32,12 @@ export function ResultsVisualizer({ viewedJob, activeTab }: Props) {
     const counts = results?.counts || results?.hex_counts || {};
     const keys = Object.keys(counts);
     if (keys.length === 0) {
-      return <div className="text-zinc-500 text-sm">No counts data available.</div>;
+      return (
+        <div className="text-zinc-500 text-sm">No counts data available.</div>
+      );
     }
 
-    const maxVal = Math.max(...Object.values(counts) as number[]);
+    const maxVal = Math.max(...(Object.values(counts) as number[]));
     return (
       <div className="w-full h-full flex flex-col justify-between pt-8 pb-6 px-4 gap-4 relative">
         <div className="flex-1 flex items-end justify-around gap-4 w-full h-56">
@@ -39,7 +45,10 @@ export function ResultsVisualizer({ viewedJob, activeTab }: Props) {
             const count = counts[k] as number;
             const percent = maxVal > 0 ? (count / maxVal) * 100 : 0;
             return (
-              <div key={k} className="w-full max-w-[60px] flex flex-col items-center gap-2 group h-full justify-end">
+              <div
+                key={k}
+                className="w-full max-w-[60px] flex flex-col items-center gap-2 group h-full justify-end"
+              >
                 <span className="font-mono text-zinc-400 opacity-0 group-hover:opacity-100 transition-opacity text-[10px]">
                   {count}
                 </span>
@@ -55,7 +64,8 @@ export function ResultsVisualizer({ viewedJob, activeTab }: Props) {
         <div
           className="absolute inset-0 pointer-events-none"
           style={{
-            backgroundImage: "linear-gradient(to bottom, #27272a 1px, transparent 1px)",
+            backgroundImage:
+              "linear-gradient(to bottom, #27272a 1px, transparent 1px)",
             backgroundSize: "100% 20%",
             opacity: 0.1,
           }}
@@ -78,7 +88,8 @@ export function ResultsVisualizer({ viewedJob, activeTab }: Props) {
     }
 
     const mapVal = (v: number) => {
-      const min = -0.5, max = 1.5;
+      const min = -0.5,
+        max = 1.5;
       return ((v - min) / (max - min)) * 200;
     };
 
@@ -92,23 +103,33 @@ export function ResultsVisualizer({ viewedJob, activeTab }: Props) {
         const cy = 200 - mapVal(qPoint[1]);
         const color = qPoint[0] > 0.5 ? "#6366f1" : "#22c55e"; // color by cluster threshold
         points.push(
-          <circle
-            key={idx}
-            cx={cx}
-            cy={cy}
-            r="3"
-            fill={color}
-            opacity="0.7"
-          />
+          <circle key={idx} cx={cx} cy={cy} r="3" fill={color} opacity="0.7" />,
         );
       }
     });
 
     return (
       <div className="flex flex-col items-center justify-center">
-        <svg viewBox="0 0 200 200" className="w-64 h-64 border border-zinc-800 rounded bg-zinc-950/50">
-          <line x1="0" y1="100" x2="200" y2="100" stroke="#27272a" strokeDasharray="2" />
-          <line x1="100" y1="0" x2="100" y2="200" stroke="#27272a" strokeDasharray="2" />
+        <svg
+          viewBox="0 0 200 200"
+          className="w-64 h-64 border border-zinc-800 rounded bg-zinc-950/50"
+        >
+          <line
+            x1="0"
+            y1="100"
+            x2="200"
+            y2="100"
+            stroke="#27272a"
+            strokeDasharray="2"
+          />
+          <line
+            x1="100"
+            y1="0"
+            x2="100"
+            y2="200"
+            stroke="#27272a"
+            strokeDasharray="2"
+          />
           {points}
         </svg>
         <div className="text-[10px] text-zinc-500 mt-2 font-mono">
@@ -148,11 +169,23 @@ export function ResultsVisualizer({ viewedJob, activeTab }: Props) {
 
     return (
       <div className="w-full flex flex-col items-center px-4">
-        <svg viewBox="0 0 200 100" className="w-full h-48 border border-zinc-800 rounded bg-zinc-950/50 px-2">
-          <line x1="0" y1="50" x2="200" y2="50" stroke="#27272a" strokeDasharray="2" />
+        <svg
+          viewBox="0 0 200 100"
+          className="w-full h-48 border border-zinc-800 rounded bg-zinc-950/50 px-2"
+        >
+          <line
+            x1="0"
+            y1="50"
+            x2="200"
+            y2="50"
+            stroke="#27272a"
+            strokeDasharray="2"
+          />
           <path d={pathPoints} fill="none" stroke="#6366f1" strokeWidth="1.5" />
         </svg>
-        <div className="text-[10px] text-zinc-500 mt-2 font-mono">Voltage signal trace vs time</div>
+        <div className="text-[10px] text-zinc-500 mt-2 font-mono">
+          Voltage signal trace vs time
+        </div>
       </div>
     );
   }

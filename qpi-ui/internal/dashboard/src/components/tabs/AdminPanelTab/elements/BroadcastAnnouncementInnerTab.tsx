@@ -1,7 +1,12 @@
 import { useState } from "react";
 
 interface Props {
-  onBroadcast: (title: string, desc: string, start: string, end: string) => Promise<void>;
+  onBroadcast: (
+    title: string,
+    desc: string,
+    start: string,
+    end: string,
+  ) => Promise<void>;
 }
 
 export function BroadcastAnnouncementInnerTab({ onBroadcast }: Props) {
@@ -38,7 +43,9 @@ export function BroadcastAnnouncementInnerTab({ onBroadcast }: Props) {
 
   return (
     <div className="max-w-xl bg-zinc-900 border border-zinc-800 rounded-lg p-6 space-y-4">
-      <h3 className="text-lg font-semibold text-white font-geist">Compose Announcement</h3>
+      <h3 className="text-lg font-semibold text-white font-geist">
+        Compose Announcement
+      </h3>
       <form onSubmit={handleSubmit} className="space-y-4 text-sm">
         <div>
           <label className="block text-xs font-medium text-zinc-400 mb-1.5 uppercase tracking-wider">

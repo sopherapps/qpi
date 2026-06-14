@@ -26,7 +26,10 @@ export function MetricsRow({ qpus, jobs, qpuSeconds, bookings }: Props) {
   const now = new Date();
   const nextBooking = bookings
     .filter((b) => new Date(b.start_time) > now)
-    .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())[0];
+    .sort(
+      (a, b) =>
+        new Date(a.start_time).getTime() - new Date(b.start_time).getTime(),
+    )[0];
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -42,7 +45,8 @@ export function MetricsRow({ qpus, jobs, qpuSeconds, bookings }: Props) {
             {onlineQpus}/{qpus.length}
           </div>
           <div className="flex items-center gap-2 text-xs text-zinc-400">
-            <span className="w-2 h-2 rounded-full bg-green-500"></span> Online units
+            <span className="w-2 h-2 rounded-full bg-green-500"></span> Online
+            units
           </div>
         </div>
       </div>
@@ -72,7 +76,9 @@ export function MetricsRow({ qpus, jobs, qpuSeconds, bookings }: Props) {
           <Timer className="w-5 h-5 text-zinc-500" />
         </div>
         <div>
-          <div className="text-2xl font-geist font-bold text-white mb-1">{qpuSeconds}s</div>
+          <div className="text-2xl font-geist font-bold text-white mb-1">
+            {qpuSeconds}s
+          </div>
           <div className="text-xs text-zinc-400">Remaining seconds</div>
         </div>
       </div>
@@ -86,7 +92,9 @@ export function MetricsRow({ qpus, jobs, qpuSeconds, bookings }: Props) {
         </div>
         <div>
           <div className="text-lg font-geist font-bold text-white mb-1 truncate">
-            {nextBooking ? formatBookingTime(nextBooking.start_time) : "None Scheduled"}
+            {nextBooking
+              ? formatBookingTime(nextBooking.start_time)
+              : "None Scheduled"}
           </div>
           <div className="text-xs text-zinc-400">
             {nextBooking ? "Dedicated Window" : "No active reservations"}

@@ -1,20 +1,22 @@
 export function SchedulingPolicyCard() {
   return (
     <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-lg space-y-4">
-      <h3 className="text-base font-bold text-white font-geist">Scheduling Policy</h3>
+      <h3 className="text-base font-bold text-white font-geist">
+        Scheduling Policy
+      </h3>
       <div className="space-y-3 text-xs text-zinc-400 leading-relaxed">
         <p>
-          <strong>Dedicated Window:</strong> When you book a slot, you have exclusive priority to
-          submit jobs to the active QPUs.
+          <strong>Dedicated Window:</strong> When you book a slot, you have
+          exclusive priority to submit jobs to the active QPUs.
         </p>
         <p>
-          <strong>Opportunistic FIFO:</strong> If the slot owner is idle (has not submitted a job)
-          for more than 5 seconds, other pending jobs from the queue will automatically run to
-          optimize machine usage.
+          <strong>Opportunistic FIFO:</strong> If the slot owner is idle (has
+          not submitted a job) for more than 5 seconds, other pending jobs from
+          the queue will automatically run to optimize machine usage.
         </p>
         <p>
-          <strong>Releasing Slots:</strong> You can cancel/delete your booked slots at any time
-          prior to the start time.
+          <strong>Releasing Slots:</strong> You can cancel/delete your booked
+          slots at any time prior to the start time.
         </p>
       </div>
     </div>

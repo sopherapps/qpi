@@ -9,12 +9,17 @@ interface AdminPanelTabProps {
   users: UserType[];
   timeRequests: TimeRequest[];
   onAllocateTime: (userId: string, seconds: number) => Promise<void>;
-  onBroadcastAnnouncement: (title: string, desc: string, start: string, end: string) => Promise<void>;
+  onBroadcastAnnouncement: (
+    title: string,
+    desc: string,
+    start: string,
+    end: string,
+  ) => Promise<void>;
   onApproveRequest: (id: string) => Promise<void>;
   onRejectRequest: (id: string, reason: string) => Promise<void>;
 }
 
-type _TabValue = "users" | "announcements" | "requests"
+type _TabValue = "users" | "announcements" | "requests";
 
 export const AdminPanelTab: React.FC<AdminPanelTabProps> = ({
   users,
@@ -27,7 +32,9 @@ export const AdminPanelTab: React.FC<AdminPanelTabProps> = ({
   const [subtab, setSubtab] = useState<_TabValue>("users");
 
   // Allocate time state
-  const [allocateAmounts, setAllocateAmounts] = useState<Record<string, string>>({});
+  const [allocateAmounts, setAllocateAmounts] = useState<
+    Record<string, string>
+  >({});
 
   const handleAllocate = async (userId: string) => {
     const amount = parseFloat(allocateAmounts[userId] || "");
@@ -63,7 +70,10 @@ export const AdminPanelTab: React.FC<AdminPanelTabProps> = ({
     }
   };
 
-  const handleTabClick = useCallback((value: string) => setSubtab(value as _TabValue), [setSubtab])
+  const handleTabClick = useCallback(
+    (value: string) => setSubtab(value as _TabValue),
+    [setSubtab],
+  );
 
   return (
     <div className="space-y-8">

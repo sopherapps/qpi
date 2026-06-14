@@ -34,10 +34,17 @@ export function UserAllocationsInnerTab({
               </tr>
             ) : (
               users.map((u) => (
-                <tr key={u.id} className="hover:bg-zinc-800/20 transition-colors">
-                  <td className="py-3.5 px-4 font-mono text-xs text-white">{u.id}</td>
+                <tr
+                  key={u.id}
+                  className="hover:bg-zinc-800/20 transition-colors"
+                >
+                  <td className="py-3.5 px-4 font-mono text-xs text-white">
+                    {u.id}
+                  </td>
                   <td className="py-3.5 px-4 text-zinc-400">{u.email}</td>
-                  <td className="py-3.5 px-4 font-mono text-zinc-300">{u.qpu_seconds}s</td>
+                  <td className="py-3.5 px-4 font-mono text-zinc-300">
+                    {u.qpu_seconds}s
+                  </td>
                   <td className="py-3.5 px-4 text-right">
                     <div className="inline-flex items-center gap-2">
                       <input

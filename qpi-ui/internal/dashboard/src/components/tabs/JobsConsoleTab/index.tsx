@@ -8,7 +8,12 @@ interface JobsConsoleTabProps {
   qpus: QPU[];
   selectedJobId: string | null;
   setSelectedJobId: (id: string | null) => void;
-  onSubmitJob: (qpuId: string, qasm: string, shots: number, measLevel: number) => Promise<string>;
+  onSubmitJob: (
+    qpuId: string,
+    qasm: string,
+    shots: number,
+    measLevel: number,
+  ) => Promise<string>;
 }
 
 export const JobsConsoleTab: React.FC<JobsConsoleTabProps> = ({
@@ -49,7 +54,9 @@ export const JobsConsoleTab: React.FC<JobsConsoleTabProps> = ({
     <div className="space-y-6 h-full flex flex-col">
       <div>
         <h1 className="text-3xl font-geist text-white">Jobs Console</h1>
-        <p className="text-sm text-zinc-400 mt-1">Configure, write QASM, and execute circuits.</p>
+        <p className="text-sm text-zinc-400 mt-1">
+          Configure, write QASM, and execute circuits.
+        </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 min-h-[500px]">

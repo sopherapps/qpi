@@ -1,9 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: [
-    "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
-  ],
+  content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
   theme: {
     extend: {
       colors: {
@@ -16,12 +13,12 @@ export default {
         success: "#22c55e",
         warning: "#eab308",
         error: "#ef4444",
-        border: "#27272a"
+        border: "#27272a",
       },
       spacing: {
-        "sidebar-width": "240px"
-      }
+        "sidebar-width": "240px",
+      },
     },
   },
   plugins: [],
-}
+};

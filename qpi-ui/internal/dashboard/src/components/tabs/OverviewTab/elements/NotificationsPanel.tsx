@@ -9,7 +9,9 @@ interface Props {
 export function NotificationsPanel({ notifications, onDismiss }: Props) {
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold text-white font-geist">System Announcements</h3>
+      <h3 className="text-lg font-semibold text-white font-geist">
+        System Announcements
+      </h3>
       <div className="flex flex-col gap-3">
         {notifications.length === 0 ? (
           <div className="text-zinc-500 text-center py-8 bg-zinc-900/30 border border-zinc-800/50 rounded-lg">
@@ -36,8 +38,12 @@ export function NotificationsPanel({ notifications, onDismiss }: Props) {
                     <Info className="w-5 h-5 text-zinc-400 mt-0.5" />
                   )}
                   <div>
-                    <p className="font-medium text-xs text-white">{ann.title}</p>
-                    <p className="text-[11px] text-zinc-400 mt-1">{ann.description}</p>
+                    <p className="font-medium text-xs text-white">
+                      {ann.title}
+                    </p>
+                    <p className="text-[11px] text-zinc-400 mt-1">
+                      {ann.description}
+                    </p>
                   </div>
                 </div>
                 <button

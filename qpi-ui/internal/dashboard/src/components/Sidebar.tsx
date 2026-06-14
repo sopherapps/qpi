@@ -28,7 +28,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: "qpus", label: "QPU Registry", icon: Cpu },
     { id: "jobs", label: "Jobs Console", icon: Terminal },
     { id: "bookings", label: "Bookings", icon: Calendar },
-    ...(isAdmin ? [{ id: "admin", label: "Admin Panel", icon: ShieldAlert }] : []),
+    ...(isAdmin
+      ? [{ id: "admin", label: "Admin Panel", icon: ShieldAlert }]
+      : []),
     { id: "settings", label: "Profile Settings", icon: User },
   ];
 
@@ -74,7 +76,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="bg-zinc-950/40 border border-zinc-800 rounded p-3 space-y-2">
           <div className="flex justify-between items-center text-xs">
             <span className="text-zinc-400">QPU Balance</span>
-            <span className="font-mono text-white font-semibold">{qpuSeconds}s</span>
+            <span className="font-mono text-white font-semibold">
+              {qpuSeconds}s
+            </span>
           </div>
           <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
             <div className="h-full bg-indigo-500 w-full"></div>

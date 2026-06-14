@@ -12,7 +12,13 @@ function getInitials(emailStr: string) {
   return emailStr ? emailStr.charAt(0).toUpperCase() : "-";
 }
 
-export function ProfileCard({ userId, email, qpuSeconds, isAdmin, onLogout }: Props) {
+export function ProfileCard({
+  userId,
+  email,
+  qpuSeconds,
+  isAdmin,
+  onLogout,
+}: Props) {
   return (
     <div className="max-w-xl bg-zinc-900 border border-zinc-800 rounded-lg p-6 space-y-6">
       <div className="flex items-center gap-4 border-b border-zinc-800 pb-6">
@@ -20,7 +26,9 @@ export function ProfileCard({ userId, email, qpuSeconds, isAdmin, onLogout }: Pr
           {getInitials(email)}
         </div>
         <div>
-          <h3 className="text-lg font-bold text-white font-geist">{email.split("@")[0]}</h3>
+          <h3 className="text-lg font-bold text-white font-geist">
+            {email.split("@")[0]}
+          </h3>
           <p className="text-sm text-zinc-400">{email}</p>
         </div>
       </div>
@@ -32,11 +40,15 @@ export function ProfileCard({ userId, email, qpuSeconds, isAdmin, onLogout }: Pr
         </div>
         <div className="flex justify-between items-center text-sm py-2 border-b border-zinc-800/50">
           <span className="text-zinc-400">Account Type</span>
-          <span className="text-white font-medium">{isAdmin ? "Administrator" : "Standard User"}</span>
+          <span className="text-white font-medium">
+            {isAdmin ? "Administrator" : "Standard User"}
+          </span>
         </div>
         <div className="flex justify-between items-center text-sm py-2 border-b border-zinc-800/50">
           <span className="text-zinc-400">Allocated QPU Seconds</span>
-          <span className="font-mono text-white font-medium">{qpuSeconds}s</span>
+          <span className="font-mono text-white font-medium">
+            {qpuSeconds}s
+          </span>
         </div>
       </div>
 

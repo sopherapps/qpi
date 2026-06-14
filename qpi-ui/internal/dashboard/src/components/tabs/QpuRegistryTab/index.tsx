@@ -8,7 +8,11 @@ interface QpuRegistryTabProps {
   qpus: QPU[];
   isAdmin: boolean;
   onToggleQpu: (id: string, enabled: boolean) => Promise<void>;
-  onRegisterQpu: (name: string, token: string, executor: string) => Promise<void>;
+  onRegisterQpu: (
+    name: string,
+    token: string,
+    executor: string,
+  ) => Promise<void>;
 }
 
 export const QpuRegistryTab: React.FC<QpuRegistryTabProps> = ({
@@ -43,7 +47,12 @@ export const QpuRegistryTab: React.FC<QpuRegistryTabProps> = ({
       {/* QPU Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {qpus.map((qpu) => (
-          <QpuCard key={qpu.id} qpu={qpu} isAdmin={isAdmin} onToggle={onToggleQpu} />
+          <QpuCard
+            key={qpu.id}
+            qpu={qpu}
+            isAdmin={isAdmin}
+            onToggle={onToggleQpu}
+          />
         ))}
       </div>
 

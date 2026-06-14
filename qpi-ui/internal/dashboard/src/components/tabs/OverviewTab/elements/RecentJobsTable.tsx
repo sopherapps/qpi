@@ -25,7 +25,9 @@ function getStatusBadgeClass(status: string) {
 export function RecentJobsTable({ jobs, qpus }: Props) {
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold text-white font-geist">Recent Job Executions</h3>
+      <h3 className="text-lg font-semibold text-white font-geist">
+        Recent Job Executions
+      </h3>
       <div className="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
@@ -41,21 +43,31 @@ export function RecentJobsTable({ jobs, qpus }: Props) {
             <tbody className="text-sm text-zinc-300 divide-y divide-zinc-800/50">
               {jobs.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-8 px-4 text-center text-zinc-500">
+                  <td
+                    colSpan={5}
+                    className="py-8 px-4 text-center text-zinc-500"
+                  >
                     No jobs submitted yet.
                   </td>
                 </tr>
               ) : (
                 jobs.slice(0, 10).map((job) => {
-                  const targetQpu = qpus.find((q) => q.id === job.qpu_target)?.name || job.qpu_target;
+                  const targetQpu =
+                    qpus.find((q) => q.id === job.qpu_target)?.name ||
+                    job.qpu_target;
                   return (
-                    <tr key={job.id} className="hover:bg-zinc-800/20 transition-colors">
-                      <td className="py-3.5 px-4 font-mono text-xs text-white">{job.id}</td>
+                    <tr
+                      key={job.id}
+                      className="hover:bg-zinc-800/20 transition-colors"
+                    >
+                      <td className="py-3.5 px-4 font-mono text-xs text-white">
+                        {job.id}
+                      </td>
                       <td className="py-3.5 px-4 text-zinc-400">{targetQpu}</td>
                       <td className="py-3.5 px-4">
                         <span
                           className={`inline-flex px-2 py-0.5 rounded-full border text-[10px] uppercase font-semibold ${getStatusBadgeClass(
-                            job.status
+                            job.status,
                           )}`}
                         >
                           {job.status}
@@ -65,7 +77,9 @@ export function RecentJobsTable({ jobs, qpus }: Props) {
                         {new Date(job.created).toLocaleString()}
                       </td>
                       <td className="py-3.5 px-4 text-zinc-400 text-xs text-right">
-                        {job.finished_at ? new Date(job.finished_at).toLocaleString() : "-"}
+                        {job.finished_at
+                          ? new Date(job.finished_at).toLocaleString()
+                          : "-"}
                       </td>
                     </tr>
                   );

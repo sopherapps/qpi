@@ -27,7 +27,7 @@ build: venv-check build-dashboard
 
 build-dashboard:
 	@echo "Building React dashboard..."
-	(cd qpi-ui/internal/dashboard && npm ci && npm run build)
+	(cd qpi-ui/internal/dashboard && CYPRESS_INSTALL_BINARY=0 npm ci && npm run build)
 
 # ---------------------------------------------------------------------------
 # Test targets
@@ -35,7 +35,7 @@ build-dashboard:
 
 test: test-go test-py test-js-client test-go-client test-py-client test-e2e
 
-test-go:
+test-go: build-dashboard
 	@echo "Running Go unit tests (orchestrator)..."
 	(cd qpi-ui && go test -v ./...)
 
@@ -106,7 +106,7 @@ test-e2e-dashboard:
 
 lint: lint-go lint-py lint-js lint-dashboard lint-go-client lint-py-client
 
-lint-go:
+lint-go: build-dashboard
 	@echo "Linting Go orchestrator files..."
 	(cd qpi-ui && go vet ./...)
 	(cd qpi-ui && gofmt -l -d .)

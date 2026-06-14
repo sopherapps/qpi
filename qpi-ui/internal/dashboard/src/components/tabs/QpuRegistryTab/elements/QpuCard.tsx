@@ -31,7 +31,9 @@ export function QpuCard({ qpu, isAdmin, onToggle }: Props) {
               <h3 className="font-geist font-bold text-white text-lg leading-tight">
                 {qpu.name}
               </h3>
-              <p className="text-xs font-mono text-zinc-500 mt-0.5">ID: {qpu.id}</p>
+              <p className="text-xs font-mono text-zinc-500 mt-0.5">
+                ID: {qpu.id}
+              </p>
             </div>
           </div>
           <span
@@ -41,7 +43,9 @@ export function QpuCard({ qpu, isAdmin, onToggle }: Props) {
                 : "bg-red-500/10 border-red-500/20 text-red-400"
             }`}
           >
-            <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? "bg-green-500" : "bg-red-500"}`} />
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${isOnline ? "bg-green-500" : "bg-red-500"}`}
+            />
             {qpu.status}
           </span>
         </div>
@@ -60,7 +64,9 @@ export function QpuCard({ qpu, isAdmin, onToggle }: Props) {
               NNG Ports (Cmd/Res)
             </span>
             <span className="font-mono text-zinc-300">
-              {qpu.nng_command_port > 0 ? `${qpu.nng_command_port} / ${qpu.nng_result_port}` : "offline"}
+              {qpu.nng_command_port > 0
+                ? `${qpu.nng_command_port} / ${qpu.nng_result_port}`
+                : "offline"}
             </span>
           </div>
         </div>

@@ -10,7 +10,14 @@ import { AdminPanelTab } from "./components/tabs/AdminPanelTab";
 import { SettingsTab } from "./components/tabs/SettingsTab";
 import { LoginModal } from "./components/LoginModal";
 import { RequestTimeModal } from "./components/RequestTimeModal";
-import type { QPU, QuantumJob, Notification, TimeSlot, User, TimeRequest } from "./types";
+import type {
+  QPU,
+  QuantumJob,
+  Notification,
+  TimeSlot,
+  User,
+  TimeRequest,
+} from "./types";
 
 export const App: React.FC = () => {
   const [authValid, setAuthValid] = useState(pb.authStore.isValid);
@@ -38,7 +45,11 @@ export const App: React.FC = () => {
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.replace("#", "");
-      if (["overview", "qpus", "jobs", "bookings", "admin", "settings"].includes(hash)) {
+      if (
+        ["overview", "qpus", "jobs", "bookings", "admin", "settings"].includes(
+          hash,
+        )
+      ) {
         setActiveTab(hash);
       }
     };
@@ -70,7 +81,9 @@ export const App: React.FC = () => {
 
   const loadQpus = useCallback(async () => {
     try {
-      const records = await pb.collection("qpus").getFullList({ sort: "+name" });
+      const records = await pb
+        .collection("qpus")
+        .getFullList({ sort: "+name" });
       setQpus(records as unknown as QPU[]);
     } catch (err) {
       console.error("Failed to load QPUs:", err);
@@ -113,7 +126,9 @@ export const App: React.FC = () => {
 
   const loadAdminUsers = useCallback(async () => {
     try {
-      const records = await pb.collection("users").getFullList({ sort: "+email" });
+      const records = await pb
+        .collection("users")
+        .getFullList({ sort: "+email" });
       setUsersList(records as unknown as User[]);
     } catch (err) {
       console.error("Failed to load users for admin:", err);
@@ -148,7 +163,15 @@ export const App: React.FC = () => {
     if (isSuper) {
       await Promise.all([loadAdminUsers(), loadTimeRequests()]);
     }
-  }, [loadUserQuota, loadQpus, loadJobs, loadBookings, loadNotifications, loadAdminUsers, loadTimeRequests]);
+  }, [
+    loadUserQuota,
+    loadQpus,
+    loadJobs,
+    loadBookings,
+    loadNotifications,
+    loadAdminUsers,
+    loadTimeRequests,
+  ]);
 
   // Real-time Subscriptions setup
   useEffect(() => {
@@ -192,12 +215,21 @@ export const App: React.FC = () => {
         pb.collection("time_requests").unsubscribe();
       }
     };
-  }, [authValid, loadAllData, loadNotifications, loadJobs, loadUserQuota, loadBookings, loadQpus, loadAdminUsers, loadTimeRequests]);
+  }, [
+    authValid,
+    loadAllData,
+    loadNotifications,
+    loadJobs,
+    loadUserQuota,
+    loadBookings,
+    loadQpus,
+    loadAdminUsers,
+    loadTimeRequests,
+  ]);
 
   // Initialize auth credentials from session storage
   useEffect(() => {
     if (pb.authStore.isValid && pb.authStore.model) {
-      
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setUserEmail(pb.authStore.model.email || "admin@qpi.org");
       setUserId(pb.authStore.model.id);
@@ -245,9 +277,12 @@ export const App: React.FC = () => {
   const handleDismissAllNotifications = async () => {
     try {
       for (const ann of notifications) {
-        await pb.send(`/api/notifications/${encodeURIComponent(ann.id)}/dismiss`, {
-          method: "POST",
-        });
+        await pb.send(
+          `/api/notifications/${encodeURIComponent(ann.id)}/dismiss`,
+          {
+            method: "POST",
+          },
+        );
       }
       loadNotifications();
     } catch (err: unknown) {
@@ -264,7 +299,11 @@ export const App: React.FC = () => {
     loadQpus();
   };
 
-  const handleRegisterQpu = async (name: string, token: string, executor: string) => {
+  const handleRegisterQpu = async (
+    name: string,
+    token: string,
+    executor: string,
+  ) => {
     await pb.send("/api/op/qpu/register", {
       method: "POST",
       body: JSON.stringify({
@@ -281,7 +320,7 @@ export const App: React.FC = () => {
     qpuId: string,
     qasm: string,
     shots: number,
-    measLevel: number
+    measLevel: number,
   ) => {
     const res = await pb.send("/api/jobs", {
       method: "POST",
@@ -336,7 +375,7 @@ export const App: React.FC = () => {
     title: string,
     desc: string,
     start: string,
-    end: string
+    end: string,
   ) => {
     await pb.collection("notifications").create({
       title: title,

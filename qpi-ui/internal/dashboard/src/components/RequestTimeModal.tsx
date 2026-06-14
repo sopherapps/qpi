@@ -40,7 +40,9 @@ export const RequestTimeModal: React.FC<RequestTimeModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/80 backdrop-blur-sm">
       <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-lg shadow-2xl p-6 space-y-4">
         <div className="flex justify-between items-center border-b border-zinc-800 pb-3">
-          <h3 className="text-lg font-semibold font-geist text-white">Request QPU Time</h3>
+          <h3 className="text-lg font-semibold font-geist text-white">
+            Request QPU Time
+          </h3>
           <button
             onClick={onClose}
             className="text-zinc-400 hover:text-white focus:outline-none"

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Calendar } from "lucide-react";
-import type { TimeSlot } from "../../types";
+import type { TimeSlot } from "@/types";
 import { ReservationsTable } from "./elements/ReservationsTable";
 import { SchedulingPolicyCard } from "./elements/SchedulingPolicyCard";
 import { BookSlotModal } from "./elements/BookSlotModal";

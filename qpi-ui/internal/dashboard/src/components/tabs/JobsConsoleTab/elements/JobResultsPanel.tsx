@@ -8,7 +8,9 @@ interface Props {
 }
 
 export function JobResultsPanel({ viewedJob, qpus }: Props) {
-  const [activeTab, setActiveTab] = useState<"counts" | "iq" | "trace">("counts");
+  const [activeTab, setActiveTab] = useState<"counts" | "iq" | "trace">(
+    "counts",
+  );
 
   return (
     <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6 flex flex-col gap-6 h-[650px] overflow-hidden">
@@ -16,7 +18,9 @@ export function JobResultsPanel({ viewedJob, qpus }: Props) {
         <div>
           <div className="flex items-center gap-3 mb-1">
             <h3 className="text-xl font-bold font-geist text-white">
-              {viewedJob ? `#${viewedJob.id.substring(0, 8)}` : "Select or run a job"}
+              {viewedJob
+                ? `#${viewedJob.id.substring(0, 8)}`
+                : "Select or run a job"}
             </h3>
             {viewedJob && (
               <div
@@ -24,10 +28,10 @@ export function JobResultsPanel({ viewedJob, qpus }: Props) {
                   viewedJob.status === "completed"
                     ? "border-green-500/30 bg-green-500/10 text-green-400"
                     : viewedJob.status === "pending"
-                    ? "border-yellow-500/30 bg-yellow-500/10 text-yellow-400"
-                    : viewedJob.status === "running"
-                    ? "border-indigo-500/30 bg-indigo-500/10 text-indigo-400"
-                    : "border-red-500/30 bg-red-500/10 text-red-400"
+                      ? "border-yellow-500/30 bg-yellow-500/10 text-yellow-400"
+                      : viewedJob.status === "running"
+                        ? "border-indigo-500/30 bg-indigo-500/10 text-indigo-400"
+                        : "border-red-500/30 bg-red-500/10 text-red-400"
                 }`}
               >
                 {viewedJob.status}
@@ -47,7 +51,9 @@ export function JobResultsPanel({ viewedJob, qpus }: Props) {
                 Duration
               </span>
               <span className="font-mono text-sm text-white font-semibold">
-                {viewedJob.duration !== undefined ? `${viewedJob.duration}s` : "--"}
+                {viewedJob.duration !== undefined
+                  ? `${viewedJob.duration}s`
+                  : "--"}
               </span>
             </div>
             <div>

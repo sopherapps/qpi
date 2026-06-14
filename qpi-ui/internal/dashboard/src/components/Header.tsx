@@ -23,7 +23,10 @@ export const Header: React.FC<HeaderProps> = ({
   // Close dropdown on click outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
         setDropdownOpen(false);
       }
     };
@@ -38,7 +41,11 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="h-16 border-b border-zinc-800 flex items-center justify-between px-8 bg-zinc-950/20 z-40">
       <h2 className="font-geist text-lg font-bold text-white capitalize">
-        {pageTitle === "qpus" ? "QPU Registry" : pageTitle === "jobs" ? "Jobs Console" : `${pageTitle} Overview`}
+        {pageTitle === "qpus"
+          ? "QPU Registry"
+          : pageTitle === "jobs"
+            ? "Jobs Console"
+            : `${pageTitle} Overview`}
       </h2>
       <div className="flex items-center gap-4">
         {/* Notification Bell Dropdown */}
@@ -76,7 +83,9 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
               <div className="max-h-60 overflow-y-auto space-y-2 text-xs">
                 {notifications.length === 0 ? (
-                  <div className="text-zinc-500 text-center py-4">No new notifications</div>
+                  <div className="text-zinc-500 text-center py-4">
+                    No new notifications
+                  </div>
                 ) : (
                   notifications.map((ann) => {
                     const isFail =
@@ -98,8 +107,12 @@ export const Header: React.FC<HeaderProps> = ({
                             <Info className="w-4 h-4 text-zinc-400 mt-0.5" />
                           )}
                           <div>
-                            <p className="font-semibold text-xs text-white">{ann.title}</p>
-                            <p className="text-[10px] text-zinc-400 mt-1">{ann.description}</p>
+                            <p className="font-semibold text-xs text-white">
+                              {ann.title}
+                            </p>
+                            <p className="text-[10px] text-zinc-400 mt-1">
+                              {ann.description}
+                            </p>
                           </div>
                         </div>
                         <button

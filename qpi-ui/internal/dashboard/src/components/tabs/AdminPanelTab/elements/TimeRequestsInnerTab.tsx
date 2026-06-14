@@ -1,5 +1,5 @@
 import { Check, X } from "lucide-react";
-import type { TimeRequest } from "../../types";
+import type { TimeRequest } from "@/types";
 
 interface Props {
   timeRequests: TimeRequest[];
@@ -7,7 +7,11 @@ interface Props {
   onReject: (id: string) => void;
 }
 
-export function TimeRequestsInnerTab({ timeRequests, onApprove, onReject }: Props) {
+export function TimeRequestsInnerTab({
+  timeRequests,
+  onApprove,
+  onReject,
+}: Props) {
   return (
     <div className="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden">
       <div className="overflow-x-auto">
@@ -33,18 +37,27 @@ export function TimeRequestsInnerTab({ timeRequests, onApprove, onReject }: Prop
                 const userName = req.expand?.user?.email || req.user;
                 const isPending = req.status === "pending";
                 return (
-                  <tr key={req.id} className="hover:bg-zinc-800/20 transition-colors">
-                    <td className="py-3.5 px-4 font-medium text-white">{userName}</td>
-                    <td className="py-3.5 px-4 font-mono text-zinc-300">{req.seconds}s</td>
-                    <td className="py-3.5 px-4 text-zinc-400 text-xs">{req.reason}</td>
+                  <tr
+                    key={req.id}
+                    className="hover:bg-zinc-800/20 transition-colors"
+                  >
+                    <td className="py-3.5 px-4 font-medium text-white">
+                      {userName}
+                    </td>
+                    <td className="py-3.5 px-4 font-mono text-zinc-300">
+                      {req.seconds}s
+                    </td>
+                    <td className="py-3.5 px-4 text-zinc-400 text-xs">
+                      {req.reason}
+                    </td>
                     <td className="py-3.5 px-4">
                       <span
                         className={`inline-flex px-2 py-0.5 rounded-full border text-[10px] uppercase font-semibold ${
                           req.status === "approved"
                             ? "border-green-500/30 bg-green-500/10 text-green-400"
                             : req.status === "pending"
-                            ? "border-yellow-500/30 bg-yellow-500/10 text-yellow-400"
-                            : "border-red-500/30 bg-red-500/10 text-red-400"
+                              ? "border-yellow-500/30 bg-yellow-500/10 text-yellow-400"
+                              : "border-red-500/30 bg-red-500/10 text-red-400"
                         }`}
                       >
                         {req.status}
@@ -67,7 +80,9 @@ export function TimeRequestsInnerTab({ timeRequests, onApprove, onReject }: Prop
                           </button>
                         </div>
                       ) : (
-                        <span className="text-xs text-zinc-500 font-medium">Processed</span>
+                        <span className="text-xs text-zinc-500 font-medium">
+                          Processed
+                        </span>
                       )}
                     </td>
                   </tr>
