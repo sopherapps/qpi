@@ -4,6 +4,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"time"
 
@@ -128,6 +129,77 @@ func main() {
 			if start.Before(time.Now()) {
 				return e.Error(400, "Cannot delete/cancel a booking slot that has already started.", nil)
 			}
+			return e.Next()
+		},
+	})
+
+	// 3. Request-level validations for QPU time requests
+	app.OnRecordCreateRequest("qpu_time_requests").Bind(&hook.Handler[*core.RecordRequestEvent]{
+		Func: func(e *core.RecordRequestEvent) error {
+			if e.HasSuperuserAuth() {
+				return e.Next()
+			}
+			if e.Auth != nil {
+				e.Record.Set("user", e.Auth.Id)
+			} else {
+				return e.Error(401, "Authentication required.", nil)
+			}
+			e.Record.Set("status", "pending")
+			e.Record.Set("handled_by", "")
+			return e.Next()
+		},
+	})
+
+	app.OnRecordUpdateRequest("qpu_time_requests").Bind(&hook.Handler[*core.RecordRequestEvent]{
+		Func: func(e *core.RecordRequestEvent) error {
+			if !e.HasSuperuserAuth() {
+				return e.Error(403, "Only administrators can update time requests.", nil)
+			}
+
+			originalStatus := e.Record.Original().GetString("status")
+			newStatus := e.Record.GetString("status")
+
+			originalUser := e.Record.Original().GetString("user")
+			newUser := e.Record.GetString("user")
+			if originalUser != newUser {
+				return e.Error(400, "Cannot modify the user of a time request.", nil)
+			}
+
+			originalSeconds := e.Record.Original().GetFloat("seconds")
+			newSeconds := e.Record.GetFloat("seconds")
+			if originalSeconds != newSeconds {
+				return e.Error(400, "Cannot modify the requested seconds.", nil)
+			}
+
+			if originalStatus != newStatus {
+				if originalStatus == "approved" || originalStatus == "rejected" {
+					return e.Error(400, "Cannot update a request that has already been processed.", nil)
+				}
+
+				if newStatus == "approved" {
+					userId := e.Record.GetString("user")
+					seconds := e.Record.GetFloat("seconds")
+
+					userRec, err := e.App.FindRecordById("users", userId)
+					if err != nil {
+						return e.Error(400, fmt.Sprintf("Failed to find target user: %v", err), err)
+					}
+
+					currentSeconds := userRec.GetFloat("qpu_seconds")
+					userRec.Set("qpu_seconds", currentSeconds+seconds)
+
+					if err := e.App.Save(userRec); err != nil {
+						return e.Error(500, fmt.Sprintf("Failed to credit QPU time to user: %v", err), err)
+					}
+				}
+
+				adminId := "admin"
+				if e.Auth != nil {
+					adminId = e.Auth.Id
+				}
+				e.Record.Set("handled_by", adminId)
+			}
+
 			return e.Next()
 		},
 	})

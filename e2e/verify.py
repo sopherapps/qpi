@@ -597,6 +597,168 @@ def test_time_slots_validation():
     return True
 
 
+def test_qpu_time_requests_validation():
+    print("\n[verify] Testing QPU Time Requests CRUD & Approval Flow …")
+    
+    # 1. Authenticate User A
+    user_session = requests.Session()
+    resp = user_session.post(f"{BASE}/api/collections/users/auth-with-password",
+                             json={"identity": "user@example.com", "password": "userpassword1234"})
+    if resp.status_code != 200:
+        print(f"[verify] ✗ Failed to authenticate User A: {resp.text}")
+        return False
+    user_token = resp.json()["token"]
+    user_id = resp.json()["record"]["id"]
+    user_session.headers["Authorization"] = user_token
+    print("[verify] User A authenticated")
+
+    # Fetch User A's initial QPU seconds
+    initial_seconds = resp.json()["record"]["qpu_seconds"]
+
+    # 2. User A creates a request (status defaults to pending)
+    resp = user_session.post(f"{BASE}/api/collections/qpu_time_requests/records", json={
+        "user": user_id,
+        "seconds": 300.0,
+        "status": "pending",
+        "requested_reason": "Need QPU time for running experiments",
+    })
+    if resp.status_code not in (200, 201):
+        print(f"[verify] ✗ Failed to create time request: {resp.status_code} {resp.text}")
+        return False
+    req = resp.json()
+    req_id = req["id"]
+    if req["status"] != "pending":
+        print(f"[verify] ✗ New request status was not overridden/set to pending: {req}")
+        return False
+    print("[verify] ✓ User A created pending time request successfully")
+
+    # 3. User A tries to create a request with status = approved (should fail validation rule)
+    resp = user_session.post(f"{BASE}/api/collections/qpu_time_requests/records", json={
+        "user": user_id,
+        "seconds": 400.0,
+        "status": "approved",
+        "requested_reason": "Hack status",
+    })
+    if resp.status_code in (200, 201):
+        if resp.json()["status"] == "approved":
+            print(f"[verify] ✗ User A successfully created an approved request! {resp.text}")
+            return False
+        else:
+            s.delete(f"{BASE}/api/collections/qpu_time_requests/records/{resp.json()['id']}")
+            print("[verify] ✓ Creating approved request was overridden to pending")
+    else:
+        print("[verify] ✓ Creating approved request was rejected correctly")
+
+    # 4. User A lists their own requests
+    resp = user_session.get(f"{BASE}/api/collections/qpu_time_requests/records")
+    if resp.status_code != 200:
+        print(f"[verify] ✗ User A failed to list requests: {resp.text}")
+        return False
+    items = resp.json()["items"]
+    reqs_found = [i for i in items if i["id"] == req_id]
+    if not reqs_found:
+        print(f"[verify] ✗ User A did not see their request: {items}")
+        return False
+    print("[verify] ✓ User A listed their own requests")
+
+    # 5. User B lists requests (should not see User A's request)
+    userB_session = requests.Session()
+    resp = userB_session.post(f"{BASE}/api/collections/users/auth-with-password",
+                              json={"identity": "userB@example.com", "password": "userBpassword1234"})
+    if resp.status_code != 200:
+        print(f"[verify] ✗ Failed to authenticate User B: {resp.text}")
+        return False
+    userB_session.headers["Authorization"] = resp.json()["token"]
+
+    resp = userB_session.get(f"{BASE}/api/collections/qpu_time_requests/records")
+    if resp.status_code != 200:
+        print(f"[verify] ✗ User B failed to list requests: {resp.text}")
+        return False
+    itemsB = resp.json()["items"]
+    reqs_found_B = [i for i in itemsB if i["id"] == req_id]
+    if reqs_found_B:
+        print(f"[verify] ✗ User B can see User A's request in list: {itemsB}")
+        return False
+    print("[verify] ✓ User B did not see User A's requests in list")
+
+    # 6. User B tries to view User A's request directly
+    resp = userB_session.get(f"{BASE}/api/collections/qpu_time_requests/records/{req_id}")
+    if resp.status_code not in (403, 404):
+        print(f"[verify] ✗ User B viewing User A's request directly was not rejected: {resp.status_code}")
+        return False
+    print("[verify] ✓ User B direct view of User A's request was rejected")
+
+    # 7. User B tries to delete User A's request
+    resp = userB_session.delete(f"{BASE}/api/collections/qpu_time_requests/records/{req_id}")
+    if resp.status_code not in (403, 404):
+        print(f"[verify] ✗ User B deleting User A's request was not rejected: {resp.status_code}")
+        return False
+    print("[verify] ✓ User B deleting User A's request was rejected")
+
+    # 8. User A creates a second request and cancels (deletes) it (since it is pending)
+    resp = user_session.post(f"{BASE}/api/collections/qpu_time_requests/records", json={
+        "user": user_id,
+        "seconds": 100.0,
+        "status": "pending",
+        "requested_reason": "Temporary request to delete",
+    })
+    if resp.status_code not in (200, 201):
+        print(f"[verify] ✗ Failed to create temporary request: {resp.text}")
+        return False
+    temp_id = resp.json()["id"]
+
+    resp = user_session.delete(f"{BASE}/api/collections/qpu_time_requests/records/{temp_id}")
+    if resp.status_code != 204:
+        print(f"[verify] ✗ User A failed to delete their own pending request: {resp.status_code} {resp.text}")
+        return False
+    print("[verify] ✓ User A deleted their own pending request successfully")
+
+    # 9. Admin approves User A's request
+    resp = s.patch(f"{BASE}/api/collections/qpu_time_requests/records/{req_id}", json={
+        "status": "approved",
+    })
+    if resp.status_code != 200:
+        print(f"[verify] ✗ Admin failed to approve request: {resp.status_code} {resp.text}")
+        return False
+    approved_req = resp.json()
+    if approved_req["status"] != "approved":
+        print(f"[verify] ✗ Request status was not updated to approved: {approved_req}")
+        return False
+    if not approved_req.get("handled_by"):
+        print(f"[verify] ✗ handled_by was not set on approved request: {approved_req}")
+        return False
+    print("[verify] ✓ Admin approved request successfully")
+
+    # Verify User A's qpu_seconds has increased by 300
+    resp = s.get(f"{BASE}/api/collections/users/records/{user_id}")
+    resp.raise_for_status()
+    updated_seconds = resp.json()["qpu_seconds"]
+    if abs(updated_seconds - (initial_seconds + 300.0)) > 0.01:
+        print(f"[verify] ✗ User's QPU seconds was not credited correctly. Initial: {initial_seconds}, Updated: {updated_seconds}")
+        return False
+    print(f"[verify] ✓ User credited successfully (New balance: {updated_seconds})")
+
+    # 10. Admin tries to change status from approved to pending or rejected (should fail)
+    resp = s.patch(f"{BASE}/api/collections/qpu_time_requests/records/{req_id}", json={
+        "status": "pending",
+    })
+    if resp.status_code == 200:
+        print("[verify] ✗ Admin changed status from approved back to pending!")
+        return False
+    print("[verify] ✓ Modifying processed request status was rejected correctly")
+
+    # 11. User A tries to delete the approved request (should fail because status is not pending)
+    resp = user_session.delete(f"{BASE}/api/collections/qpu_time_requests/records/{req_id}")
+    if resp.status_code == 204:
+        print("[verify] ✗ User A successfully deleted an approved request!")
+        return False
+    print("[verify] ✓ User A deleting approved request was rejected correctly")
+
+    # Cleanup: Admin deletes the request
+    s.delete(f"{BASE}/api/collections/qpu_time_requests/records/{req_id}")
+    return True
+
+
 def run_driver_tests():
     """Run tests that exercise the driver + core API (no client SDKs)."""
     admin_auth()
@@ -621,6 +783,9 @@ def run_driver_tests():
         all_passed = False
 
     if not test_time_slots_validation():
+        all_passed = False
+
+    if not test_qpu_time_requests_validation():
         all_passed = False
 
     if not test_job_cancel():

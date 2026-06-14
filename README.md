@@ -194,7 +194,7 @@ If the workflow runs on a `push` to `main`/`master` and the repository environme
 - [x] Add tracking of QPU time used by a user on job execution (or failure or error)
 - [x] Add qiskit-based python client library for submitting jobs, viewing results
 - [x] Add CRUD (authenticated/authorized) for submitting/viewing/cancelling booking slots by users
-- [ ] Add CRUD (authenticated/authorized) for requesting/approving/rejecting/viewing QPU time by users
+- [x] Add CRUD (authenticated/authorized) for requesting/approving/rejecting/viewing QPU time by users
 - [ ] Add off/on-switch for QPI-drivers
 - [ ] Add dashboard for viewing jobs, admins allocating QPU time, setting maintenance, scheduling
   announcements, viewing QPU calibration data, viewing job results and statuses etc.

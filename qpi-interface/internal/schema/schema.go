@@ -36,6 +36,9 @@ func EnsureSchema(app core.App) error {
 	if err := ensureQuantumJobsCollection(app, cfg); err != nil {
 		return fmt.Errorf("quantum_jobs collection: %w", err)
 	}
+	if err := ensureQPUTimeRequestsCollection(app, cfg); err != nil {
+		return fmt.Errorf("qpu_time_requests collection: %w", err)
+	}
 
 	log.Println("[QPi] Schema OK")
 	return nil
@@ -300,5 +303,92 @@ func ensureQuantumJobsCollection(app core.App, cfg *config.AppConfig) error {
 	col.Fields.Add(&core.JSONField{Name: "results"})
 	col.Fields.Add(&core.AutodateField{Name: "created", OnCreate: true})
 	col.Fields.Add(&core.AutodateField{Name: "updated", OnCreate: true, OnUpdate: true})
+	return app.Save(col)
+}
+
+// ensureQPUTimeRequestsCollection creates/updates the collection storing QPU time requests by users.
+func ensureQPUTimeRequestsCollection(app core.App, cfg *config.AppConfig) error {
+	col, err := app.FindCollectionByNameOrId(cfg.CollectionQPUTimeRequests)
+	if err != nil {
+		col = core.NewBaseCollection(cfg.CollectionQPUTimeRequests)
+	}
+
+	// Ensure fields
+	hasUser := false
+	hasSeconds := false
+	hasStatus := false
+	hasRequestedReason := false
+	hasRejectionReason := false
+	hasHandledBy := false
+
+	for _, f := range col.Fields {
+		switch f.GetName() {
+		case "user":
+			hasUser = true
+		case "seconds":
+			hasSeconds = true
+		case "status":
+			hasStatus = true
+		case "requested_reason":
+			hasRequestedReason = true
+		case "rejection_reason":
+			hasRejectionReason = true
+		case "handled_by":
+			hasHandledBy = true
+		}
+	}
+
+	usersCol, err := app.FindCollectionByNameOrId("users")
+	if err == nil && !hasUser {
+		col.Fields.Add(&core.RelationField{
+			Name:         "user",
+			CollectionId: usersCol.Id,
+			MaxSelect:    1,
+			Required:     true,
+		})
+	}
+
+	if !hasSeconds {
+		col.Fields.Add(&core.NumberField{
+			Name:     "seconds",
+			Required: true,
+			Min:      types.Pointer(0.0),
+		})
+	}
+
+	if !hasStatus {
+		col.Fields.Add(&core.SelectField{
+			Name:      "status",
+			Values:    []string{"pending", "approved", "rejected"},
+			MaxSelect: 1,
+			Required:  true,
+		})
+	}
+
+	if !hasRequestedReason {
+		col.Fields.Add(&core.TextField{
+			Name: "requested_reason",
+		})
+	}
+
+	if !hasRejectionReason {
+		col.Fields.Add(&core.TextField{
+			Name: "rejection_reason",
+		})
+	}
+
+	if !hasHandledBy {
+		col.Fields.Add(&core.TextField{
+			Name: "handled_by",
+		})
+	}
+
+	// API Authorization Rules
+	col.ListRule = types.Pointer("@request.auth.id != \"\" && user = @request.auth.id")
+	col.ViewRule = types.Pointer("@request.auth.id != \"\" && user = @request.auth.id")
+	col.CreateRule = types.Pointer("@request.auth.id != \"\" && user = @request.auth.id && status = \"pending\"")
+	col.UpdateRule = types.Pointer("") // Disallowed for regular users; superusers bypass
+	col.DeleteRule = types.Pointer("@request.auth.id != \"\" && user = @request.auth.id && status = \"pending\"")
+
 	return app.Save(col)
 }

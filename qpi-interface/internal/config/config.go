@@ -22,18 +22,19 @@ const appStoreConfigKey = "custom_config"
 
 // AppConfig stores application-wide configuration parameters for the QPI orchestrator.
 type AppConfig struct {
-	CollectionQPUs           string
-	CollectionTimeSlots      string
-	CollectionQuantumJobs    string
-	CollectionAPITokens      string
-	IdleThreshold            time.Duration
-	RecoveryInterval         time.Duration
-	JobTimeout               time.Duration
-	DispatchPollInterval     time.Duration
-	PortRangeStart           int
-	PortRangeEnd             int
-	DisableEmailPasswordAuth bool
-	OAuth2Providers          []core.OAuth2ProviderConfig
+	CollectionQPUs            string
+	CollectionTimeSlots       string
+	CollectionQuantumJobs     string
+	CollectionAPITokens       string
+	CollectionQPUTimeRequests string
+	IdleThreshold             time.Duration
+	RecoveryInterval          time.Duration
+	JobTimeout                time.Duration
+	DispatchPollInterval      time.Duration
+	PortRangeStart            int
+	PortRangeEnd              int
+	DisableEmailPasswordAuth  bool
+	OAuth2Providers           []core.OAuth2ProviderConfig
 }
 
 // SaveConfigOnApp saves the config on the app instance store.
@@ -95,6 +96,7 @@ func NewFromFlags(cmd *cobra.Command) *AppConfig {
 	cfg.CollectionTimeSlots = "time_slots"
 	cfg.CollectionQuantumJobs = "quantum_jobs"
 	cfg.CollectionAPITokens = "api_tokens"
+	cfg.CollectionQPUTimeRequests = "qpu_time_requests"
 	cfg.IdleThreshold = 5 * time.Second
 	cfg.RecoveryInterval = 10 * time.Second
 	cfg.JobTimeout = 20 * time.Second
