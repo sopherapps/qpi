@@ -953,6 +953,181 @@ def test_notifications_crud():
     return True
 
 
+def test_api_tokens_auth_rules():
+    """Verify api_tokens collection auth rules: owner-only CRUD."""
+    print("\n[verify] Testing api_tokens authorization rules …")
+
+    # Authenticate User A
+    userA_session = requests.Session()
+    resp = userA_session.post(f"{BASE}/api/collections/users/auth-with-password",
+                              json={"identity": "user@example.com", "password": "userpassword1234"})
+    if resp.status_code != 200:
+        print(f"[verify] ✗ Failed to authenticate User A: {resp.text}")
+        return False
+    userA_token = resp.json()["token"]
+    userA_id = resp.json()["record"]["id"]
+    userA_session.headers["Authorization"] = userA_token
+
+    # User A creates a token via collection API
+    resp = userA_session.post(f"{BASE}/api/collections/api_tokens/records", json={
+        "token": "hashed-token-abc",
+        "user": userA_id,
+        "name": "Test Token",
+    })
+    if resp.status_code not in (200, 201):
+        print(f"[verify] ✗ User A failed to create token: {resp.status_code} {resp.text}")
+        return False
+    token_id = resp.json()["id"]
+    print("[verify] ✓ User A created token via collection API")
+
+    # User A lists tokens — should see their own
+    resp = userA_session.get(f"{BASE}/api/collections/api_tokens/records")
+    if resp.status_code != 200:
+        print(f"[verify] ✗ User A failed to list tokens: {resp.status_code}")
+        return False
+    items = resp.json()["items"]
+    if not any(i["id"] == token_id for i in items):
+        print("[verify] ✗ User A cannot see their own token in list")
+        return False
+    print("[verify] ✓ User A sees their own token in list")
+
+    # User A views single token
+    resp = userA_session.get(f"{BASE}/api/collections/api_tokens/records/{token_id}")
+    if resp.status_code != 200:
+        print(f"[verify] ✗ User A failed to view token: {resp.status_code}")
+        return False
+    print("[verify] ✓ User A views their own token")
+
+    # User A updates token
+    resp = userA_session.patch(f"{BASE}/api/collections/api_tokens/records/{token_id}", json={
+        "name": "Updated Token",
+    })
+    if resp.status_code != 200:
+        print(f"[verify] ✗ User A failed to update token: {resp.status_code}")
+        return False
+    print("[verify] ✓ User A updated their own token")
+
+    # Authenticate User B
+    userB_session = requests.Session()
+    resp = userB_session.post(f"{BASE}/api/collections/users/auth-with-password",
+                              json={"identity": "userB@example.com", "password": "userBpassword1234"})
+    if resp.status_code != 200:
+        print(f"[verify] ✗ Failed to authenticate User B: {resp.text}")
+        return False
+    userB_session.headers["Authorization"] = resp.json()["token"]
+
+    # User B lists tokens — should NOT see User A's token
+    resp = userB_session.get(f"{BASE}/api/collections/api_tokens/records")
+    if resp.status_code != 200:
+        print(f"[verify] ✗ User B failed to list tokens: {resp.status_code}")
+        return False
+    itemsB = resp.json()["items"]
+    if any(i["id"] == token_id for i in itemsB):
+        print("[verify] ✗ User B can see User A's token")
+        return False
+    print("[verify] ✓ User B does not see User A's token")
+
+    # User B tries to view User A's token directly
+    resp = userB_session.get(f"{BASE}/api/collections/api_tokens/records/{token_id}")
+    if resp.status_code not in (403, 404):
+        print(f"[verify] ✗ User B viewing User A's token was not rejected: {resp.status_code}")
+        return False
+    print("[verify] ✓ User B direct view of User A's token rejected")
+
+    # User B tries to update User A's token
+    resp = userB_session.patch(f"{BASE}/api/collections/api_tokens/records/{token_id}", json={
+        "name": "Hacked",
+    })
+    if resp.status_code not in (403, 404):
+        print(f"[verify] ✗ User B updating User A's token was not rejected: {resp.status_code}")
+        return False
+    print("[verify] ✓ User B update of User A's token rejected")
+
+    # User B tries to delete User A's token
+    resp = userB_session.delete(f"{BASE}/api/collections/api_tokens/records/{token_id}")
+    if resp.status_code not in (403, 404):
+        print(f"[verify] ✗ User B deleting User A's token was not rejected: {resp.status_code}")
+        return False
+    print("[verify] ✓ User B delete of User A's token rejected")
+
+    # Cleanup: User A deletes their token
+    resp = userA_session.delete(f"{BASE}/api/collections/api_tokens/records/{token_id}")
+    if resp.status_code != 204:
+        print(f"[verify] ✗ User A failed to delete their token: {resp.status_code}")
+        return False
+    print("[verify] ✓ User A deleted their own token")
+    return True
+
+
+def test_qpus_auth_rules():
+    """Verify qpus collection auth rules: public read, superuser-only CUD."""
+    print("\n[verify] Testing qpus authorization rules …")
+
+    # Unauthenticated user can list QPUs
+    resp = requests.get(f"{BASE}/api/collections/qpus/records")
+    if resp.status_code != 200:
+        print(f"[verify] ✗ Public QPU list failed: {resp.status_code}")
+        return False
+    qpus = resp.json()["items"]
+    if not qpus:
+        print("[verify] ✗ No QPUs found for public list test")
+        return False
+    qpu_id = qpus[0]["id"]
+    print("[verify] ✓ Public can list QPUs")
+
+    # Unauthenticated user can view single QPU
+    resp = requests.get(f"{BASE}/api/collections/qpus/records/{qpu_id}")
+    if resp.status_code != 200:
+        print(f"[verify] ✗ Public QPU view failed: {resp.status_code}")
+        return False
+    print("[verify] ✓ Public can view single QPU")
+
+    # Authenticated regular user tries to create a QPU
+    user_session = requests.Session()
+    resp = user_session.post(f"{BASE}/api/collections/users/auth-with-password",
+                             json={"identity": "user@example.com", "password": "userpassword1234"})
+    if resp.status_code != 200:
+        print(f"[verify] ✗ Failed to authenticate user: {resp.text}")
+        return False
+    user_session.headers["Authorization"] = resp.json()["token"]
+
+    resp = user_session.post(f"{BASE}/api/collections/qpus/records", json={
+        "name": "Unauthorized-QPU",
+        "registration_token": "secret",
+        "status": "offline",
+    })
+    if resp.status_code not in (403, 404):
+        print(f"[verify] ✗ Regular user creating QPU was not rejected: {resp.status_code}")
+        return False
+    print("[verify] ✓ Regular user create QPU rejected")
+
+    # Regular user tries to update a QPU
+    resp = user_session.patch(f"{BASE}/api/collections/qpus/records/{qpu_id}", json={
+        "status": "maintenance",
+    })
+    if resp.status_code not in (403, 404):
+        print(f"[verify] ✗ Regular user updating QPU was not rejected: {resp.status_code}")
+        return False
+    print("[verify] ✓ Regular user update QPU rejected")
+
+    # Regular user tries to delete a QPU
+    resp = user_session.delete(f"{BASE}/api/collections/qpus/records/{qpu_id}")
+    if resp.status_code not in (403, 404):
+        print(f"[verify] ✗ Regular user deleting QPU was not rejected: {resp.status_code}")
+        return False
+    print("[verify] ✓ Regular user delete QPU rejected")
+
+    # Admin CAN update a QPU
+    resp = s.patch(f"{BASE}/api/collections/qpus/records/{qpu_id}", json={
+        "num_qubits": 8,
+    })
+    if resp.status_code != 200:
+        print(f"[verify] ✗ Admin failed to update QPU: {resp.status_code} {resp.text}")
+        return False
+    print("[verify] ✓ Admin can update QPU")
+    return True
+
+
 def run_driver_tests():
     """Run tests that exercise the driver + core API (no client SDKs)."""
     admin_auth()
@@ -995,6 +1170,12 @@ def run_driver_tests():
         all_passed = False
 
     if not test_notifications_crud():
+        all_passed = False
+
+    if not test_api_tokens_auth_rules():
+        all_passed = False
+
+    if not test_qpus_auth_rules():
         all_passed = False
 
     return all_passed

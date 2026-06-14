@@ -152,6 +152,12 @@ func ensureAPITokensCollection(app core.App, cfg *config.AppConfig) error {
 		if !hasName {
 			col.Fields.Add(&core.TextField{Name: "name"})
 		}
+		// Set API rules: owner-only access
+		col.ListRule = types.Pointer("user = @request.auth.id")
+		col.ViewRule = types.Pointer("user = @request.auth.id")
+		col.CreateRule = types.Pointer("@request.auth.id != \"\" && user = @request.auth.id")
+		col.UpdateRule = types.Pointer("user = @request.auth.id")
+		col.DeleteRule = types.Pointer("user = @request.auth.id")
 		return app.Save(col)
 	}
 
@@ -170,6 +176,14 @@ func ensureAPITokensCollection(app core.App, cfg *config.AppConfig) error {
 	}
 	col.Fields.Add(&core.DateField{Name: "expires_at"})
 	col.Fields.Add(&core.TextField{Name: "name"})
+
+	// Set API rules: owner-only access
+	col.ListRule = types.Pointer("user = @request.auth.id")
+	col.ViewRule = types.Pointer("user = @request.auth.id")
+	col.CreateRule = types.Pointer("@request.auth.id != \"\" && user = @request.auth.id")
+	col.UpdateRule = types.Pointer("user = @request.auth.id")
+	col.DeleteRule = types.Pointer("user = @request.auth.id")
+
 	return app.Save(col)
 }
 
@@ -206,6 +220,12 @@ func ensureQPUsCollection(app core.App, cfg *config.AppConfig) error {
 		if !hasEnabled {
 			col.Fields.Add(&core.BoolField{Name: "enabled"})
 		}
+		// Public read, superuser-only CUD
+		col.ListRule = types.Pointer("")
+		col.ViewRule = types.Pointer("")
+		col.CreateRule = nil
+		col.UpdateRule = nil
+		col.DeleteRule = nil
 		return app.Save(col)
 	}
 
@@ -226,6 +246,14 @@ func ensureQPUsCollection(app core.App, cfg *config.AppConfig) error {
 	col.Fields.Add(&core.TextField{Name: "executor_type"})
 	col.Fields.Add(&core.JSONField{Name: "device_config"})
 	col.Fields.Add(&core.BoolField{Name: "enabled"})
+
+	// Public read, superuser-only CUD
+	col.ListRule = types.Pointer("")
+	col.ViewRule = types.Pointer("")
+	col.CreateRule = nil
+	col.UpdateRule = nil
+	col.DeleteRule = nil
+
 	return app.Save(col)
 }
 
@@ -279,10 +307,17 @@ func ensureTimeSlotsCollection(app core.App, cfg *config.AppConfig) error {
 
 // ensureQuantumJobsCollection creates the collection storing jobs pending execution or containing results.
 func ensureQuantumJobsCollection(app core.App, cfg *config.AppConfig) error {
-	if _, err := app.FindCollectionByNameOrId(cfg.CollectionQuantumJobs); err == nil {
-		return nil
+	col, err := app.FindCollectionByNameOrId(cfg.CollectionQuantumJobs)
+	if err == nil {
+		// Collection exists — ensure rules are set
+		col.ListRule = types.Pointer("user_id = @request.auth.id")
+		col.ViewRule = types.Pointer("user_id = @request.auth.id")
+		col.CreateRule = types.Pointer("@request.auth.id != \"\" && user_id = @request.auth.id")
+		col.UpdateRule = nil
+		col.DeleteRule = nil
+		return app.Save(col)
 	}
-	col := core.NewBaseCollection(cfg.CollectionQuantumJobs)
+	col = core.NewBaseCollection(cfg.CollectionQuantumJobs)
 
 	usersCol, _ := app.FindCollectionByNameOrId("users")
 	if usersCol != nil {
@@ -313,6 +348,14 @@ func ensureQuantumJobsCollection(app core.App, cfg *config.AppConfig) error {
 	col.Fields.Add(&core.JSONField{Name: "results"})
 	col.Fields.Add(&core.AutodateField{Name: "created", OnCreate: true})
 	col.Fields.Add(&core.AutodateField{Name: "updated", OnCreate: true, OnUpdate: true})
+
+	// Owner-only read; authenticated create for self; no update/delete for regular users
+	col.ListRule = types.Pointer("user_id = @request.auth.id")
+	col.ViewRule = types.Pointer("user_id = @request.auth.id")
+	col.CreateRule = types.Pointer("@request.auth.id != \"\" && user_id = @request.auth.id")
+	col.UpdateRule = nil
+	col.DeleteRule = nil
+
 	return app.Save(col)
 }
 
