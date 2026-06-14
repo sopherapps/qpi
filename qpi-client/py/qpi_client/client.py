@@ -6,9 +6,12 @@ that handles authentication and serialisation for every QPI API endpoint.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import requests
+
+if TYPE_CHECKING:
+    from qpi_client.provider import QPIBackend, QPIJob
 
 
 class QPIClient:

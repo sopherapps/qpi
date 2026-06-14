@@ -49,6 +49,7 @@ def create_qpu():
         "status": "offline",
         "nng_command_port": 0,
         "nng_result_port": 0,
+        "enabled": True,
     })
     resp.raise_for_status()
     qpu = resp.json()

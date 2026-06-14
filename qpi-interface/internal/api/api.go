@@ -34,7 +34,7 @@ var (
 	activeQPUsMu sync.Mutex
 )
 
-// registerRequest represents the JSON payload passed to /api/qpu/register.
+// registerRequest represents the JSON payload passed to /api/op/qpu/register.
 type registerRequest struct {
 	Name              string         `json:"name"`
 	RegistrationToken string         `json:"registration_token"`
@@ -42,7 +42,7 @@ type registerRequest struct {
 	DeviceConfig      map[string]any `json:"device_config,omitempty"`
 }
 
-// registerResponse represents the JSON payload returned by /api/qpu/register.
+// registerResponse represents the JSON payload returned by /api/op/qpu/register.
 type registerResponse struct {
 	Status         string `json:"status"`
 	NNGCommandPort int    `json:"nng_command_port"`
@@ -99,8 +99,8 @@ type tokenUpdateRequest struct {
 	ExpiresAt *string `json:"expires_at,omitempty"`
 }
 
-// hashToken returns a SHA-256 hex digest of the raw token value.
-func hashToken(raw string) string {
+// HashToken returns a SHA-256 hex digest of the raw token value.
+func HashToken(raw string) string {
 	h := sha256.Sum256([]byte(raw))
 	return hex.EncodeToString(h[:])
 }
@@ -120,8 +120,11 @@ func generateAPIToken() string {
 
 // RegisterRoutes sets up custom HTTP routes for QPU interactions.
 func RegisterRoutes(e *core.ServeEvent) {
-	e.Router.POST("/api/qpu/register", func(re *core.RequestEvent) error {
+	e.Router.POST("/api/op/qpu/register", func(re *core.RequestEvent) error {
 		return handleQPURegister(re)
+	})
+	e.Router.POST("/api/op/qpu/toggle", func(re *core.RequestEvent) error {
+		return handleQPUToggle(re)
 	})
 
 	// Job CRUD routes
@@ -196,7 +199,7 @@ func resolveUserAuth(re *core.RequestEvent) (*core.Record, error) {
 		tokenRec, err := re.App.FindFirstRecordByFilter(
 			cfg.CollectionAPITokens,
 			"token = {:token} && (expires_at = '' || expires_at >= {:now})",
-			dbx.Params{"token": hashToken(token), "now": time.Now().UTC().Format("2006-01-02 15:04:05.000Z")},
+			dbx.Params{"token": HashToken(token), "now": time.Now().UTC().Format("2006-01-02 15:04:05.000Z")},
 		)
 		if err == nil {
 			userID := tokenRec.GetString("user")
@@ -449,13 +452,13 @@ func handleUserUpdate(re *core.RequestEvent) error {
 			_, err := re.App.FindFirstRecordByFilter(
 				cfg.CollectionAPITokens,
 				"token = {:token} && user = {:userId}",
-				dbx.Params{"token": hashToken(tokenValue), "userId": userID},
+				dbx.Params{"token": HashToken(tokenValue), "userId": userID},
 			)
 			if err == nil {
 				continue // already exists
 			}
 			tokenRec := core.NewRecord(tokensCol)
-			tokenRec.Set("token", hashToken(tokenValue))
+			tokenRec.Set("token", HashToken(tokenValue))
 			tokenRec.Set("user", userID)
 			if err := re.App.Save(tokenRec); err != nil {
 				log.Printf("Warning: failed to create api_token record: %v", err)
@@ -516,7 +519,7 @@ func handleTokenCreate(re *core.RequestEvent) error {
 
 	rawToken := generateAPIToken()
 	tokenRec := core.NewRecord(tokensCol)
-	tokenRec.Set("token", hashToken(rawToken))
+	tokenRec.Set("token", HashToken(rawToken))
 	tokenRec.Set("user", user.Id)
 	if req.Name != "" {
 		tokenRec.Set("name", req.Name)
@@ -697,10 +700,16 @@ func handleQPURegister(re *core.RequestEvent) error {
 		return re.Error(http.StatusBadRequest, "invalid request body", err)
 	}
 
-	// Find QPU by registration token
-	qpu, err := re.App.FindFirstRecordByData(cfg.CollectionQPUs, "registration_token", req.RegistrationToken)
+	// Find QPU by registration token (hashed)
+	hashedToken := HashToken(req.RegistrationToken)
+	qpu, err := re.App.FindFirstRecordByData(cfg.CollectionQPUs, "registration_token", hashedToken)
 	if err != nil {
 		return re.Error(http.StatusUnauthorized, "invalid registration token", err)
+	}
+
+	// Check if QPU is enabled
+	if qpu.Get("enabled") != nil && !qpu.GetBool("enabled") {
+		return re.Error(http.StatusForbidden, "QPU is currently disabled by administrator", nil)
 	}
 
 	// Update name if provided
@@ -736,17 +745,7 @@ func handleQPURegister(re *core.RequestEvent) error {
 	}
 
 	// Spin up orchestration goroutines if not already running
-	qpuID := qpu.Id
-	activeQPUsMu.Lock()
-	if _, running := activeQPUs[qpuID]; !running {
-		ctx, cancel := context.WithCancel(context.Background())
-		activeQPUs[qpuID] = cancel
-		go runDispatcher(re.App, qpuID, cmdPort)
-		go runResultListener(re.App, qpuID, resPort)
-		log.Printf("[QPi] Goroutines started for QPU %s (cmd:%d res:%d)", qpuID, cmdPort, resPort)
-		_ = ctx // ctx is held for future cancellation via cancel()
-	}
-	activeQPUsMu.Unlock()
+	StartQPUDistribution(re.App, qpu.Id, cmdPort, resPort)
 
 	// Generate auth token for the QPU record
 	token, err := qpu.NewStaticAuthToken(0) // 0 = use app default duration
@@ -760,6 +759,54 @@ func handleQPURegister(re *core.RequestEvent) error {
 		NNGCommandPort: cmdPort,
 		NNGResultPort:  resPort,
 		AuthToken:      token,
+	})
+}
+
+type qpuToggleRequest struct {
+	ID      string `json:"id"`
+	Enabled bool   `json:"enabled"`
+}
+
+// handleQPUToggle handles POST /api/op/qpu/toggle — toggles a QPU's enabled status (admin-only).
+func handleQPUToggle(re *core.RequestEvent) error {
+	cfg, err := config.GetConfigFromApp(re.App)
+	if err != nil {
+		return re.Error(http.StatusInternalServerError, "failed to retrieve configuration", err)
+	}
+
+	// Only superusers (admins) can access this endpoint
+	if !re.HasSuperuserAuth() {
+		return re.Error(http.StatusForbidden, "admin access required", nil)
+	}
+
+	var req qpuToggleRequest
+	if err := re.BindBody(&req); err != nil {
+		return re.Error(http.StatusBadRequest, "invalid request body", err)
+	}
+
+	if req.ID == "" {
+		return re.Error(http.StatusBadRequest, "QPU id is required", nil)
+	}
+
+	// Find QPU by ID or name
+	qpu, err := re.App.FindRecordById(cfg.CollectionQPUs, req.ID)
+	if err != nil {
+		qpu, err = re.App.FindFirstRecordByData(cfg.CollectionQPUs, "name", req.ID)
+		if err != nil {
+			return re.Error(http.StatusNotFound, "QPU not found", err)
+		}
+	}
+
+	qpu.Set("enabled", req.Enabled)
+	if err := re.App.Save(qpu); err != nil {
+		return re.Error(http.StatusInternalServerError, "failed to update QPU status", err)
+	}
+
+	return re.JSON(http.StatusOK, map[string]any{
+		"id":      qpu.Id,
+		"name":    qpu.GetString("name"),
+		"enabled": qpu.GetBool("enabled"),
+		"status":  qpu.GetString("status"),
 	})
 }
 
@@ -824,9 +871,33 @@ func serializeQPU(r *core.Record) map[string]any {
 	}
 }
 
+// StartQPUDistribution starts the goroutines for a specific QPU if not already running.
+func StartQPUDistribution(app core.App, qpuID string, cmdPort, resPort int) {
+	activeQPUsMu.Lock()
+	defer activeQPUsMu.Unlock()
+	if _, running := activeQPUs[qpuID]; !running {
+		ctx, cancel := context.WithCancel(context.Background())
+		activeQPUs[qpuID] = cancel
+		go runDispatcher(ctx, app, qpuID, cmdPort)
+		go runResultListener(ctx, app, qpuID, resPort)
+		log.Printf("[QPi] Goroutines started for QPU %s (cmd:%d res:%d)", qpuID, cmdPort, resPort)
+	}
+}
+
+// StopQPUDistribution cancels the goroutines for a specific QPU.
+func StopQPUDistribution(qpuID string) {
+	activeQPUsMu.Lock()
+	defer activeQPUsMu.Unlock()
+	if cancel, exists := activeQPUs[qpuID]; exists {
+		cancel()
+		delete(activeQPUs, qpuID)
+		log.Printf("[QPi] Goroutines stopped for QPU %s", qpuID)
+	}
+}
+
 // runDispatcher starts an NNG PUSH socket on the cmdPort, polling for pending quantum jobs
 // from the scheduler and pushing them to the registered python driver node.
-func runDispatcher(app core.App, qpuID string, cmdPort int) {
+func runDispatcher(ctx context.Context, app core.App, qpuID string, cmdPort int) {
 	cfg, err := config.GetConfigFromApp(app)
 	if err != nil {
 		log.Printf("[Dispatcher %s] failed to get config: %v", qpuID, err)
@@ -847,10 +918,25 @@ func runDispatcher(app core.App, qpuID string, cmdPort int) {
 	}
 	log.Printf("[Dispatcher %s] PUSH listening on %s", qpuID, addr)
 
+	go func() {
+		<-ctx.Done()
+		sock.Close()
+	}()
+
 	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
 		job := scheduler.FetchNextJob(app, qpuID)
 		if job == nil {
-			time.Sleep(cfg.DispatchPollInterval)
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(cfg.DispatchPollInterval):
+			}
 			continue
 		}
 
@@ -860,10 +946,19 @@ func runDispatcher(app core.App, qpuID string, cmdPort int) {
 		})
 
 		if err := sock.Send(payload); err != nil {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
 			log.Printf("[Dispatcher %s] send error: %v — requeueing", qpuID, err)
 			job.Set("status", "pending")
 			_ = app.Save(job)
-			time.Sleep(cfg.DispatchPollInterval)
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(cfg.DispatchPollInterval):
+			}
 			continue
 		}
 
@@ -878,7 +973,7 @@ func runDispatcher(app core.App, qpuID string, cmdPort int) {
 
 // runResultListener starts an NNG PULL socket on the resPort, waiting for job execution
 // results sent back by the hardware driver node and saving them to the database.
-func runResultListener(app core.App, qpuID string, resPort int) {
+func runResultListener(ctx context.Context, app core.App, qpuID string, resPort int) {
 	cfg, err := config.GetConfigFromApp(app)
 	if err != nil {
 		log.Printf("[Listener %s] failed to get config: %v", qpuID, err)
@@ -899,14 +994,28 @@ func runResultListener(app core.App, qpuID string, resPort int) {
 	}
 	log.Printf("[Listener %s] PULL listening on %s", qpuID, addr)
 
+	go func() {
+		<-ctx.Done()
+		sock.Close()
+	}()
+
 	for {
 		msg, err := sock.Recv()
 		if err != nil {
 			if err == mangos.ErrClosed {
 				return
 			}
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
 			log.Printf("[Listener %s] recv error: %v", qpuID, err)
-			time.Sleep(cfg.DispatchPollInterval)
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(cfg.DispatchPollInterval):
+			}
 			continue
 		}
 

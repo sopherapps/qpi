@@ -34,6 +34,7 @@ ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "supersecretpassword1234")
 MAX_WAIT_SECS = 120   # give the driver up to 2 minutes to finish all jobs
 TEST_API_TOKEN = "test-api-token-abc-123"
 TEST_USER_EMAIL = "user@example.com"
+REGISTRATION_TOKEN = "my-super-secret-token-12345"
 
 s = requests.Session()
 
@@ -797,7 +798,85 @@ def run_driver_tests():
     if not test_recovery_engine():
         all_passed = False
 
+    if not test_qpu_toggle_switch():
+        all_passed = False
+
     return all_passed
+
+
+def test_qpu_toggle_switch():
+    """Verify that disabling and re-enabling a QPU toggles its status and goroutines."""
+    print("\n[verify] Testing QPU enabled/disabled toggle switch …")
+    
+    # 1. Fetch QPU and verify it is initially enabled and online
+    resp = s.get(f"{BASE}/api/collections/qpus/records")
+    resp.raise_for_status()
+    qpus = resp.json()["items"]
+    if not qpus:
+        print("[verify] ✗ No QPUs found")
+        return False
+    qpu = qpus[0]
+    qpu_id = qpu["id"]
+    
+    if qpu.get("status") != "online" or not qpu.get("enabled"):
+        print(f"[verify] ✗ Precondition failed: QPU {qpu_id} is status={qpu.get('status')} enabled={qpu.get('enabled')}")
+        return False
+    
+    print(f"[verify] QPU {qpu_id} is online and enabled. Testing toggle switch …")
+    
+    # 2a. Verify unauthorized request to toggle is rejected
+    unauth_resp = requests.post(f"{BASE}/api/op/qpu/toggle", json={"id": qpu_id, "enabled": False})
+    if unauth_resp.status_code != 403:
+        print(f"[verify] ✗ Unauthorized toggle request was not blocked (expected 403, got {unauth_resp.status_code})")
+        return False
+    print("[verify] ✓ Unauthorized toggle request blocked successfully with 403 Forbidden.")
+
+    # 2b. Disable QPU via custom POST /api/op/qpu/toggle (authorized as admin)
+    resp = s.post(f"{BASE}/api/op/qpu/toggle", json={"id": qpu_id, "enabled": False})
+    resp.raise_for_status()
+    
+    # Give the backend a second to run the update hook and close the goroutines
+    time.sleep(1.5)
+    
+    # Verify it became offline
+    resp = s.get(f"{BASE}/api/collections/qpus/records/{qpu_id}")
+    resp.raise_for_status()
+    qpu = resp.json()
+    if qpu.get("status") != "offline" or qpu.get("enabled") is not False:
+        print(f"[verify] ✗ QPU did not transition to offline/disabled: status={qpu.get('status')} enabled={qpu.get('enabled')}")
+        return False
+    
+    print("[verify] ✓ QPU transitioned to offline. Testing registration block …")
+    
+    # 3. Verify driver handshake is rejected with 403 Forbidden while disabled.
+    reg_payload = {
+        "registration_token": REGISTRATION_TOKEN,
+        "name": qpu["name"],
+        "executor_type": qpu["executor_type"],
+        "device_config": qpu.get("device_config") or {},
+    }
+    resp = s.post(f"{BASE}/api/op/qpu/register", json=reg_payload)
+    if resp.status_code != 403:
+        print(f"[verify] ✗ Registration request was not blocked (expected 403, got {resp.status_code}): {resp.text}")
+        return False
+        
+    print("[verify] ✓ Registration blocked successfully with 403 Forbidden.")
+    
+    # 4. Re-enable QPU via custom POST /api/op/qpu/toggle (enabled = True)
+    print("[verify] Re-enabling QPU …")
+    resp = s.post(f"{BASE}/api/op/qpu/toggle", json={"id": qpu_id, "enabled": True})
+    resp.raise_for_status()
+    
+    time.sleep(1.5)
+    resp = s.get(f"{BASE}/api/collections/qpus/records/{qpu_id}")
+    resp.raise_for_status()
+    qpu = resp.json()
+    if qpu.get("status") != "online" or qpu.get("enabled") is not True:
+        print(f"[verify] ✗ QPU did not transition back to online/enabled: status={qpu.get('status')} enabled={qpu.get('enabled')}")
+        return False
+        
+    print("[verify] ✓ QPU successfully re-enabled and transitioned back to online.")
+    return True
 
 
 def main():

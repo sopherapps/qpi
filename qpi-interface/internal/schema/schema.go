@@ -178,6 +178,7 @@ func ensureQPUsCollection(app core.App, cfg *config.AppConfig) error {
 		hasNumQubits := false
 		hasExecutorType := false
 		hasDeviceConfig := false
+		hasEnabled := false
 		for _, f := range col.Fields {
 			switch f.GetName() {
 			case "num_qubits":
@@ -186,6 +187,8 @@ func ensureQPUsCollection(app core.App, cfg *config.AppConfig) error {
 				hasExecutorType = true
 			case "device_config":
 				hasDeviceConfig = true
+			case "enabled":
+				hasEnabled = true
 			}
 		}
 		if !hasNumQubits {
@@ -196,6 +199,9 @@ func ensureQPUsCollection(app core.App, cfg *config.AppConfig) error {
 		}
 		if !hasDeviceConfig {
 			col.Fields.Add(&core.JSONField{Name: "device_config"})
+		}
+		if !hasEnabled {
+			col.Fields.Add(&core.BoolField{Name: "enabled"})
 		}
 		return app.Save(col)
 	}
@@ -216,6 +222,7 @@ func ensureQPUsCollection(app core.App, cfg *config.AppConfig) error {
 	col.Fields.Add(&core.NumberField{Name: "num_qubits", Min: types.Pointer(1.0)})
 	col.Fields.Add(&core.TextField{Name: "executor_type"})
 	col.Fields.Add(&core.JSONField{Name: "device_config"})
+	col.Fields.Add(&core.BoolField{Name: "enabled"})
 	return app.Save(col)
 }
 

@@ -45,7 +45,7 @@ def do_handshake(
     executor_type: str = "",
     device_config: dict[str, Any] | None = None,
 ) -> HandshakeInfo:
-    """POST to /api/qpu/register and return dynamic port configurations.
+    """POST to /api/op/qpu/register and return dynamic port configurations.
 
     Args:
         host: Hostname or IP of the Go PocketBase server.
@@ -65,7 +65,7 @@ def do_handshake(
     if not token:
         raise ValueError("Registration token must be provided")
 
-    register_url = f"http://{host}:{port}/api/qpu/register"
+    register_url = f"http://{host}:{port}/api/op/qpu/register"
     payload: dict[str, Any] = {"name": name, "registration_token": token}
     if executor_type:
         payload["executor_type"] = executor_type

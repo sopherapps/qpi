@@ -138,7 +138,7 @@ class TestQPIBackend:
     def test_run_qasm_with_parameter_values(
         self, backend: QPIBackend, mock_client: MagicMock
     ) -> None:
-        job = backend.run(qasm="OPENQASM 3.0; ...", parameter_values=[[0.5, 1.0]])
+        backend.run(qasm="OPENQASM 3.0; ...", parameter_values=[[0.5, 1.0]])
 
         args, kwargs = mock_client.submit_job.call_args
         assert kwargs["circuits"][0]["parameter_values"] == [[0.5, 1.0]]
