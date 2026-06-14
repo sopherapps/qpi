@@ -7,6 +7,8 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 
 ## [Unreleased]
 
+## [0.0.1] - 2026-06-14
+
 ### Added
 
 - `qpi-ui`: Added `notifications` collection with admin-only CRUD, user visibility rules, broadcast/targeted targeting, time-window filtering, and per-user dismiss support via `POST /api/notifications/{id}/dismiss`.

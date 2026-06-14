@@ -303,14 +303,19 @@ jobs:
     - name: Install zip utility
       run: sudo apt-get update && sudo apt-get install -y zip
 
+    - name: Generate Changelog
+      run: |
+        TAG_NAME=${{ github.ref_name }}
+        VERSION=${TAG_NAME#v}
+        awk -v ver="$VERSION" '/^## \[/ { if ($0 ~ "^## \\[" ver "\\]") { flag=1; next } else { flag=0 } } flag' CHANGELOG.md > ${{ github.workspace }}-CHANGELOG.txt
+
     - name: Build Packages
       run: |
         VERSION=${{ github.ref_name }}
         make package VERSION=$${VERSION#v}
 
     - name: Upload Binaries to Release
-      uses: softprops/action-gh-release@v2
+      uses: softprops/action-gh-release@v3
       with:
         files: bin/dist/*
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        body_path:  ${{ github.workspace }}-CHANGELOG.txt
