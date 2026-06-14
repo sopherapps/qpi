@@ -147,6 +147,7 @@ describe("getJob", () => {
         id: "j1",
         status: "completed",
         results: { counts: { "0x0": 100 } },
+        duration: 1.23,
       }),
     });
 
@@ -154,6 +155,7 @@ describe("getJob", () => {
 
     expect(job.id).toBe("j1");
     expect(job.status).toBe("completed");
+    expect(job.duration).toBe(1.23);
     spy.mockRestore();
   });
 

@@ -13,7 +13,17 @@ export interface QPU {
   nng_result_port: number;
   enabled: boolean;
   executor: "mock" | "qiskit_aer" | "quantify" | "presto" | "qblox";
-  calibration_data?: any;
+  calibration_data?: unknown;
+}
+
+export interface JobResult {
+  shots: number;
+  backend: string;
+  success: boolean;
+  counts?: Record<string, number>;
+  hex_counts?: Record<string, number>;
+  memory?: number[][][];
+  circuit_results?: unknown[];
 }
 
 export interface QuantumJob {
@@ -22,7 +32,8 @@ export interface QuantumJob {
   qpu_target: string;
   payload: string; // JSON string
   status: "pending" | "running" | "completed" | "failed" | "cancelled";
-  results?: any; // Qiskit-compatible result dict
+  results?: JobResult; // Qiskit-compatible result dict
+  duration?: number; // execution duration in seconds
   created: string;
   finished_at?: string;
 }

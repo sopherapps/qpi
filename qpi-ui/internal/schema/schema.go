@@ -345,6 +345,7 @@ func ensureQuantumJobsCollection(app core.App, cfg *config.AppConfig) error {
 		Required:  true,
 	})
 	col.Fields.Add(&core.DateField{Name: "finished_at"})
+	col.Fields.Add(&core.NumberField{Name: "duration", Min: types.Pointer(0.0)})
 	col.Fields.Add(&core.JSONField{Name: "results"})
 	col.Fields.Add(&core.AutodateField{Name: "created", OnCreate: true})
 	col.Fields.Add(&core.AutodateField{Name: "updated", OnCreate: true, OnUpdate: true})

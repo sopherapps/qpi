@@ -44,6 +44,7 @@ export interface JobRecord {
     | "cancelled";
   payload: unknown;
   results: unknown;
+  duration?: number;
   created: string;
   updated: string;
 }

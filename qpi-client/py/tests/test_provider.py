@@ -20,6 +20,7 @@ def mock_client() -> MagicMock:
     client.get_job.return_value = {
         "id": "job-123",
         "status": "completed",
+        "duration": 1.23,
         "results": {
             "circuit_results": [{"counts": {"0x0": 512, "0x3": 512}, "shots": 1024}]
         },

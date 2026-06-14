@@ -299,6 +299,7 @@ func handleJobSubmit(re *core.RequestEvent) error {
 	record := core.NewRecord(jobsCol)
 	record.Set("user_id", user.Id)
 	record.Set("qpu_target", qpuTargetID)
+	record.Set("duration", 0)
 	record.Set("status", "pending")
 	record.Set("payload", string(payloadJSON))
 
@@ -379,6 +380,7 @@ func handleJobGet(re *core.RequestEvent) error {
 		"status":      record.GetString("status"),
 		"payload":     record.Get("payload"),
 		"results":     record.Get("results"),
+		"duration":    record.Get("duration"),
 		"finished_at": record.GetString("finished_at"),
 		"created":     record.GetString("created"),
 		"updated":     record.GetString("updated"),
@@ -1123,6 +1125,7 @@ func runResultListener(ctx context.Context, app core.App, qpuID string, resPort 
 		job.Set("finished_at", time.Now().UTC().Format("2006-01-02 15:04:05.000Z"))
 		resultsJSON, _ := json.Marshal(result.Results)
 		job.Set("results", string(resultsJSON))
+		job.Set("duration", durationSeconds)
 
 		if err := app.Save(job); err != nil {
 			log.Printf("[Listener %s] DB save error for job %s: %v", qpuID, result.JobID, err)

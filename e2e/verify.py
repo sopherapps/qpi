@@ -84,9 +84,9 @@ def wait_for_completion(timeout=MAX_WAIT_SECS):
 
 def print_summary(jobs):
     print("\n── Job Summary ─────────────────────────────────────────────────")
-    fmt = "{:<26} {:<12} {:<20} {}"
-    print(fmt.format("ID", "Status", "Finished At", "Results (excerpt)"))
-    print("─" * 90)
+    fmt = "{:<26} {:<12} {:<12} {:<20} {}"
+    print(fmt.format("ID", "Status", "Duration", "Finished At", "Results (excerpt)"))
+    print("─" * 100)
     for j in jobs:
         results = j.get("results") or "{}"
         if isinstance(results, str):
@@ -95,7 +95,9 @@ def print_summary(jobs):
             except Exception:
                 pass
         excerpt = str(results)[:50] + "…" if len(str(results)) > 50 else str(results)
-        print(fmt.format(j["id"][:24], j["status"], j.get("finished_at", "")[:19], excerpt))
+        duration = j.get("duration")
+        duration_str = f"{duration:.2f}s" if duration is not None else "--"
+        print(fmt.format(j["id"][:24], j["status"], duration_str, j.get("finished_at", "")[:19], excerpt))
 
 
 # ---------------------------------------------------------------------------
@@ -337,9 +339,12 @@ def test_qiskit_hadamard_circuit():
         time.sleep(1)
         resp = requests.get(f"{BASE}/api/jobs/{job_id}", headers=headers)
         if resp.status_code == 200:
-            status = resp.json().get("status")
+            data = resp.json()
+            status = data.get("status")
             if status == "completed":
-                print(f"[verify] ✓ Hadamard job completed after {i + 1}s")
+                duration = data.get("duration")
+                duration_str = f"{duration:.2f}s" if duration is not None else "unknown"
+                print(f"[verify] ✓ Hadamard job completed after {i + 1}s (duration: {duration_str})")
                 return True
             if status in ("failed", "cancelled"):
                 print(f"[verify] ✗ Hadamard job {status}")

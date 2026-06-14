@@ -29,8 +29,8 @@ export const RequestTimeModal: React.FC<RequestTimeModalProps> = ({
       setSeconds(100);
       setReason("");
       alert("Time request submitted successfully!");
-    } catch (err: any) {
-      setError(err?.message || "Failed to submit request.");
+    } catch (err: unknown) {
+      setError((err as Error)?.message || "Failed to submit request.");
     } finally {
       setLoading(false);
     }

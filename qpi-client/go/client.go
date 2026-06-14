@@ -56,12 +56,13 @@ type JobSubmitRequest struct {
 
 // JobRecord is the server representation of a job.
 type JobRecord struct {
-	ID      string `json:"id"`
-	Status  string `json:"status"`
-	Payload any    `json:"payload"`
-	Results any    `json:"results"`
-	Created string `json:"created"`
-	Updated string `json:"updated"`
+	ID       string  `json:"id"`
+	Status   string  `json:"status"`
+	Payload  any     `json:"payload"`
+	Results  any     `json:"results"`
+	Duration float64 `json:"duration,omitempty"`
+	Created  string  `json:"created"`
+	Updated  string  `json:"updated"`
 }
 
 // QpuRecord describes a QPU.

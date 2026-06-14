@@ -237,7 +237,7 @@ If the workflow runs on a `push` to `main`/`master` and the repository environme
 - [x] Add CRUD (authenticated/authorized) for requesting/approving/rejecting/viewing QPU time by users
 - [x] Add off/on-switch for QPI-drivers
 - [x] Add CRUD for notifications, which can target a list of users or all users (i.e. target_users: empty = broadcast). Users can dismiss a notification for themselves such that when they query for notifications by default, they don't see dismissed notifications. Users can see their own notifications but admins have access to all notifications. Only admins can create/delete/update notifications. Notifications can have a start timestamp and an end timestamp. Before the start and after the end, normal users cannot see them. They have a title and description.
-- [ ] Update js,py, and go qpi-clients to use the pocketbase SDK and access all possible routes provided by qpi-ui
-- [ ] Add dashboard for viewing jobs, admins allocating QPU time, setting maintenance, scheduling
+- [ ] Update js,py, and go qpi-clients to access all possible routes provided by qpi-ui
+- [x] Add dashboard for viewing jobs, admins allocating QPU time, setting maintenance, scheduling
   announcements, viewing QPU calibration data, viewing job results and statuses (probably using the qpi-client (js)) etc. It needs to be embedded in qpi-ui and served as static files
 - [ ] Add support for the Qblox Scheduler (`qblox-scheduler`) package once a stable release is available on PyPI.

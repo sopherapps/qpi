@@ -71,6 +71,7 @@ class TestGetJob:
             "id": "job-123",
             "status": "completed",
             "results": {"counts": {"0x0": 512}},
+            "duration": 1.23,
         }
         with patch.object(
             client._session, "get", return_value=mock_response
@@ -79,6 +80,7 @@ class TestGetJob:
 
         assert data["id"] == "job-123"
         assert data["status"] == "completed"
+        assert data["duration"] == 1.23
         mock_get.assert_called_once_with("http://localhost:8090/api/jobs/job-123")
 
 

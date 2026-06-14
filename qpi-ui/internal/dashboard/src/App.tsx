@@ -2,12 +2,12 @@ import React, { useState, useEffect, useCallback } from "react";
 import { pb } from "./lib/pb";
 import { Sidebar } from "./components/Sidebar";
 import { Header } from "./components/Header";
-import { OverviewTab } from "./components/OverviewTab";
-import { QpuRegistryTab } from "./components/QpuRegistryTab";
-import { JobsConsoleTab } from "./components/JobsConsoleTab";
-import { BookingsTab } from "./components/BookingsTab";
-import { AdminPanelTab } from "./components/AdminPanelTab";
-import { SettingsTab } from "./components/SettingsTab";
+import { OverviewTab } from "./components/tabs/OverviewTab";
+import { QpuRegistryTab } from "./components/tabs/QpuRegistryTab";
+import { JobsConsoleTab } from "./components/tabs/JobsConsoleTab";
+import { BookingsTab } from "./components/tabs/BookingsTab";
+import { AdminPanelTab } from "./components/tabs/AdminPanelTab";
+import { SettingsTab } from "./components/tabs/SettingsTab";
 import { LoginModal } from "./components/LoginModal";
 import { RequestTimeModal } from "./components/RequestTimeModal";
 import type { QPU, QuantumJob, Notification, TimeSlot, User, TimeRequest } from "./types";
@@ -62,7 +62,7 @@ export const App: React.FC = () => {
     }
     try {
       const user = await pb.collection("users").getOne(pb.authStore.model.id);
-      setQpuSeconds((user as any).qpu_seconds || 0);
+      setQpuSeconds((user as unknown as User).qpu_seconds || 0);
     } catch (err) {
       console.error("Failed to load user quota:", err);
     }
@@ -154,6 +154,7 @@ export const App: React.FC = () => {
   useEffect(() => {
     if (!authValid) return;
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadAllData();
 
     // Subscribe to database changes
@@ -196,6 +197,8 @@ export const App: React.FC = () => {
   // Initialize auth credentials from session storage
   useEffect(() => {
     if (pb.authStore.isValid && pb.authStore.model) {
+      
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setUserEmail(pb.authStore.model.email || "admin@qpi.org");
       setUserId(pb.authStore.model.id);
       setIsAdmin(pb.authStore.model.collectionName === "_superusers");
@@ -234,8 +237,8 @@ export const App: React.FC = () => {
         method: "POST",
       });
       loadNotifications();
-    } catch (err: any) {
-      alert(`Dismiss failed: ${err.message}`);
+    } catch (err: unknown) {
+      alert(`Dismiss failed: ${(err as Error).message}`);
     }
   };
 
@@ -247,8 +250,8 @@ export const App: React.FC = () => {
         });
       }
       loadNotifications();
-    } catch (err: any) {
-      alert(`Clear failed: ${err.message}`);
+    } catch (err: unknown) {
+      alert(`Clear failed: ${(err as Error).message}`);
     }
   };
 

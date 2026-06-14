@@ -97,8 +97,9 @@ func TestSubmitJob_ServerError(t *testing.T) {
 
 func TestGetJob_Success(t *testing.T) {
 	server := newTestServer(t, http.StatusOK, map[string]any{
-		"id":     "job-123",
-		"status": "completed",
+		"id":       "job-123",
+		"status":   "completed",
+		"duration": 1.23,
 		"results": map[string]any{
 			"counts": map[string]int{"0x0": 512},
 		},
@@ -115,6 +116,9 @@ func TestGetJob_Success(t *testing.T) {
 	}
 	if job.Status != "completed" {
 		t.Errorf("expected completed, got %s", job.Status)
+	}
+	if job.Duration != 1.23 {
+		t.Errorf("expected duration 1.23, got %f", job.Duration)
 	}
 }
 

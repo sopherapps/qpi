@@ -1,4 +1,4 @@
-.PHONY: all build build-dashboard test lint lint-go lint-py lint-js lint-go-client lint-py-client format format-go format-py format-js format-go-client format-py-client package package-js package-py package-go clean venv-check
+.PHONY: all build build-dashboard test lint lint-go lint-py lint-js lint-dashboard lint-go-client lint-py-client format format-go format-py format-js format-dashboard format-go-client format-py-client package package-js package-py package-go clean venv-check test-e2e-dashboard
 
 VERSION ?= 0.0.1
 UV := $(shell command -v uv 2> /dev/null || echo "$$HOME/.local/bin/uv")
@@ -78,7 +78,7 @@ test-py-client:
 	$(UV) sync --project qpi-client/py --extra dev
 	$(UV) run --project qpi-client/py pytest qpi-client/py/tests/ -v
 
-test-e2e: test-e2e-driver test-e2e-client-py test-e2e-client-js test-e2e-client-go
+test-e2e: test-e2e-driver test-e2e-client-py test-e2e-client-js test-e2e-client-go test-e2e-dashboard
 
 test-e2e-driver:
 	@echo "Running E2E driver tests..."
@@ -96,11 +96,15 @@ test-e2e-client-go:
 	@echo "Running E2E Go client tests..."
 	./e2e/test_client_go.sh
 
+test-e2e-dashboard:
+	@echo "Running E2E Cypress dashboard tests..."
+	./e2e/test_dashboard_cypress.sh
+
 # ---------------------------------------------------------------------------
 # Lint targets
 # ---------------------------------------------------------------------------
 
-lint: lint-go lint-py lint-js lint-go-client lint-py-client
+lint: lint-go lint-py lint-js lint-dashboard lint-go-client lint-py-client
 
 lint-go:
 	@echo "Linting Go orchestrator files..."
@@ -115,6 +119,10 @@ lint-js:
 	@echo "Linting JS client files..."
 	(cd qpi-client/js && npm ci && npm run lint)
 
+lint-dashboard:
+	@echo "Linting dashboard files..."
+	(cd qpi-ui/internal/dashboard && CYPRESS_INSTALL_BINARY=0 npm ci && npm run lint)
+
 lint-go-client:
 	@echo "Linting Go client files..."
 	(cd qpi-client/go && go vet ./...)
@@ -128,7 +136,7 @@ lint-py-client:
 # Format targets
 # ---------------------------------------------------------------------------
 
-format: format-go format-py format-js format-go-client format-py-client
+format: format-go format-py format-js format-dashboard format-go-client format-py-client
 
 format-go:
 	@echo "Formatting Go orchestrator files..."
@@ -142,6 +150,10 @@ format-py:
 format-js:
 	@echo "Formatting JS client files..."
 	(cd qpi-client/js && npm ci && npm run format)
+
+format-dashboard:
+	@echo "Formatting dashboard files..."
+	(cd qpi-ui/internal/dashboard && CYPRESS_INSTALL_BINARY=0 npm ci && npm run format)
 
 format-go-client:
 	@echo "Formatting Go client files..."
