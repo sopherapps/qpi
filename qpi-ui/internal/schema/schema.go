@@ -461,6 +461,8 @@ func ensureNotificationsCollection(app core.App, cfg *config.AppConfig) error {
 	hasStartTime := false
 	hasEndTime := false
 	hasDismissedBy := false
+	hasCreated := false
+	hasUpdated := false
 
 	for _, f := range col.Fields {
 		switch f.GetName() {
@@ -476,6 +478,10 @@ func ensureNotificationsCollection(app core.App, cfg *config.AppConfig) error {
 			hasEndTime = true
 		case "dismissed_by":
 			hasDismissedBy = true
+		case "created":
+			hasCreated = true
+		case "updated":
+			hasUpdated = true
 		}
 	}
 
@@ -484,6 +490,12 @@ func ensureNotificationsCollection(app core.App, cfg *config.AppConfig) error {
 	}
 	if !hasDescription {
 		col.Fields.Add(&core.TextField{Name: "description"})
+	}
+	if !hasCreated {
+		col.Fields.Add(&core.AutodateField{Name: "created", OnCreate: true})
+	}
+	if !hasUpdated {
+		col.Fields.Add(&core.AutodateField{Name: "updated", OnCreate: true, OnUpdate: true})
 	}
 
 	usersCol, err := app.FindCollectionByNameOrId("users")

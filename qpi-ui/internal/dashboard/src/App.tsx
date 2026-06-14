@@ -293,7 +293,7 @@ export const App: React.FC = () => {
   const handleToggleQpu = async (id: string, enabled: boolean) => {
     await pb.send("/api/op/qpu/toggle", {
       method: "POST",
-      body: JSON.stringify({ qpu_id: id, enabled: enabled }),
+      body: JSON.stringify({ id: id, enabled: enabled }),
       headers: { "Content-Type": "application/json" },
     });
     loadQpus();

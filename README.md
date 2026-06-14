@@ -15,10 +15,11 @@ QPI is a distributed quantum control stack architecture designed to control mult
 
 ## System Architecture
 
-The architecture consists of two primary components:
-1. **UI (API and dashboard) (`qpi-ui/main.go`):** Extends PocketBase with Go, handling job queues, session-based bookings, and real-time job dispatching. Actively listens for LAN connections on dynamically allocated network ports.
-2. **QPU Driver (`qpi-driver`):** Runs on isolated hardware nodes controlling the QPU. Uses Python's `multiprocessing` library to isolate network handling, quantum circuit compilation/simulation, and translation into separate processes.
-3. **QPI Clients (Python, JavaScript, Go):** SDKs for submitting
+The architecture consists of four primary components:
+1. **PocketBase Go Orchestrator (`qpi-ui/main.go`):** Extends PocketBase with Go, handling job queues, session-based bookings, and real-time job dispatching. Actively listens for LAN connections on dynamically allocated network ports.
+2. **React SPA Dashboard (`qpi-ui/internal/dashboard`):** Single-page application built with Vite, React 19, TypeScript, and Tailwind CSS. It is served directly from the orchestrator (via `//go:embed`) at `/dashboard/` for viewing jobs, allocating QPU time, scheduling announcements, managing bookings, and observing calibration telemetry.
+3. **Python Hardware Driver (`qpi-driver`):** Runs on isolated hardware nodes controlling the QPU. Uses Python's `multiprocessing` library to isolate network handling, quantum circuit compilation/simulation, and translation into separate processes.
+4. **QPI Clients (Python, JavaScript, Go):** SDKs for submitting
 jobs to the quantum computer using OpenQASM specification (and
 Qiskit circuits if one uses the Python client)
 
@@ -210,14 +211,26 @@ Common options:
 
 ## Developer Lifecycle (Makefile)
 
-A `Makefile` is provided in the root directory to simplify development and testing.
+A `Makefile` is provided in the root directory to simplify development, linting, formatting, and testing.
 
 ```bash
-# Build Go binary and install Python package in editable mode
+# Build Go binary (automatically compiles the React dashboard) and sync Python driver package
 make build
 
-# Run both mock and qiskit_aer end-to-end tests locally
+# Run all unit tests and end-to-end integration tests (clients and driver)
 make test
+
+# Run only Python driver unit tests
+make test-py
+
+# Run dashboard Cypress E2E tests (PocketBase + Driver + Cypress)
+make test-e2e-dashboard
+
+# Run linters across Go, Python driver, JS client, and dashboard codebases
+make lint
+
+# Automatically format all source files in the repository
+make format
 
 # Clean database, build artifacts, cache files
 make clean
@@ -241,7 +254,7 @@ If the workflow runs on a `push` to `main`/`master` and the repository environme
 - [x] Add CRUD (authenticated/authorized) for requesting/approving/rejecting/viewing QPU time by users
 - [x] Add off/on-switch for QPI-drivers
 - [x] Add CRUD for notifications, which can target a list of users or all users (i.e. target_users: empty = broadcast). Users can dismiss a notification for themselves such that when they query for notifications by default, they don't see dismissed notifications. Users can see their own notifications but admins have access to all notifications. Only admins can create/delete/update notifications. Notifications can have a start timestamp and an end timestamp. Before the start and after the end, normal users cannot see them. They have a title and description.
-- [ ] Update js,py, and go qpi-clients to access all possible routes provided by qpi-ui
+- [x] Update js, py, and go qpi-clients to access all possible routes provided by qpi-ui
 - [x] Add dashboard for viewing jobs, admins allocating QPU time, setting maintenance, scheduling
   announcements, viewing QPU calibration data, viewing job results and statuses (probably using the qpi-client (js)) etc. It needs to be embedded in qpi-ui and served as static files
 - [ ] Add support for the Qblox Scheduler (`qblox-scheduler`) package once a stable release is available on PyPI.

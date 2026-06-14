@@ -31,8 +31,8 @@ export const LoginModal: React.FC<LoginModalProps> = ({
         await pb.collection("users").authWithPassword(identity, password);
       }
       onLoginSuccess();
-    } catch (err: unknown) {
-      setError((err as Error)?.message || "Invalid credentials. Please try again.");
+    } catch {
+      setError("Invalid credentials. Please try again.");
     } finally {
       setLoading(false);
     }

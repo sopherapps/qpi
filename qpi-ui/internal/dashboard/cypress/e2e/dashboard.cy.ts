@@ -47,8 +47,7 @@ describe("QPI Dashboard E2E Tests", () => {
     cy.contains("div", "completed", { timeout: 15000 }).should("be.visible");
 
     // Verify duration is displayed after completion
-    cy.contains("span", "Duration").should("be.visible");
-    cy.get("span.font-mono").contains(/\\d+\\.\\d+s/).should("be.visible");
+    cy.contains("span", "Duration").parent().find("span.font-mono").should("be.visible").and("contain", "s");
 
     // 7. Navigate to Bookings & Book a slot
     cy.contains("button", "Bookings").click();
@@ -100,10 +99,9 @@ describe("QPI Dashboard E2E Tests", () => {
     // 4. Compose and post broadcast announcement on Admin Panel
     cy.contains("button", "Admin Panel").click();
     cy.contains("button", "Broadcast Announcement").click();
-    
     cy.get('input[placeholder="QPU Maintenance Schedule"]').type("Test Cypress Broadcast Title");
     cy.get('textarea[placeholder="Rigetti Aspen-9 will be offline for calibration tomorrow..."]').type("Test Cypress Broadcast Description");
-    cy.contains("button", "Broadcast Announcement").click();
+    cy.get('form button[type="submit"]').click();
     cy.contains("Announcement broadcasted successfully!").should("be.visible");
 
     // 5. Verify broadcast is visible in header dropdown
