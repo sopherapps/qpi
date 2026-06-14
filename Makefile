@@ -1,4 +1,4 @@
-.PHONY: all build build-dashboard test lint lint-go lint-py lint-js lint-dashboard lint-go-client lint-py-client format format-go format-py format-js format-dashboard format-go-client format-py-client package package-js package-py package-go clean venv-check test-e2e-dashboard
+.PHONY: all build build-dashboard test lint lint-go lint-py lint-js lint-dashboard lint-go-client lint-py-client format format-go format-py format-js format-dashboard format-go-client format-py-client package package-driver package-js package-py package-go clean venv-check test-e2e-dashboard
 
 VERSION ?= 0.0.1
 UV := $(shell command -v uv 2> /dev/null || echo "$$HOME/.local/bin/uv")
@@ -82,7 +82,7 @@ test-e2e: test-e2e-driver test-e2e-client-py test-e2e-client-js test-e2e-client-
 
 test-e2e-driver:
 	@echo "Running E2E driver tests..."
-	./e2e/test_driver.sh
+	./e2e/test_driver.sh $(EXECUTOR)
 
 test-e2e-client-py:
 	@echo "Running E2E Python client tests..."
@@ -179,6 +179,10 @@ package-js:
 package-py:
 	@echo "Packaging Python client..."
 	$(UV) build --project qpi-client/py/
+
+package-driver:
+	@echo "Packaging Python driver..."
+	$(UV) build --project qpi-driver/
 
 package-go:
 	@echo "Go client is a module — no packaging step required."

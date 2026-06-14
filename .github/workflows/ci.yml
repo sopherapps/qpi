@@ -15,7 +15,7 @@ jobs:
   # -------------------------------------------------------------------------
   # Core lint-and-test matrix (orchestrator + driver)
   # -------------------------------------------------------------------------
-  lint-and-test:
+  lint-and-test-orchestrator-and-driver:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -57,33 +57,30 @@ jobs:
         fi
         sudo apt-get update && sudo apt-get install -y zip
 
-    - name: Audit Go Code Formatting
-      run: |
-        if [ -n "$(gofmt -l qpi-ui)" ]; then
-          echo "Go formatting errors found:"
-          gofmt -d qpi-ui
-          exit 1
-        fi
+    - name: Build dashboard
+      run: make build-dashboard
 
-    - name: Build Dashboard
-      run: (cd qpi-ui/internal/dashboard && npm ci && npm run build)
+    - name: Lint ochestrator
+      run: make lint-go 
+      
+    - name: Lint driver
+      run: make lint-py
 
-    - name: Vet Go Code
-      run: cd qpi-ui && go vet ./...
-
-    - name: Audit Python Code Formatting & Style
-      run: |
-        uv run --project qpi-driver ruff format --check qpi-driver/
-        uv run --project qpi-driver ruff check qpi-driver/
-
-    - name: Run Go Unit Tests
-      run: cd qpi-ui && go test -v ./...
+    - name: Test CLI 
+      run: make test-py-cli
 
     - name: Run Python Unit Tests for '${{ matrix.extra }}'
-      run: uv run --project qpi-driver pytest qpi-driver/tests/
+      run: |
+        if [ "${{ matrix.extra }}" = "mock" ]; then
+          make test-py-base
+        elif [ "${{ matrix.extra }}" = "aer" ]; then
+          make test-py-aer
+        elif [ "${{ matrix.extra }}" = "quantify" ]; then
+          make test-py-quantify
+        fi
 
-    - name: Run E2E Integration Tests for '${{ matrix.extra }}'
-      run: ./e2e/run_tests.sh ${{ matrix.extra }}
+    - name: Run E2E Integration Tests for driver '${{ matrix.extra }}'
+      run: make test-e2e-driver EXECUTOR=${{ matrix.extra }}
 
   # -------------------------------------------------------------------------
   # qpi-client / Go SDK
@@ -105,19 +102,11 @@ jobs:
         cache-dependency-path: 'qpi-client/go/go.sum'
         
 
-    - name: Audit Go Client Formatting
-      run: |
-        if [ -n "$(gofmt -l qpi-client/go)" ]; then
-          echo "Go client formatting errors found:"
-          gofmt -d qpi-client/go
-          exit 1
-        fi
-
-    - name: Vet Go Client Code
-      run: cd qpi-client/go && go vet ./...
+    - name: Lint Go Client
+      run: make lint-go-client
 
     - name: Run Go Client Unit Tests
-      run: cd qpi-client/go && go test -v ./...
+      run: make test-go-client
 
   # -------------------------------------------------------------------------
   # qpi-client / Python SDK
@@ -143,12 +132,10 @@ jobs:
       run: uv sync --project qpi-client/py --extra dev
 
     - name: Audit Python Client Formatting & Style
-      run: |
-        uv run --project qpi-client/py ruff format --check qpi-client/py/
-        uv run --project qpi-client/py ruff check qpi-client/py/
+      run: make lint-py-client
 
     - name: Run Python Client Unit Tests
-      run: uv run --project qpi-client/py pytest qpi-client/py/tests/ -v
+      run: make test-py-client
 
   # -------------------------------------------------------------------------
   # qpi-client / JS SDK
@@ -170,14 +157,11 @@ jobs:
         cache: 'npm'
         cache-dependency-path: 'qpi-client/js/package-lock.json'
 
-    - name: Install JS client dependencies
-      run: cd qpi-client/js && npm ci
-
     - name: Audit JS Client Type-check
-      run: cd qpi-client/js && npm run lint
+      run: make lint-js
 
     - name: Run JS Client Unit Tests
-      run: cd qpi-client/js && npm test
+      run: make test-js-client
 
   # -------------------------------------------------------------------------
   # E2E Cypress Dashboard Tests
@@ -218,7 +202,7 @@ jobs:
   # Publish qpi-driver to PyPI
   # -------------------------------------------------------------------------
   publish-pypi-driver:
-    needs: lint-and-test
+    needs: lint-and-test-orchestrator-and-driver
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && vars.PUBLISH_TO_PYPI == 'true'
     permissions:
@@ -234,7 +218,7 @@ jobs:
         python-version: '3.12'
 
     - name: Build Package
-      run: uv build --project qpi-driver/
+      run: make package-driver
 
     - name: Publish package distributions to PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
@@ -261,7 +245,7 @@ jobs:
         python-version: '3.12'
 
     - name: Build Package
-      run: uv build --project qpi-client/py/
+      run: make package-py
 
     - name: Publish package distributions to PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
@@ -291,10 +275,7 @@ jobs:
         cache-dependency-path: 'qpi-client/js/package-lock.json'
 
     - name: Install dependencies & build
-      run: |
-        cd qpi-client/js
-        npm ci
-        npm run build
+      run: make package-js
 
     - name: Publish to npm
       run: cd qpi-client/js && npm publish --provenance --access public
@@ -305,7 +286,7 @@ jobs:
   # Publish Go orchestrator binaries to GitHub Release
   # -------------------------------------------------------------------------
   publish-go-release:
-    needs: [lint-and-test, test-dashboard-cypress]
+    needs: [lint-and-test-orchestrator-and-driver, test-dashboard-cypress]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && vars.PUBLISH_GO_APP == 'true'
     permissions:
