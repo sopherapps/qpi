@@ -22,7 +22,7 @@ The script exits 0 on success, 1 on failure.
 """
 
 import argparse, os, sys, time, requests, json
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 HOST  = os.getenv("GO_SERVER_HOST", "127.0.0.1")
 PORT  = int(os.getenv("GO_SERVER_PORT", "8090"))
@@ -376,6 +376,227 @@ def test_recovery_engine():
     return False
 
 
+def test_time_slots_validation():
+    print("\n[verify] Testing Time Slots CRUD & Validations …")
+    
+    # 1. Authenticate test user
+    user_session = requests.Session()
+    resp = user_session.post(f"{BASE}/api/collections/users/auth-with-password",
+                             json={"identity": "user@example.com", "password": "userpassword1234"})
+    if resp.status_code != 200:
+        print(f"[verify] ✗ Failed to authenticate test user: {resp.text}")
+        return False
+    user_token = resp.json()["token"]
+    user_id = resp.json()["record"]["id"]
+    user_session.headers["Authorization"] = user_token
+    print("[verify] Test user authenticated")
+
+    # 2. Get the seeded slot (created by seed.py) to check Listing and Viewing.
+    # Note: Seeded slot starts 2 mins ago, ends 5 mins from now.
+    resp = user_session.get(f"{BASE}/api/collections/time_slots/records")
+    if resp.status_code != 200:
+        print(f"[verify] ✗ User cannot list slots: {resp.text}")
+        return False
+    slots = resp.json()["items"]
+    print(f"[verify] ✓ User listed {len(slots)} slots")
+    
+    # Find the seeded slot
+    seeded_slot = None
+    for slot in slots:
+        if slot["booked_by"] == user_id:
+            seeded_slot = slot
+            break
+            
+    if not seeded_slot:
+        print("[verify] ✗ Seeded slot not found in list")
+        return False
+
+    # Get single slot
+    resp = user_session.get(f"{BASE}/api/collections/time_slots/records/{seeded_slot['id']}")
+    if resp.status_code != 200:
+        print(f"[verify] ✗ User cannot view single slot: {resp.text}")
+        return False
+    print("[verify] ✓ User viewed single slot")
+
+    # 3. Test slot creation in the past
+    now = datetime.now(timezone.utc)
+    past_start = (now - timedelta(hours=2)).strftime("%Y-%m-%d %H:%M:%S.000Z")
+    past_end = (now - timedelta(hours=1)).strftime("%Y-%m-%d %H:%M:%S.000Z")
+    
+    resp = user_session.post(f"{BASE}/api/collections/time_slots/records", json={
+        "start_time": past_start,
+        "end_time": past_end,
+        "booked_by": user_id
+    })
+    if resp.status_code != 400 or "past" not in resp.text.lower():
+        print(f"[verify] ✗ Past slot creation was not rejected: {resp.status_code} {resp.text}")
+        return False
+    print("[verify] ✓ Past slot creation rejected correctly for regular user")
+
+    # Verify that admin CAN create a slot in the past
+    # (using admin session `s`)
+    resp = s.post(f"{BASE}/api/collections/time_slots/records", json={
+        "start_time": past_start,
+        "end_time": past_end,
+        "booked_by": user_id
+    })
+    if resp.status_code != 200:
+        print(f"[verify] ✗ Admin failed to create slot in the past: {resp.status_code} {resp.text}")
+        return False
+    admin_past_slot_id = resp.json()["id"]
+    print("[verify] ✓ Admin successfully created slot in the past")
+
+    # 4. Test overlapping slots (validation rule in validateTimeSlot)
+    # Let's try to create a slot that overlaps with the seeded slot.
+    # Seeded slot is current, let's create a future slot first.
+    future_start_1 = (now + timedelta(hours=1)).strftime("%Y-%m-%d %H:%M:%S.000Z")
+    future_end_1 = (now + timedelta(hours=2)).strftime("%Y-%m-%d %H:%M:%S.000Z")
+    
+    resp = user_session.post(f"{BASE}/api/collections/time_slots/records", json={
+        "start_time": future_start_1,
+        "end_time": future_end_1,
+        "booked_by": user_id
+    })
+    if resp.status_code != 200:
+        print(f"[verify] ✗ Failed to create non-overlapping future slot: {resp.status_code} {resp.text}")
+        return False
+    future_slot_id = resp.json()["id"]
+    print("[verify] ✓ Created future slot")
+
+    # Try to create a slot that overlaps with the future slot
+    overlap_start = (now + timedelta(hours=1, minutes=30)).strftime("%Y-%m-%d %H:%M:%S.000Z")
+    overlap_end = (now + timedelta(hours=2, minutes=30)).strftime("%Y-%m-%d %H:%M:%S.000Z")
+    
+    resp = user_session.post(f"{BASE}/api/collections/time_slots/records", json={
+        "start_time": overlap_start,
+        "end_time": overlap_end,
+        "booked_by": user_id
+    })
+    if resp.status_code == 200:
+        print("[verify] ✗ Overlapping slot creation was NOT rejected")
+        return False
+    if "overlap" not in resp.text.lower():
+        print(f"[verify] ✗ Overlapping slot creation failed but with unexpected message: {resp.text}")
+        return False
+    print("[verify] ✓ Overlapping slot creation rejected correctly")
+
+    # Try to create a slot with start_time >= end_time
+    invalid_start = (now + timedelta(hours=5)).strftime("%Y-%m-%d %H:%M:%S.000Z")
+    invalid_end = (now + timedelta(hours=4)).strftime("%Y-%m-%d %H:%M:%S.000Z")
+    resp = user_session.post(f"{BASE}/api/collections/time_slots/records", json={
+        "start_time": invalid_start,
+        "end_time": invalid_end,
+        "booked_by": user_id
+    })
+    if resp.status_code == 200:
+        print("[verify] ✗ Slot with start_time >= end_time was NOT rejected")
+        return False
+    if "strictly before" not in resp.text.lower():
+        print(f"[verify] ✗ Slot with start_time >= end_time failed with unexpected message: {resp.text}")
+        return False
+    print("[verify] ✓ Slot with start_time >= end_time rejected correctly")
+
+    # 5. Test modifying a slot that has already started (seeded_slot starts 2 mins ago)
+    resp = user_session.patch(f"{BASE}/api/collections/time_slots/records/{seeded_slot['id']}", json={
+        "end_time": (now + timedelta(minutes=10)).strftime("%Y-%m-%d %H:%M:%S.000Z")
+    })
+    if resp.status_code != 400 or "already started" not in resp.text.lower():
+        print(f"[verify] ✗ Modifying already-started slot was not rejected: {resp.status_code} {resp.text}")
+        return False
+    print("[verify] ✓ Modifying already-started slot rejected correctly for regular user")
+
+    # Verify that admin CAN modify an already-started slot
+    resp = s.patch(f"{BASE}/api/collections/time_slots/records/{seeded_slot['id']}", json={
+        "end_time": (now + timedelta(minutes=10)).strftime("%Y-%m-%d %H:%M:%S.000Z")
+    })
+    if resp.status_code != 200:
+        print(f"[verify] ✗ Admin failed to modify already-started slot: {resp.status_code} {resp.text}")
+        return False
+    print("[verify] ✓ Admin successfully modified already-started slot")
+
+    # 6. Test rescheduling a slot to a start time in the past
+    past_reschedule_start = (now - timedelta(minutes=45)).strftime("%Y-%m-%d %H:%M:%S.000Z")
+    past_reschedule_end = (now - timedelta(minutes=15)).strftime("%Y-%m-%d %H:%M:%S.000Z")
+
+    resp = user_session.patch(f"{BASE}/api/collections/time_slots/records/{future_slot_id}", json={
+        "start_time": past_reschedule_start,
+        "end_time": past_reschedule_end
+    })
+    if resp.status_code != 400 or "past" not in resp.text.lower():
+        print(f"[verify] ✗ Rescheduling slot to past start time was not rejected: {resp.status_code} {resp.text}")
+        return False
+    print("[verify] ✓ Rescheduling slot to past start time rejected correctly for regular user")
+
+    # Verify that admin CAN reschedule a slot to a start time in the past
+    resp = s.patch(f"{BASE}/api/collections/time_slots/records/{future_slot_id}", json={
+        "start_time": past_reschedule_start,
+        "end_time": past_reschedule_end
+    })
+    if resp.status_code != 200:
+        print(f"[verify] ✗ Admin failed to reschedule slot to past start time: {resp.status_code} {resp.text}")
+        return False
+    print("[verify] ✓ Admin successfully rescheduled slot to past start time")
+
+    # 7. Test deleting a slot that has already started (seeded_slot)
+    resp = user_session.delete(f"{BASE}/api/collections/time_slots/records/{seeded_slot['id']}")
+    if resp.status_code != 400 or "already started" not in resp.text.lower():
+        print(f"[verify] ✗ Deleting already-started slot was not rejected: {resp.status_code} {resp.text}")
+        return False
+    print("[verify] ✓ Deleting already-started slot rejected correctly for regular user")
+
+    # Verify that admin CAN delete an already-started slot
+    resp = s.delete(f"{BASE}/api/collections/time_slots/records/{seeded_slot['id']}")
+    if resp.status_code != 204:
+        print(f"[verify] ✗ Admin failed to delete already-started slot: {resp.status_code} {resp.text}")
+        return False
+    print("[verify] ✓ Admin successfully deleted already-started slot")
+
+    # 8. Test authorization: User B trying to update/delete User A's slot
+    # Create User B
+    resp = s.post(f"{BASE}/api/collections/users/records", json={
+        "email": "userB@example.com",
+        "emailVisibility": True,
+        "password": "userBpassword1234",
+        "passwordConfirm": "userBpassword1234",
+    })
+    if resp.status_code == 400 and "already" in resp.text.lower():
+        # fetch existing
+        resp2 = s.get(f"{BASE}/api/collections/users/records",
+                      params={"filter": 'email="userB@example.com"'})
+        resp2.raise_for_status()
+        userB = resp2.json()["items"][0]
+    else:
+        resp.raise_for_status()
+        userB = resp.json()
+
+    userB_session = requests.Session()
+    resp = userB_session.post(f"{BASE}/api/collections/users/auth-with-password",
+                              json={"identity": "userB@example.com", "password": "userBpassword1234"})
+    resp.raise_for_status()
+    userB_session.headers["Authorization"] = resp.json()["token"]
+
+    # Try to modify future_slot_id (owned by User A / user_id)
+    resp = userB_session.patch(f"{BASE}/api/collections/time_slots/records/{future_slot_id}", json={
+        "end_time": (now + timedelta(hours=3)).strftime("%Y-%m-%d %H:%M:%S.000Z")
+    })
+    if resp.status_code not in (403, 404):
+        print(f"[verify] ✗ User B modifying User A's slot was not rejected: {resp.status_code} {resp.text}")
+        return False
+    print("[verify] ✓ User B modifying User A's slot was rejected correctly")
+
+    # Try to delete future_slot_id (owned by User A)
+    resp = userB_session.delete(f"{BASE}/api/collections/time_slots/records/{future_slot_id}")
+    if resp.status_code not in (403, 404):
+        print(f"[verify] ✗ User B deleting User A's slot was not rejected: {resp.status_code} {resp.text}")
+        return False
+    print("[verify] ✓ User B deleting User A's slot was rejected correctly")
+
+    # Cleanup: delete remaining slots
+    s.delete(f"{BASE}/api/collections/time_slots/records/{future_slot_id}")
+    s.delete(f"{BASE}/api/collections/time_slots/records/{admin_past_slot_id}")
+    return True
+
+
 def run_driver_tests():
     """Run tests that exercise the driver + core API (no client SDKs)."""
     admin_auth()
@@ -397,6 +618,9 @@ def run_driver_tests():
         all_passed = False
 
     if not test_admin_user_update():
+        all_passed = False
+
+    if not test_time_slots_validation():
         all_passed = False
 
     if not test_job_cancel():

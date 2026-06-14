@@ -216,24 +216,51 @@ func ensureQPUsCollection(app core.App, cfg *config.AppConfig) error {
 	return app.Save(col)
 }
 
-// ensureTimeSlotsCollection creates the collection storing calendar slot reservations for users.
+// ensureTimeSlotsCollection creates/updates the collection storing calendar slot reservations for users.
 func ensureTimeSlotsCollection(app core.App, cfg *config.AppConfig) error {
-	if _, err := app.FindCollectionByNameOrId(cfg.CollectionTimeSlots); err == nil {
-		return nil
+	col, err := app.FindCollectionByNameOrId(cfg.CollectionTimeSlots)
+	if err != nil {
+		col = core.NewBaseCollection(cfg.CollectionTimeSlots)
 	}
-	col := core.NewBaseCollection(cfg.CollectionTimeSlots)
-	col.Fields.Add(&core.DateField{Name: "start_time", Required: true})
-	col.Fields.Add(&core.DateField{Name: "end_time", Required: true})
 
-	// booked_by → relation to users collection (optional)
+	// Ensure fields
+	hasStartTime := false
+	hasEndTime := false
+	hasBookedBy := false
+	for _, f := range col.Fields {
+		switch f.GetName() {
+		case "start_time":
+			hasStartTime = true
+		case "end_time":
+			hasEndTime = true
+		case "booked_by":
+			hasBookedBy = true
+		}
+	}
+
+	if !hasStartTime {
+		col.Fields.Add(&core.DateField{Name: "start_time", Required: true})
+	}
+	if !hasEndTime {
+		col.Fields.Add(&core.DateField{Name: "end_time", Required: true})
+	}
+
 	usersCol, err := app.FindCollectionByNameOrId("users")
-	if err == nil {
+	if err == nil && !hasBookedBy {
 		col.Fields.Add(&core.RelationField{
 			Name:         "booked_by",
 			CollectionId: usersCol.Id,
 			MaxSelect:    1,
 		})
 	}
+
+	// Set API Rules for user-level CRUD and administration
+	col.ListRule = types.Pointer("@request.auth.id != \"\"")
+	col.ViewRule = types.Pointer("@request.auth.id != \"\"")
+	col.CreateRule = types.Pointer("@request.auth.id != \"\" && booked_by = @request.auth.id")
+	col.UpdateRule = types.Pointer("booked_by = @request.auth.id")
+	col.DeleteRule = types.Pointer("booked_by = @request.auth.id")
+
 	return app.Save(col)
 }
 
