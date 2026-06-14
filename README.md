@@ -9,7 +9,7 @@ QPI is a distributed quantum control stack architecture designed to control mult
 
 * **Go**: `>= 1.22` (tested up to `1.26`)
 * **Python**: `~= 3.12`
-* **Nodejs**: `>= 18.x` (tested up to `22.x`)
+* **Nodejs**: `>= 20.x` (tested up to `22.x`)
 
 ---
 
