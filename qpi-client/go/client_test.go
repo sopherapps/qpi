@@ -331,5 +331,205 @@ func intPtr(i int) *int {
 	return &i
 }
 
+func TestNewClientMethods(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("ListQpus", func(t *testing.T) {
+		server := newTestServer(t, http.StatusOK, []QpuRecord{{ID: "q1", Name: "qpu-1"}})
+		defer server.Close()
+		client := NewClient(server.URL, "")
+		res, err := client.ListQpus(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(res) != 1 || res[0].Name != "qpu-1" {
+			t.Errorf("unexpected: %+v", res)
+		}
+	})
+
+	t.Run("GetQpu", func(t *testing.T) {
+		server := newTestServer(t, http.StatusOK, QpuRecord{ID: "q1", Name: "qpu-1"})
+		defer server.Close()
+		client := NewClient(server.URL, "")
+		res, err := client.GetQpu(ctx, "qpu-1")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if res.ID != "q1" {
+			t.Errorf("unexpected: %+v", res)
+		}
+	})
+
+	t.Run("RegisterQpu", func(t *testing.T) {
+		server := newTestServer(t, http.StatusOK, QpuRecord{ID: "q1", Name: "qpu-1"})
+		defer server.Close()
+		client := NewClient(server.URL, "")
+		res, err := client.RegisterQpu(ctx, QpuRecord{Name: "qpu-1"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if res.ID != "q1" {
+			t.Errorf("unexpected: %+v", res)
+		}
+	})
+
+	t.Run("ToggleQpu", func(t *testing.T) {
+		server := newTestServer(t, http.StatusOK, map[string]any{"success": true})
+		defer server.Close()
+		client := NewClient(server.URL, "")
+		_, err := client.ToggleQpu(ctx, "q1", true)
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	t.Run("ListNotifications", func(t *testing.T) {
+		server := newTestServer(t, http.StatusOK, map[string]any{"items": []NotificationRecord{{ID: "n1"}}})
+		defer server.Close()
+		client := NewClient(server.URL, "")
+		res, err := client.ListNotifications(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(res) != 1 || res[0].ID != "n1" {
+			t.Errorf("unexpected: %+v", res)
+		}
+	})
+
+	t.Run("DismissNotification", func(t *testing.T) {
+		server := newTestServer(t, http.StatusOK, map[string]any{"success": true})
+		defer server.Close()
+		client := NewClient(server.URL, "")
+		_, err := client.DismissNotification(ctx, "n1")
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	t.Run("BookingSlots", func(t *testing.T) {
+		// list
+		server1 := newTestServer(t, http.StatusOK, map[string]any{"items": []TimeSlotRecord{{ID: "s1"}}})
+		client := NewClient(server1.URL, "")
+		slots, err := client.ListTimeSlots(ctx)
+		server1.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(slots) != 1 || slots[0].ID != "s1" {
+			t.Errorf("unexpected list: %+v", slots)
+		}
+
+		// create
+		server2 := newTestServer(t, http.StatusOK, TimeSlotRecord{ID: "s1"})
+		client.BaseURL = server2.URL
+		slot, err := client.CreateTimeSlot(ctx, TimeSlotRecord{StartTime: "start", EndTime: "end"})
+		server2.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if slot.ID != "s1" {
+			t.Errorf("unexpected create: %+v", slot)
+		}
+
+		// update
+		server3 := newTestServer(t, http.StatusOK, TimeSlotRecord{ID: "s1", StartTime: "start2"})
+		client.BaseURL = server3.URL
+		slot, err = client.UpdateTimeSlot(ctx, "s1", TimeSlotRecord{StartTime: "start2"})
+		server3.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if slot.StartTime != "start2" {
+			t.Errorf("unexpected update: %+v", slot)
+		}
+
+		// delete
+		server4 := newTestServer(t, http.StatusNoContent, nil)
+		client.BaseURL = server4.URL
+		err = client.DeleteTimeSlot(ctx, "s1")
+		server4.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	t.Run("TimeRequests", func(t *testing.T) {
+		// list
+		server1 := newTestServer(t, http.StatusOK, map[string]any{"items": []TimeRequestRecord{{ID: "tr1"}}})
+		client := NewClient(server1.URL, "")
+		reqs, err := client.ListTimeRequests(ctx)
+		server1.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(reqs) != 1 || reqs[0].ID != "tr1" {
+			t.Errorf("unexpected list: %+v", reqs)
+		}
+
+		// create
+		server2 := newTestServer(t, http.StatusOK, TimeRequestRecord{ID: "tr1"})
+		client.BaseURL = server2.URL
+		req, err := client.CreateTimeRequest(ctx, TimeRequestRecord{Seconds: 100})
+		server2.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if req.ID != "tr1" {
+			t.Errorf("unexpected create: %+v", req)
+		}
+
+		// update
+		server3 := newTestServer(t, http.StatusOK, TimeRequestRecord{ID: "tr1", Status: "approved"})
+		client.BaseURL = server3.URL
+		req, err = client.UpdateTimeRequest(ctx, "tr1", TimeRequestRecord{Status: "approved"})
+		server3.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if req.Status != "approved" {
+			t.Errorf("unexpected update: %+v", req)
+		}
+	})
+
+	t.Run("AdminUserQuota", func(t *testing.T) {
+		// list
+		server1 := newTestServer(t, http.StatusOK, map[string]any{"items": []UserRecord{{ID: "u1"}}})
+		client := NewClient(server1.URL, "")
+		users, err := client.ListUsers(ctx)
+		server1.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(users) != 1 || users[0].ID != "u1" {
+			t.Errorf("unexpected list: %+v", users)
+		}
+
+		// allocate
+		server2 := newTestServer(t, http.StatusOK, UserRecord{ID: "u1", QpuSeconds: 500})
+		client.BaseURL = server2.URL
+		user, err := client.AllocateQpuTime(ctx, "u1", 500)
+		server2.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if user.QpuSeconds != 500 {
+			t.Errorf("unexpected allocate: %+v", user)
+		}
+	})
+
+	t.Run("AuthWithPassword", func(t *testing.T) {
+		server := newTestServer(t, http.StatusOK, map[string]any{"token": "jwt-token-123"})
+		defer server.Close()
+		client := NewClient(server.URL, "")
+		_, err := client.AuthWithPassword(ctx, "alice", "secret")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if client.BearerToken != "jwt-token-123" {
+			t.Errorf("expected bearer token to be set, got %q", client.BearerToken)
+		}
+	})
+}
+
 // Ensure the compiler catches any interface drift.
 var _ error = (*APIError)(nil)

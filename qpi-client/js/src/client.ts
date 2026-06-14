@@ -173,6 +173,155 @@ export class QPIClient {
     }
   }
 
+  // -- QPU discovery & management --------------------------------------------
+
+  /** List all online QPUs. */
+  async listQpus(): Promise<any[]> {
+    return this.get<any[]>("/api/qpus");
+  }
+
+  /** Retrieve a single QPU by name. */
+  async getQpu(name: string): Promise<any> {
+    return this.get<any>(`/api/qpus/${encodeURIComponent(name)}`);
+  }
+
+  /** Register a new QPU (admin-only). */
+  async registerQpu(request: {
+    name: string;
+    registration_token: string;
+    executor_type?: string;
+    device_config?: Record<string, any>;
+  }): Promise<any> {
+    return this.post<any>("/api/op/qpu/register", request);
+  }
+
+  /** Toggle QPU driver state (admin-only). */
+  async toggleQpu(id: string, enabled: boolean): Promise<any> {
+    return this.post<any>("/api/op/qpu/toggle", { id, enabled });
+  }
+
+  // -- Notifications ---------------------------------------------------------
+
+  /** List notifications visible to the authenticated user. */
+  async listNotifications(): Promise<any[]> {
+    const data = await this.get<any | any[]>(
+      "/api/collections/notifications/records",
+    );
+    return Array.isArray(data) ? data : data.items || [];
+  }
+
+  /** Dismiss a notification for the authenticated user. */
+  async dismissNotification(id: string): Promise<any> {
+    return this.post<any>(
+      `/api/notifications/${encodeURIComponent(id)}/dismiss`,
+    );
+  }
+
+  // -- Booking Slots (time_slots) --------------------------------------------
+
+  /** List all booking slots. */
+  async listTimeSlots(): Promise<any[]> {
+    const data = await this.get<any>("/api/collections/time_slots/records");
+    return data.items || [];
+  }
+
+  /** Create a new booking slot. */
+  async createTimeSlot(slot: {
+    start_time: string;
+    end_time: string;
+    booked_by?: string;
+  }): Promise<any> {
+    return this.post<any>("/api/collections/time_slots/records", slot);
+  }
+
+  /** Update an existing booking slot. */
+  async updateTimeSlot(
+    id: string,
+    slot: {
+      start_time?: string;
+      end_time?: string;
+    },
+  ): Promise<any> {
+    return this.patch<any>(
+      `/api/collections/time_slots/records/${encodeURIComponent(id)}`,
+      slot,
+    );
+  }
+
+  /** Delete a booking slot. */
+  async deleteTimeSlot(id: string): Promise<void> {
+    await this.delete<void>(
+      `/api/collections/time_slots/records/${encodeURIComponent(id)}`,
+    );
+  }
+
+  // -- QPU Time Requests -----------------------------------------------------
+
+  /** List QPU time requests. */
+  async listTimeRequests(): Promise<any[]> {
+    const data = await this.get<any>(
+      "/api/collections/qpu_time_requests/records",
+    );
+    return data.items || [];
+  }
+
+  /** Create a new QPU time request. */
+  async createTimeRequest(request: {
+    seconds: number;
+    requested_reason?: string;
+  }): Promise<any> {
+    return this.post<any>(
+      "/api/collections/qpu_time_requests/records",
+      request,
+    );
+  }
+
+  /** Update/Handle a QPU time request (admin-only). */
+  async updateTimeRequest(
+    id: string,
+    request: {
+      status: "approved" | "rejected";
+      rejection_reason?: string;
+    },
+  ): Promise<any> {
+    return this.patch<any>(
+      `/api/collections/qpu_time_requests/records/${encodeURIComponent(id)}`,
+      request,
+    );
+  }
+
+  // -- Admin User Management -------------------------------------------------
+
+  /** List all registered users (admin-only). */
+  async listUsers(): Promise<any[]> {
+    const data = await this.get<any>("/api/collections/users/records");
+    return data.items || [];
+  }
+
+  /** Allocate QPU time to a user (admin-only). */
+  async allocateQpuTime(userId: string, seconds: number): Promise<any> {
+    return this.patch<any>(`/api/admin/users/${encodeURIComponent(userId)}`, {
+      qpu_seconds: seconds,
+    });
+  }
+
+  // -- Auth helpers -----------------------------------------------------------
+
+  /** Authenticate as a regular user using email/password. */
+  async authWithPassword(identity: string, password: string): Promise<any> {
+    const resp = await this.post<any>(
+      "/api/collections/users/auth-with-password",
+      {
+        identity,
+        password,
+      },
+    );
+    if (resp.token) {
+      this.headers["Authorization"] = `Bearer ${resp.token}`;
+    }
+    return resp;
+  }
+
   // -- internal helpers -----------------------------------------------------
 
   private async get<T>(path: string): Promise<T> {
@@ -192,6 +341,28 @@ export class QPIClient {
     });
     await this.assertOk(res);
     return (await res.json()) as T;
+  }
+
+  private async patch<T>(path: string, body?: unknown): Promise<T> {
+    const res = await fetch(`${this.baseUrl}${path}`, {
+      method: "PATCH",
+      headers: this.headers,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+    await this.assertOk(res);
+    return (await res.json()) as T;
+  }
+
+  private async delete<T>(path: string): Promise<T> {
+    const res = await fetch(`${this.baseUrl}${path}`, {
+      method: "DELETE",
+      headers: this.headers,
+    });
+    await this.assertOk(res);
+    if (res.status === 204) {
+      return {} as T;
+    }
+    return (await res.json().catch(() => ({}))) as T;
   }
 
   private async assertOk(res: Response): Promise<void> {

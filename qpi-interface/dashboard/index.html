@@ -1,0 +1,1693 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>QPI Dashboard - Obsidian Precision</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;600;700&amp;family=Inter:wght@400;500&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+    <script src="https://cdn.jsdelivr.net/npm/pocketbase/dist/pocketbase.umd.js"></script>
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        background: "#09090b",
+                        surface: "#18181b",
+                        "surface-dim": "#131315",
+                        "surface-container": "#201f22",
+                        primary: "#ffffff",
+                        secondary: "#6366f1",
+                        success: "#22c55e",
+                        warning: "#eab308",
+                        error: "#ef4444",
+                        border: "#27272a"
+                    },
+                    spacing: {
+                        "sidebar-width": "240px"
+                    }
+                }
+            }
+        };
+    </script>
+    <style>
+        body {
+            background-color: #09090b;
+            color: #e4e4e7;
+            font-family: 'Inter', sans-serif;
+        }
+        .font-geist {
+            font-family: 'Geist', sans-serif;
+        }
+        .font-mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        /* Custom scrollbar for dark theme */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #09090b;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #27272a;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #3f3f46;
+        }
+    </style>
+</head>
+<body class="antialiased h-screen overflow-hidden flex">
+
+    <!-- LOGIN MODAL / OVERLAY -->
+    <div id="login-modal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-zinc-950/80 backdrop-blur-md">
+        <div class="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-lg shadow-2xl p-8 space-y-6">
+            <div class="text-center">
+                <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-zinc-800 text-primary mb-4 border border-zinc-700">
+                    <span class="material-symbols-outlined text-2xl">lock</span>
+                </div>
+                <h2 class="text-2xl font-geist font-bold text-primary">Sign in to QPI</h2>
+                <p class="text-sm text-zinc-400 mt-1">Access your quantum computing environment</p>
+            </div>
+
+            <!-- Role tabs -->
+            <div class="flex border-b border-zinc-800">
+                <button id="login-tab-user" onclick="setLoginRole('user')" class="flex-1 pb-2 font-geist text-sm text-center border-b-2 border-primary text-primary font-medium focus:outline-none">
+                    Regular User
+                </button>
+                <button id="login-tab-admin" onclick="setLoginRole('admin')" class="flex-1 pb-2 font-geist text-sm text-center border-b-2 border-transparent text-zinc-400 hover:text-zinc-200 focus:outline-none">
+                    Administrator
+                </button>
+            </div>
+
+            <form id="login-form" onsubmit="handleLogin(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-medium text-zinc-400 mb-1.5 uppercase tracking-wider">Email or Username</label>
+                    <input id="login-identity" type="text" required class="w-full bg-background border border-zinc-800 rounded px-3 py-2 text-primary font-body-sm focus:outline-none focus:border-zinc-500 transition-colors" placeholder="user@example.com"/>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-zinc-400 mb-1.5 uppercase tracking-wider">Password</label>
+                    <input id="login-password" type="password" required class="w-full bg-background border border-zinc-800 rounded px-3 py-2 text-primary font-body-sm focus:outline-none focus:border-zinc-500 transition-colors" placeholder="••••••••"/>
+                </div>
+                <div id="login-error" class="text-xs text-error hidden font-medium bg-error/10 border border-error/20 p-2.5 rounded"></div>
+                <button type="submit" class="w-full bg-primary text-zinc-950 font-geist font-semibold py-2.5 rounded hover:opacity-90 transition-opacity flex justify-center items-center gap-2">
+                    Sign In
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MAIN DASHBOARD CONTENT (hidden until logged in) -->
+    <div id="dashboard-app" class="flex w-full h-full opacity-0 transition-opacity duration-300">
+        
+        <!-- SIDEBAR -->
+        <aside class="w-sidebar-width h-full border-r border-zinc-800 bg-zinc-900/40 flex flex-col z-50">
+            <!-- Brand -->
+            <div class="px-6 py-6 border-b border-zinc-800/50 flex items-center gap-3">
+                <span class="material-symbols-outlined text-primary text-2xl">memory</span>
+                <div>
+                    <h1 class="font-geist text-lg font-bold text-primary leading-none tracking-tight">QPI Interface</h1>
+                    <p class="text-[10px] text-zinc-400 uppercase tracking-widest mt-1">Control Hub</p>
+                </div>
+            </div>
+
+            <!-- Navigation Links -->
+            <nav class="flex-1 px-3 py-4 space-y-1">
+                <button onclick="switchTab('overview')" id="nav-overview" class="w-full flex items-center gap-3 px-4 py-2.5 rounded text-sm font-medium transition-colors text-primary bg-zinc-800/50 border-l-2 border-primary text-left">
+                    <span class="material-symbols-outlined text-lg">dashboard</span>
+                    Overview
+                </button>
+                <button onclick="switchTab('qpus')" id="nav-qpus" class="w-full flex items-center gap-3 px-4 py-2.5 rounded text-sm font-medium transition-colors text-zinc-400 hover:bg-zinc-800/30 hover:text-primary border-l-2 border-transparent text-left">
+                    <span class="material-symbols-outlined text-lg">memory</span>
+                    QPU Registry
+                </button>
+                <button onclick="switchTab('jobs')" id="nav-jobs" class="w-full flex items-center gap-3 px-4 py-2.5 rounded text-sm font-medium transition-colors text-zinc-400 hover:bg-zinc-800/30 hover:text-primary border-l-2 border-transparent text-left">
+                    <span class="material-symbols-outlined text-lg">terminal</span>
+                    Jobs Console
+                </button>
+                <button onclick="switchTab('bookings')" id="nav-bookings" class="w-full flex items-center gap-3 px-4 py-2.5 rounded text-sm font-medium transition-colors text-zinc-400 hover:bg-zinc-800/30 hover:text-primary border-l-2 border-transparent text-left">
+                    <span class="material-symbols-outlined text-lg">calendar_today</span>
+                    Bookings
+                </button>
+                <button onclick="switchTab('admin')" id="nav-admin" class="w-full hidden flex items-center gap-3 px-4 py-2.5 rounded text-sm font-medium transition-colors text-zinc-400 hover:bg-zinc-800/30 hover:text-primary border-l-2 border-transparent text-left">
+                    <span class="material-symbols-outlined text-lg">admin_panel_settings</span>
+                    Admin Panel
+                </button>
+                <button onclick="switchTab('settings')" id="nav-settings" class="w-full flex items-center gap-3 px-4 py-2.5 rounded text-sm font-medium transition-colors text-zinc-400 hover:bg-zinc-800/30 hover:text-primary border-l-2 border-transparent text-left">
+                    <span class="material-symbols-outlined text-lg">person</span>
+                    Profile Settings
+                </button>
+            </nav>
+
+            <!-- User quota card at bottom -->
+            <div class="p-4 border-t border-zinc-800">
+                <div class="bg-zinc-950/40 border border-zinc-800 rounded p-3 space-y-2">
+                    <div class="flex justify-between items-center text-xs">
+                        <span class="text-zinc-400">QPU Balance</span>
+                        <span id="sidebar-balance" class="font-mono text-primary font-semibold">0s</span>
+                    </div>
+                    <div class="h-1 bg-zinc-800 rounded-full overflow-hidden">
+                        <div class="h-full bg-secondary w-full"></div>
+                    </div>
+                    <div class="text-[10px] text-zinc-500 flex justify-between items-center">
+                        <span id="sidebar-user-role">User Account</span>
+                        <button onclick="showRequestTimeModal()" class="text-secondary hover:underline font-medium">Request Time</button>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- CANVAS WRAPPER -->
+        <div class="flex-1 flex flex-col min-w-0 h-full">
+            
+            <!-- HEADER -->
+            <header class="h-16 border-b border-zinc-800 flex items-center justify-between px-8 bg-zinc-950/20">
+                <h2 id="page-title" class="font-geist text-lg font-bold text-primary">Dashboard Overview</h2>
+                <div class="flex items-center gap-4">
+                    
+                    <!-- Notification Bell Dropdown -->
+                    <div class="relative">
+                        <button onclick="toggleNotificationsDropdown()" class="w-9 h-9 rounded-full bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-zinc-400 hover:text-primary transition-all flex items-center justify-center relative">
+                            <span class="material-symbols-outlined text-xl">notifications</span>
+                            <span id="notification-badge" class="absolute -top-1.5 -right-1.5 bg-error text-zinc-950 text-[10px] font-bold h-4 w-4 rounded-full flex items-center justify-center hidden">0</span>
+                        </button>
+                        
+                        <!-- Dropdown panel -->
+                        <div id="notifications-dropdown" class="absolute right-0 mt-2 w-80 bg-zinc-900 border border-zinc-800 rounded-lg shadow-2xl p-4 space-y-3 hidden z-50">
+                            <div class="flex justify-between items-center border-b border-zinc-800 pb-2">
+                                <span class="text-xs font-semibold text-primary uppercase tracking-wider">Announcements</span>
+                                <button onclick="dismissAllNotifications()" class="text-[10px] text-zinc-500 hover:text-primary transition-colors">Clear All</button>
+                            </div>
+                            <div id="notifications-list" class="max-h-60 overflow-y-auto space-y-2 text-xs">
+                                <div class="text-zinc-500 text-center py-4">No new notifications</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- User menu -->
+                    <div class="flex items-center gap-3">
+                        <span id="user-email-header" class="text-xs text-zinc-400 font-medium">user@qpi.org</span>
+                        <div class="w-8 h-8 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-primary font-semibold uppercase text-xs" id="user-avatar-header">
+                            U
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- TABS PANELS CONTENT -->
+            <main class="flex-1 overflow-y-auto p-8 bg-background">
+                <div class="max-w-7xl mx-auto">
+                    
+                    <!-- TAB 1: OVERVIEW -->
+                    <section id="tab-overview" class="tab-panel space-y-8">
+                        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                            <div>
+                                <h1 class="text-3xl font-geist text-primary">Overview</h1>
+                                <p class="text-sm text-zinc-400 mt-1">System status and resource consumption.</p>
+                            </div>
+                            <div class="flex gap-3">
+                                <button onclick="switchTab('bookings')" class="border border-zinc-800 bg-transparent text-primary px-4 py-2 rounded font-medium text-sm hover:bg-zinc-800 transition-colors">Book Slot</button>
+                                <button onclick="switchTab('jobs')" class="bg-primary text-zinc-950 px-4 py-2 rounded font-medium text-sm hover:opacity-90 transition-opacity">Submit Job</button>
+                            </div>
+                        </div>
+
+                        <!-- Metrics Row -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div class="bg-zinc-900 border border-zinc-800 p-6 rounded-lg flex flex-col justify-between">
+                                <div class="flex justify-between items-start mb-4">
+                                    <span class="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Active QPUs</span>
+                                    <span class="material-symbols-outlined text-zinc-500 text-lg">memory</span>
+                                </div>
+                                <div>
+                                    <div id="metrics-active-qpus" class="text-2xl font-geist font-bold text-primary mb-1">0/0</div>
+                                    <div class="flex items-center gap-2 text-xs text-zinc-400">
+                                        <span class="w-2 h-2 rounded-full bg-success"></span> Online units
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="bg-zinc-900 border border-zinc-800 p-6 rounded-lg flex flex-col justify-between">
+                                <div class="flex justify-between items-start mb-4">
+                                    <span class="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Queue Status</span>
+                                    <span class="material-symbols-outlined text-zinc-500 text-lg">sync</span>
+                                </div>
+                                <div>
+                                    <div id="metrics-queue-status" class="text-2xl font-geist font-bold text-primary mb-1">0 jobs</div>
+                                    <div class="flex items-center gap-2 text-xs text-zinc-400">
+                                        <span id="metrics-queue-details">0 pending, 0 running</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="bg-zinc-900 border border-zinc-800 p-6 rounded-lg flex flex-col justify-between">
+                                <div class="flex justify-between items-start mb-4">
+                                    <span class="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Time Credit</span>
+                                    <span class="material-symbols-outlined text-zinc-500 text-lg">timer</span>
+                                </div>
+                                <div>
+                                    <div id="metrics-time-balance" class="text-2xl font-geist font-bold text-primary mb-1">0s</div>
+                                    <div class="text-xs text-zinc-400">Remaining seconds</div>
+                                </div>
+                            </div>
+                            <div class="bg-zinc-900 border border-zinc-800 p-6 rounded-lg flex flex-col justify-between">
+                                <div class="flex justify-between items-start mb-4">
+                                    <span class="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Next Booking</span>
+                                    <span class="material-symbols-outlined text-zinc-500 text-lg">calendar_today</span>
+                                </div>
+                                <div>
+                                    <div id="metrics-next-booking" class="text-lg font-geist font-bold text-primary mb-1 truncate">None Scheduled</div>
+                                    <div id="metrics-next-booking-detail" class="text-xs text-zinc-400">No active reservations</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Split Table / Notifications -->
+                        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                            <!-- Recent Jobs Table -->
+                            <div class="lg:col-span-8 space-y-4">
+                                <h3 class="text-lg font-semibold text-primary font-geist">Recent Job Executions</h3>
+                                <div class="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden">
+                                    <div class="overflow-x-auto">
+                                        <table class="w-full text-left border-collapse">
+                                            <thead>
+                                                <tr class="border-b border-zinc-800 text-zinc-400 text-xs font-semibold uppercase tracking-wider bg-zinc-900/50">
+                                                    <th class="py-3 px-4">Job ID</th>
+                                                    <th class="py-3 px-4">QPU Target</th>
+                                                    <th class="py-3 px-4">Status</th>
+                                                    <th class="py-3 px-4">Created</th>
+                                                    <th class="py-3 px-4 text-right">Finished</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="overview-jobs-tbody" class="text-sm text-zinc-300 divide-y divide-zinc-800/50">
+                                                <tr>
+                                                    <td colspan="5" class="py-8 px-4 text-center text-zinc-500">No jobs submitted yet.</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Notifications Sidebar -->
+                            <div class="lg:col-span-4 space-y-4">
+                                <h3 class="text-lg font-semibold text-primary font-geist">System Announcements</h3>
+                                <div id="announcements-container" class="flex flex-col gap-3">
+                                    <div class="text-zinc-500 text-center py-8 bg-zinc-900/30 border border-zinc-800/50 rounded-lg">No active announcements</div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- TAB 2: QPU REGISTRY -->
+                    <section id="tab-qpus" class="tab-panel space-y-8 hidden">
+                        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div>
+                                <h1 class="text-3xl font-geist text-primary">QPU Registry</h1>
+                                <p class="text-sm text-zinc-400 mt-1">Manage and monitor physical/simulator processing units.</p>
+                            </div>
+                            <button id="btn-register-qpu" onclick="showRegisterQpuModal()" class="w-full md:w-auto bg-primary text-zinc-950 font-semibold py-2 px-6 rounded flex items-center justify-center gap-2 hidden">
+                                <span class="material-symbols-outlined text-[18px]">add</span>
+                                Register QPU
+                            </button>
+                        </div>
+
+                        <!-- QPU Grid -->
+                        <div id="qpu-cards-grid" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <!-- Dynamically loaded cards -->
+                        </div>
+                    </section>
+
+                    <!-- TAB 3: JOBS CONSOLE -->
+                    <section id="tab-jobs" class="tab-panel space-y-6 hidden">
+                        <div>
+                            <h1 class="text-3xl font-geist text-primary">Jobs Console</h1>
+                            <p class="text-sm text-zinc-400 mt-1">Configure, write QASM, and execute circuits.</p>
+                        </div>
+
+                        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-200px)] min-h-[500px]">
+                            <!-- Submissions pane -->
+                            <div class="lg:col-span-5 bg-zinc-900 border border-zinc-800 rounded-lg p-6 flex flex-col gap-6 h-full overflow-y-auto">
+                                <div>
+                                    <label class="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">Target QPU</label>
+                                    <div class="relative">
+                                        <select id="job-target-qpu" class="w-full bg-zinc-950 border border-zinc-800 text-primary rounded px-3 py-2 appearance-none focus:outline-none focus:border-secondary transition-colors">
+                                            <!-- Dynamically filled -->
+                                        </select>
+                                        <span class="material-symbols-outlined absolute right-3 top-2 text-zinc-500 pointer-events-none">expand_more</span>
+                                    </div>
+                                </div>
+
+                                <div class="flex-1 flex flex-col min-h-[200px]">
+                                    <div class="flex justify-between items-center bg-zinc-800/30 border border-zinc-800 border-b-0 rounded-t px-4 py-2">
+                                        <span class="text-xs font-semibold text-zinc-400 uppercase tracking-wider">OpenQASM 3.0</span>
+                                        <button onclick="copyQASMExample()" class="text-zinc-500 hover:text-primary text-xs transition-colors flex items-center gap-1">
+                                            <span class="material-symbols-outlined text-sm">content_copy</span> Load Example
+                                        </button>
+                                    </div>
+                                    <textarea id="job-qasm-code" class="flex-1 w-full bg-zinc-950 border border-zinc-800 rounded-b p-4 text-primary font-mono text-xs focus:outline-none focus:border-secondary transition-all resize-none" placeholder="OPENQASM 3.0;&#10;include &quot;stdgates.inc&quot;;&#10;qubit[2] q;&#10;bit[2] c;&#10;h q[0];&#10;cx q[0], q[1];&#10;c = measure q;"></textarea>
+                                </div>
+
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">Shots Count</label>
+                                        <input id="job-shots" type="number" value="1000" class="w-full bg-zinc-950 border border-zinc-800 text-primary rounded px-3 py-2 focus:outline-none focus:border-secondary transition-colors font-mono"/>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2 flex justify-between">
+                                            Meas Level
+                                            <span id="meas-level-lbl" class="text-secondary font-medium">2 (Counts)</span>
+                                        </label>
+                                        <input id="job-meas-level" type="range" min="0" max="2" value="2" step="1" oninput="updateMeasLevelLbl(this.value)" class="w-full h-2 bg-zinc-800 rounded-lg appearance-none cursor-pointer mt-3"/>
+                                    </div>
+                                </div>
+
+                                <button onclick="submitQuantumJob()" class="w-full bg-primary text-zinc-950 font-geist font-semibold py-3 rounded hover:opacity-90 transition-opacity flex justify-center items-center gap-2">
+                                    <span class="material-symbols-outlined">play_arrow</span>
+                                    Execute Job
+                                </button>
+                            </div>
+
+                            <!-- Results pane -->
+                            <div id="job-results-pane" class="lg:col-span-7 bg-zinc-900 border border-zinc-800 rounded-lg p-6 flex flex-col gap-6 h-full overflow-hidden">
+                                <div class="flex items-start justify-between border-b border-zinc-800 pb-4">
+                                    <div>
+                                        <div class="flex items-center gap-3 mb-1">
+                                            <h3 id="res-job-id" class="text-xl font-bold font-geist text-primary">Select or run a job</h3>
+                                            <div id="res-job-badge" class="hidden flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[10px] uppercase font-semibold">
+                                                -
+                                            </div>
+                                        </div>
+                                        <p id="res-job-qpu" class="text-xs text-zinc-400">No active job selected</p>
+                                    </div>
+                                    <div class="flex gap-4 text-right">
+                                        <div>
+                                            <span class="block text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">Duration</span>
+                                            <span id="res-job-duration" class="font-mono text-sm text-primary font-semibold">-</span>
+                                        </div>
+                                        <div>
+                                            <span class="block text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">Created</span>
+                                            <span id="res-job-created" class="font-mono text-sm text-primary font-semibold">-</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Tab view options -->
+                                <div class="flex border-b border-zinc-800">
+                                    <button id="res-tab-counts" onclick="setResultVisualizerTab('counts')" class="px-4 py-2 font-geist text-sm text-primary border-b-2 border-primary -mb-[1px]">Counts Histogram</button>
+                                    <button id="res-tab-iq" onclick="setResultVisualizerTab('iq')" class="px-4 py-2 font-geist text-sm text-zinc-500 hover:text-zinc-300">IQ Clusters</button>
+                                    <button id="res-tab-trace" onclick="setResultVisualizerTab('trace')" class="px-4 py-2 font-geist text-sm text-zinc-500 hover:text-zinc-300">Raw Trace</button>
+                                </div>
+
+                                <!-- Chart body -->
+                                <div id="visualization-chart-container" class="flex-1 bg-zinc-950 border border-zinc-800 rounded p-6 flex flex-col items-center justify-center relative overflow-hidden">
+                                    <div class="text-zinc-500 text-sm">Select a completed job to view results visualization.</div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- TAB 4: BOOKINGS -->
+                    <section id="tab-bookings" class="tab-panel space-y-8 hidden">
+                        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                            <div>
+                                <h1 class="text-3xl font-geist text-primary">Bookings</h1>
+                                <p class="text-sm text-zinc-400 mt-1">Reserve QPU execution blocks to run priority jobs.</p>
+                            </div>
+                            <button onclick="showBookSlotModal()" class="w-full md:w-auto bg-primary text-zinc-950 font-semibold py-2 px-6 rounded flex items-center justify-center gap-2">
+                                <span class="material-symbols-outlined text-[18px]">calendar_today</span>
+                                Book Time Slot
+                            </button>
+                        </div>
+
+                        <!-- Grid -->
+                        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                            <!-- Left: List of all bookings -->
+                            <div class="lg:col-span-8 space-y-4">
+                                <h3 class="text-lg font-semibold text-primary font-geist">Scheduled Reservations</h3>
+                                <div class="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden">
+                                    <div class="overflow-x-auto">
+                                        <table class="w-full text-left border-collapse">
+                                            <thead>
+                                                <tr class="border-b border-zinc-800 text-zinc-400 text-xs font-semibold uppercase tracking-wider bg-zinc-900/50">
+                                                    <th class="py-3 px-4">Booked By</th>
+                                                    <th class="py-3 px-4">Start Time</th>
+                                                    <th class="py-3 px-4">End Time</th>
+                                                    <th class="py-3 px-4 text-right">Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="bookings-list-tbody" class="text-sm text-zinc-300 divide-y divide-zinc-800/50">
+                                                <tr>
+                                                    <td colspan="4" class="py-8 px-4 text-center text-zinc-500 font-medium">No booking slots scheduled yet.</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Right: Policy details -->
+                            <div class="lg:col-span-4 space-y-4">
+                                <div class="bg-zinc-900 border border-zinc-800 p-6 rounded-lg space-y-4">
+                                    <h3 class="text-base font-bold text-primary font-geist">Scheduling Policy</h3>
+                                    <div class="space-y-3 text-xs text-zinc-400 leading-relaxed">
+                                        <p><strong>Dedicated Window:</strong> When you book a slot, you have exclusive priority to submit jobs to the active QPUs.</p>
+                                        <p><strong>Opportunistic FIFO:</strong> If the slot owner is idle (has not submitted a job) for more than 5 seconds, other pending jobs from the queue will automatically run to optimize machine usage.</p>
+                                        <p><strong>Releasing Slots:</strong> You can cancel/delete your booked slots at any time prior to the start time.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- TAB 5: ADMIN PANEL -->
+                    <section id="tab-admin" class="tab-panel space-y-8 hidden">
+                        <div>
+                            <h1 class="text-3xl font-geist text-primary">Admin Panel</h1>
+                            <p class="text-sm text-zinc-400 mt-1">Superuser controls for quota management and broadcasts.</p>
+                        </div>
+
+                        <!-- Inner Tabs -->
+                        <div class="flex border-b border-zinc-800 mb-6">
+                            <button id="admin-subtab-users" onclick="setAdminSubtab('users')" class="px-4 py-2 font-geist text-sm text-primary border-b-2 border-primary -mb-[1px]">User Time Allocations</button>
+                            <button id="admin-subtab-announcements" onclick="setAdminSubtab('announcements')" class="px-4 py-2 font-geist text-sm text-zinc-500 hover:text-zinc-300">Broadcast Announcement</button>
+                            <button id="admin-subtab-requests" onclick="setAdminSubtab('requests')" class="px-4 py-2 font-geist text-sm text-zinc-500 hover:text-zinc-300">Time Requests</button>
+                        </div>
+
+                        <!-- Admin sub-panels -->
+                        <div id="admin-panel-users" class="space-y-4">
+                            <div class="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden">
+                                <div class="overflow-x-auto">
+                                    <table class="w-full text-left border-collapse">
+                                        <thead>
+                                            <tr class="border-b border-zinc-800 text-zinc-400 text-xs font-semibold uppercase tracking-wider bg-zinc-900/50">
+                                                <th class="py-3 px-4">User ID / Username</th>
+                                                <th class="py-3 px-4">Email</th>
+                                                <th class="py-3 px-4">QPU Balance</th>
+                                                <th class="py-3 px-4 text-right">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="admin-users-tbody" class="text-sm text-zinc-300 divide-y divide-zinc-800/50">
+                                            <tr>
+                                                <td colspan="4" class="py-8 px-4 text-center text-zinc-500">Loading registered users...</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="admin-panel-announcements" class="max-w-xl bg-zinc-900 border border-zinc-800 rounded-lg p-6 space-y-4 hidden">
+                            <h3 class="text-lg font-semibold text-primary font-geist">Compose Announcement</h3>
+                            <form onsubmit="createAnnouncement(event)" class="space-y-4">
+                                <div>
+                                    <label class="block text-xs font-medium text-zinc-400 mb-1.5 uppercase tracking-wider">Announcement Title</label>
+                                    <input id="ann-title" type="text" required class="w-full bg-background border border-zinc-800 rounded px-3 py-2 text-primary focus:outline-none focus:border-zinc-500 transition-colors" placeholder="QPU Maintenance Schedule"/>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-zinc-400 mb-1.5 uppercase tracking-wider">Description</label>
+                                    <textarea id="ann-desc" required class="w-full bg-background border border-zinc-800 rounded px-3 py-2 text-primary focus:outline-none focus:border-zinc-500 transition-colors h-24" placeholder="Rigetti Aspen-9 will be offline for calibration tomorrow..."></textarea>
+                                </div>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-xs font-medium text-zinc-400 mb-1.5 uppercase tracking-wider">Start Time</label>
+                                        <input id="ann-start" type="datetime-local" class="w-full bg-background border border-zinc-800 rounded px-3 py-2 text-primary focus:outline-none focus:border-zinc-500 transition-colors"/>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-zinc-400 mb-1.5 uppercase tracking-wider">End Time</label>
+                                        <input id="ann-end" type="datetime-local" class="w-full bg-background border border-zinc-800 rounded px-3 py-2 text-primary focus:outline-none focus:border-zinc-500 transition-colors"/>
+                                    </div>
+                                </div>
+                                <button type="submit" class="bg-primary text-zinc-950 font-semibold py-2 px-6 rounded hover:opacity-90 transition-opacity">
+                                    Broadcast Announcement
+                                </button>
+                            </form>
+                        </div>
+
+                        <div id="admin-panel-requests" class="space-y-4 hidden">
+                            <div class="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden">
+                                <div class="overflow-x-auto">
+                                    <table class="w-full text-left border-collapse">
+                                        <thead>
+                                            <tr class="border-b border-zinc-800 text-zinc-400 text-xs font-semibold uppercase tracking-wider bg-zinc-900/50">
+                                                <th class="py-3 px-4">User</th>
+                                                <th class="py-3 px-4">Requested (seconds)</th>
+                                                <th class="py-3 px-4">Reason</th>
+                                                <th class="py-3 px-4">Status</th>
+                                                <th class="py-3 px-4 text-right">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="admin-requests-tbody" class="text-sm text-zinc-300 divide-y divide-zinc-800/50">
+                                            <tr>
+                                                <td colspan="5" class="py-8 px-4 text-center text-zinc-500">Loading requests...</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- TAB 6: PROFILE / SETTINGS -->
+                    <section id="tab-settings" class="tab-panel space-y-8 hidden">
+                        <div>
+                            <h1 class="text-3xl font-geist text-primary">Profile Settings</h1>
+                            <p class="text-sm text-zinc-400 mt-1">Configure your personal QPI user parameters.</p>
+                        </div>
+
+                        <div class="max-w-xl bg-zinc-900 border border-zinc-800 rounded-lg p-6 space-y-6">
+                            <div class="flex items-center gap-4 border-b border-zinc-800 pb-6">
+                                <div class="w-16 h-16 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-primary text-2xl font-semibold uppercase" id="settings-avatar">
+                                    -
+                                </div>
+                                <div>
+                                    <h3 id="settings-username" class="text-lg font-bold text-primary font-geist">-</h3>
+                                    <p id="settings-email" class="text-sm text-zinc-400">-</p>
+                                </div>
+                            </div>
+
+                            <div class="space-y-4">
+                                <div class="flex justify-between items-center text-sm py-2 border-b border-zinc-800/50">
+                                    <span class="text-zinc-400">Account ID</span>
+                                    <span id="settings-id" class="font-mono text-primary font-medium">-</span>
+                                </div>
+                                <div class="flex justify-between items-center text-sm py-2 border-b border-zinc-800/50">
+                                    <span class="text-zinc-400">Account Type</span>
+                                    <span id="settings-role" class="text-primary font-medium">-</span>
+                                </div>
+                                <div class="flex justify-between items-center text-sm py-2 border-b border-zinc-800/50">
+                                    <span class="text-zinc-400">Allocated QPU Seconds</span>
+                                    <span id="settings-balance" class="font-mono text-primary font-medium">-</span>
+                                </div>
+                            </div>
+
+                            <button onclick="handleLogout()" class="w-full bg-error/10 border border-error/20 text-error font-geist font-semibold py-2.5 rounded hover:bg-error hover:text-zinc-950 transition-colors flex justify-center items-center gap-2">
+                                <span class="material-symbols-outlined text-lg">logout</span>
+                                Sign Out
+                            </button>
+                        </div>
+                    </section>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- MODAL OVERLAYS -->
+    
+    <!-- Register QPU Modal -->
+    <div id="register-qpu-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm hidden">
+        <div class="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-lg shadow-2xl p-6 space-y-4">
+            <div class="flex justify-between items-center border-b border-zinc-800 pb-3">
+                <h3 class="text-lg font-semibold font-geist text-primary">Register QPU</h3>
+                <button onclick="closeModal('register-qpu-modal')" class="text-zinc-400 hover:text-primary"><span class="material-symbols-outlined">close</span></button>
+            </div>
+            <form onsubmit="handleRegisterQpu(event)" class="space-y-4 text-sm">
+                <div>
+                    <label class="block text-xs font-medium text-zinc-400 mb-1.5 uppercase tracking-wider">QPU ID/Name</label>
+                    <input id="reg-qpu-name" type="text" required class="w-full bg-background border border-zinc-800 rounded px-3 py-2 text-primary focus:outline-none focus:border-zinc-500 transition-colors" placeholder="rigetti-aspen-9"/>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-zinc-400 mb-1.5 uppercase tracking-wider">Registration Token</label>
+                    <input id="reg-qpu-token" type="text" required class="w-full bg-background border border-zinc-800 rounded px-3 py-2 text-primary font-mono focus:outline-none focus:border-zinc-500 transition-colors" placeholder="Enter QPU secret token"/>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-zinc-400 mb-1.5 uppercase tracking-wider">Executor Type</label>
+                    <select id="reg-qpu-executor" class="w-full bg-background border border-zinc-800 text-primary rounded px-3 py-2 focus:outline-none focus:border-zinc-500 transition-colors">
+                        <option value="mock">mock (Local Simulator)</option>
+                        <option value="qiskit_aer">qiskit_aer (Aer Simulator)</option>
+                        <option value="quantify">quantify (Quantify Driver)</option>
+                    </select>
+                </div>
+                <button type="submit" class="w-full bg-primary text-zinc-950 font-semibold py-2.5 rounded hover:opacity-90 transition-opacity">Register Unit</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Book Slot Modal -->
+    <div id="book-slot-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm hidden">
+        <div class="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-lg shadow-2xl p-6 space-y-4">
+            <div class="flex justify-between items-center border-b border-zinc-800 pb-3">
+                <h3 class="text-lg font-semibold font-geist text-primary">Book Time Slot</h3>
+                <button onclick="closeModal('book-slot-modal')" class="text-zinc-400 hover:text-primary"><span class="material-symbols-outlined">close</span></button>
+            </div>
+            <form onsubmit="handleBookSlot(event)" class="space-y-4 text-sm">
+                <div>
+                    <label class="block text-xs font-medium text-zinc-400 mb-1.5 uppercase tracking-wider">Start Time</label>
+                    <input id="book-start" type="datetime-local" required class="w-full bg-background border border-zinc-800 rounded px-3 py-2 text-primary focus:outline-none focus:border-zinc-500 transition-colors"/>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-zinc-400 mb-1.5 uppercase tracking-wider">End Time</label>
+                    <input id="book-end" type="datetime-local" required class="w-full bg-background border border-zinc-800 rounded px-3 py-2 text-primary focus:outline-none focus:border-zinc-500 transition-colors"/>
+                </div>
+                <button type="submit" class="w-full bg-primary text-zinc-950 font-semibold py-2.5 rounded hover:opacity-90 transition-opacity">Book Reservation</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Request Time Modal -->
+    <div id="request-time-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm hidden">
+        <div class="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-lg shadow-2xl p-6 space-y-4">
+            <div class="flex justify-between items-center border-b border-zinc-800 pb-3">
+                <h3 class="text-lg font-semibold font-geist text-primary">Request QPU Time</h3>
+                <button onclick="closeModal('request-time-modal')" class="text-zinc-400 hover:text-primary"><span class="material-symbols-outlined">close</span></button>
+            </div>
+            <form onsubmit="handleRequestTime(event)" class="space-y-4 text-sm">
+                <div>
+                    <label class="block text-xs font-medium text-zinc-400 mb-1.5 uppercase tracking-wider">Requested Seconds</label>
+                    <input id="req-seconds" type="number" required min="1" class="w-full bg-background border border-zinc-800 rounded px-3 py-2 text-primary focus:outline-none focus:border-zinc-500 transition-colors" placeholder="3600"/>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-zinc-400 mb-1.5 uppercase tracking-wider">Reason</label>
+                    <textarea id="req-reason" required class="w-full bg-background border border-zinc-800 rounded px-3 py-2 text-primary focus:outline-none focus:border-zinc-500 transition-colors h-20" placeholder="Required for calibration and test sweeps..."></textarea>
+                </div>
+                <button type="submit" class="w-full bg-primary text-zinc-950 font-semibold py-2.5 rounded hover:opacity-90 transition-opacity">Submit Request</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Allocation Modal (Admin only) -->
+    <div id="allocation-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm hidden">
+        <div class="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-lg shadow-2xl p-6 space-y-4">
+            <div class="flex justify-between items-center border-b border-zinc-800 pb-3">
+                <h3 class="text-lg font-semibold font-geist text-primary">Allocate QPU Time</h3>
+                <button onclick="closeModal('allocation-modal')" class="text-zinc-400 hover:text-primary"><span class="material-symbols-outlined">close</span></button>
+            </div>
+            <form onsubmit="handleAllocateTime(event)" class="space-y-4 text-sm">
+                <input type="hidden" id="alloc-user-id"/>
+                <div>
+                    <label class="block text-xs font-medium text-zinc-400 mb-1.5 uppercase tracking-wider">Target User ID</label>
+                    <input id="alloc-user-lbl" type="text" disabled class="w-full bg-background/50 border border-zinc-800 rounded px-3 py-2 text-zinc-400 focus:outline-none"/>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-zinc-400 mb-1.5 uppercase tracking-wider">Total Allocated Seconds</label>
+                    <input id="alloc-seconds" type="number" required min="0" class="w-full bg-background border border-zinc-800 rounded px-3 py-2 text-primary focus:outline-none focus:border-zinc-500 transition-colors"/>
+                </div>
+                <button type="submit" class="w-full bg-primary text-zinc-950 font-semibold py-2.5 rounded hover:opacity-90 transition-opacity">Apply Allocation</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- CORE LOGIC & STATE BINDING -->
+    <script>
+        const pb = new PocketBase(location.origin);
+        
+        // App State
+        let currentRole = 'user'; // 'user' | 'admin'
+        let currentUser = null;
+        let qpusList = [];
+        let activeTab = 'overview';
+        let activeAdminSubtab = 'users';
+        let activeResultVisualizerTab = 'counts';
+        let currentSelectedJob = null;
+
+        // On Load Check Authentication
+        window.addEventListener('DOMContentLoaded', () => {
+            checkAuth();
+        });
+
+        function checkAuth() {
+            if (!pb.authStore.isValid) {
+                document.getElementById('login-modal').classList.remove('hidden');
+                document.getElementById('dashboard-app').classList.add('opacity-0');
+            } else {
+                currentUser = pb.authStore.record;
+                // If it is admin, verify if collection is superusers
+                if (pb.authStore.model && pb.authStore.model.email && !pb.authStore.model.qpu_seconds && pb.authStore.model.collectionName === '_superusers') {
+                    currentRole = 'admin';
+                } else {
+                    currentRole = 'user';
+                }
+                
+                document.getElementById('login-modal').classList.add('hidden');
+                
+                const appEl = document.getElementById('dashboard-app');
+                appEl.classList.remove('opacity-0');
+                
+                updateUIForRole();
+                loadInitialData();
+                subscribeToRealtime();
+            }
+        }
+
+        function setLoginRole(role) {
+            currentRole = role;
+            const userTab = document.getElementById('login-tab-user');
+            const adminTab = document.getElementById('login-tab-admin');
+            
+            if (role === 'user') {
+                userTab.className = "flex-1 pb-2 font-geist text-sm text-center border-b-2 border-primary text-primary font-medium focus:outline-none";
+                adminTab.className = "flex-1 pb-2 font-geist text-sm text-center border-b-2 border-transparent text-zinc-400 hover:text-zinc-200 focus:outline-none";
+            } else {
+                adminTab.className = "flex-1 pb-2 font-geist text-sm text-center border-b-2 border-primary text-primary font-medium focus:outline-none";
+                userTab.className = "flex-1 pb-2 font-geist text-sm text-center border-b-2 border-transparent text-zinc-400 hover:text-zinc-200 focus:outline-none";
+            }
+        }
+
+        async function handleLogin(e) {
+            e.preventDefault();
+            const identity = document.getElementById('login-identity').value;
+            const password = document.getElementById('login-password').value;
+            const errorEl = document.getElementById('login-error');
+            
+            errorEl.classList.add('hidden');
+            
+            try {
+                if (currentRole === 'user') {
+                    await pb.collection('users').authWithPassword(identity, password);
+                } else {
+                    await pb.collection('_superusers').authWithPassword(identity, password);
+                }
+                checkAuth();
+            } catch (err) {
+                console.error(err);
+                errorEl.innerText = err.message || "Invalid credentials. Please try again.";
+                errorEl.classList.remove('hidden');
+            }
+        }
+
+        function handleLogout() {
+            pb.authStore.clear();
+            currentUser = null;
+            checkAuth();
+        }
+
+        function updateUIForRole() {
+            const adminLink = document.getElementById('nav-admin');
+            const registerBtn = document.getElementById('btn-register-qpu');
+            const balanceCardRole = document.getElementById('sidebar-user-role');
+            
+            if (currentRole === 'admin') {
+                adminLink.classList.remove('hidden');
+                registerBtn.classList.remove('hidden');
+                balanceCardRole.innerText = 'Administrator';
+            } else {
+                adminLink.classList.add('hidden');
+                registerBtn.classList.add('hidden');
+                balanceCardRole.innerText = 'User Account';
+            }
+
+            document.getElementById('user-email-header').innerText = currentUser.email || currentUser.username || 'QPI User';
+            document.getElementById('user-avatar-header').innerText = (currentUser.email || currentUser.username || 'Q').charAt(0);
+            
+            // Sidebar Balance
+            const balance = currentUser.qpu_seconds !== undefined ? currentUser.qpu_seconds : 'N/A';
+            document.getElementById('sidebar-balance').innerText = balance + (typeof balance === 'number' ? 's' : '');
+        }
+
+        // TAB SWITCHING
+        function switchTab(tabId) {
+            activeTab = tabId;
+            
+            // Hide all tab panels
+            document.querySelectorAll('.tab-panel').forEach(el => el.classList.add('hidden'));
+            // Remove active style from all nav buttons
+            document.querySelectorAll('nav button').forEach(btn => {
+                btn.className = "w-full flex items-center gap-3 px-4 py-2.5 rounded text-sm font-medium transition-colors text-zinc-400 hover:bg-zinc-800/30 hover:text-primary border-l-2 border-transparent text-left";
+            });
+
+            // Show active panel
+            const targetPanel = document.getElementById(`tab-${tabId}`);
+            if (targetPanel) {
+                targetPanel.classList.remove('hidden');
+            }
+
+            // Set active styles
+            const navBtn = document.getElementById(`nav-${tabId}`);
+            if (navBtn) {
+                navBtn.className = "w-full flex items-center gap-3 px-4 py-2.5 rounded text-sm font-medium transition-colors text-primary bg-zinc-800/50 border-l-2 border-primary text-left";
+            }
+
+            // Set Page Title
+            const titles = {
+                overview: 'Dashboard Overview',
+                qpus: 'QPU Registry',
+                jobs: 'Jobs Console',
+                bookings: 'Bookings Calendar',
+                admin: 'Admin Console',
+                settings: 'Profile Settings'
+            };
+            document.getElementById('page-title').innerText = titles[tabId] || 'QPI';
+
+            // Custom tab refresh
+            if (tabId === 'admin') {
+                loadAdminData();
+            } else if (tabId === 'overview') {
+                loadOverviewData();
+            } else if (tabId === 'qpus') {
+                loadQpus();
+            } else if (tabId === 'bookings') {
+                loadBookings();
+            } else if (tabId === 'settings') {
+                loadProfileSettings();
+            }
+        }
+
+        // LOAD DATA
+        function loadInitialData() {
+            loadOverviewData();
+            loadQpus();
+        }
+
+        async function loadOverviewData() {
+            try {
+                // Fetch metrics
+                const qpus = await pb.collection('qpus').getFullList();
+                qpusList = qpus;
+                const onlineQpus = qpus.filter(q => q.status === 'online').length;
+                document.getElementById('metrics-active-qpus').innerText = `${onlineQpus}/${qpus.length}`;
+
+                // Jobs
+                const jobs = await pb.collection('quantum_jobs').getList(1, 15, {
+                    sort: '-created'
+                });
+                
+                const pendingCount = jobs.items.filter(j => j.status === 'pending').length;
+                const runningCount = jobs.items.filter(j => j.status === 'running').length;
+                
+                document.getElementById('metrics-queue-status').innerText = `${jobs.totalItems} jobs`;
+                document.getElementById('metrics-queue-details').innerText = `${pendingCount} pending, ${runningCount} running`;
+                
+                // My Balance
+                if (currentRole === 'user') {
+                    const freshUser = await pb.collection('users').getOne(currentUser.id);
+                    currentUser = freshUser;
+                    document.getElementById('metrics-time-balance').innerText = `${freshUser.qpu_seconds}s`;
+                    document.getElementById('sidebar-balance').innerText = `${freshUser.qpu_seconds}s`;
+                } else {
+                    document.getElementById('metrics-time-balance').innerText = 'Admin';
+                }
+
+                // Next reservation
+                const now = new Date().toISOString();
+                const upcomingSlots = await pb.collection('time_slots').getList(1, 1, {
+                    filter: `start_time >= "${now}"`,
+                    sort: 'start_time'
+                });
+
+                if (upcomingSlots.items.length > 0) {
+                    const slot = upcomingSlots.items[0];
+                    const startStr = new Date(slot.start_time).toLocaleString();
+                    document.getElementById('metrics-next-booking').innerText = startStr;
+                    document.getElementById('metrics-next-booking-detail').innerText = `Slot ID: ${slot.id}`;
+                } else {
+                    document.getElementById('metrics-next-booking').innerText = 'None Scheduled';
+                    document.getElementById('metrics-next-booking-detail').innerText = 'No active reservations';
+                }
+
+                // Render Overview Job Executions
+                const jobsTbody = document.getElementById('overview-jobs-tbody');
+                if (jobs.items.length === 0) {
+                    jobsTbody.innerHTML = `<tr><td colspan="5" class="py-8 px-4 text-center text-zinc-500">No jobs submitted yet.</td></tr>`;
+                } else {
+                    jobsTbody.innerHTML = jobs.items.map(job => {
+                        const statusColors = {
+                            pending: 'border-warning/30 bg-warning/10 text-warning',
+                            running: 'border-secondary/30 bg-secondary/10 text-secondary',
+                            completed: 'border-success/30 bg-success/10 text-success',
+                            failed: 'border-error/30 bg-error/10 text-error',
+                            cancelled: 'border-zinc-700 bg-zinc-800/50 text-zinc-400'
+                        };
+                        const createdStr = new Date(job.created).toLocaleTimeString();
+                        const resultsObj = job.results || {};
+                        const duration = resultsObj.duration !== undefined ? `${resultsObj.duration}ms` : '--';
+                        
+                        return `
+                            <tr class="hover:bg-zinc-800/30 transition-colors cursor-pointer" onclick="switchTab('jobs'); loadJobResult('${job.id}')">
+                                <td class="py-3 px-4 font-mono text-xs text-zinc-300">#${job.id.substring(0,8)}</td>
+                                <td class="py-3 px-4">${job.qpu_target || 'Default'}</td>
+                                <td class="py-3 px-4">
+                                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border ${statusColors[job.status] || 'text-zinc-500'} text-[11px] font-medium">
+                                        ${job.status}
+                                    </span>
+                                </td>
+                                <td class="py-3 px-4 text-zinc-400">${createdStr}</td>
+                                <td class="py-3 px-4 text-right font-mono text-zinc-300">${duration}</td>
+                            </tr>
+                        `;
+                    }).join('');
+                }
+
+                // Load Announcements
+                loadAnnouncements();
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        async function loadAnnouncements() {
+            try {
+                const now = new Date().toISOString();
+                const announcements = await pb.collection('notifications').getFullList({
+                    sort: '-created'
+                });
+
+                const cont = document.getElementById('announcements-container');
+                const dropdownList = document.getElementById('notifications-list');
+                const badge = document.getElementById('notification-badge');
+
+                if (announcements.length === 0) {
+                    cont.innerHTML = `<div class="text-zinc-500 text-center py-8 bg-zinc-900/30 border border-zinc-800/50 rounded-lg">No active announcements</div>`;
+                    dropdownList.innerHTML = `<div class="text-zinc-500 text-center py-4">No new notifications</div>`;
+                    badge.classList.add('hidden');
+                } else {
+                    badge.innerText = announcements.length;
+                    badge.classList.remove('hidden');
+
+                    const renderAnn = (ann, isDropdown = false) => {
+                        const style = ann.title.toLowerCase().includes('fail') || ann.title.toLowerCase().includes('error') 
+                            ? 'bg-error/10 border-error/20 text-error' 
+                            : 'bg-zinc-900 border-zinc-800 text-zinc-300';
+                        
+                        const closeBtn = isDropdown 
+                            ? `<button onclick="dismissNotification('${ann.id}', event)" class="text-zinc-500 hover:text-primary transition-colors"><span class="material-symbols-outlined text-sm">close</span></button>`
+                            : `<button onclick="dismissNotification('${ann.id}', event)" class="text-zinc-500 hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity"><span class="material-symbols-outlined text-sm">close</span></button>`;
+
+                        return `
+                            <div class="${style} border p-4 rounded flex justify-between items-start gap-4 hover:border-zinc-700 transition-colors relative group">
+                                <div class="flex items-start gap-3">
+                                    <span class="material-symbols-outlined text-lg mt-0.5">${ann.title.toLowerCase().includes('fail') ? 'error' : 'info'}</span>
+                                    <div>
+                                        <p class="font-medium text-xs text-primary">${ann.title}</p>
+                                        <p class="text-[11px] text-zinc-400 mt-1">${ann.description}</p>
+                                    </div>
+                                </div>
+                                ${closeBtn}
+                            </div>
+                        `;
+                    };
+
+                    cont.innerHTML = announcements.map(ann => renderAnn(ann, false)).join('');
+                    dropdownList.innerHTML = announcements.map(ann => renderAnn(ann, true)).join('');
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        async function dismissNotification(id, event) {
+            if (event) event.stopPropagation();
+            try {
+                // Post to custom dismiss endpoint
+                const res = await fetch(`/api/notifications/${encodeURIComponent(id)}/dismiss`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${pb.authStore.token}`
+                    }
+                });
+                if (res.ok) {
+                    loadOverviewData();
+                } else {
+                    const errText = await res.text();
+                    alert(`Dismiss failed: ${errText}`);
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        async function dismissAllNotifications() {
+            try {
+                const announcements = await pb.collection('notifications').getFullList();
+                for (const ann of announcements) {
+                    await fetch(`/api/notifications/${encodeURIComponent(ann.id)}/dismiss`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${pb.authStore.token}`
+                        }
+                    });
+                }
+                loadOverviewData();
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function toggleNotificationsDropdown() {
+            const el = document.getElementById('notifications-dropdown');
+            el.classList.toggle('hidden');
+        }
+
+        // QPU REGISTRY
+        async function loadQpus() {
+            try {
+                const qpus = await pb.collection('qpus').getFullList();
+                qpusList = qpus;
+
+                // Fill target dropdown in jobs console
+                const targetQpu = document.getElementById('job-target-qpu');
+                targetQpu.innerHTML = qpus.map(q => `<option value="${q.name}">${q.name} (${q.num_qubits} Qubits)</option>`).join('');
+
+                const grid = document.getElementById('qpu-cards-grid');
+                if (qpus.length === 0) {
+                    grid.innerHTML = `<div class="col-span-2 text-zinc-500 text-center py-12">No QPUs registered.</div>`;
+                } else {
+                    grid.innerHTML = qpus.map(q => {
+                        const statusColors = {
+                            online: 'bg-success/10 border-success/20 text-success',
+                            offline: 'bg-warning/10 border-warning/20 text-warning',
+                            maintenance: 'bg-error/10 border-error/20 text-error'
+                        };
+                        const dotColor = {
+                            online: 'bg-success',
+                            offline: 'bg-warning',
+                            maintenance: 'bg-error'
+                        };
+                        const deviceConfig = q.device_config || {};
+                        const coherence = deviceConfig.coherence_t1 !== undefined ? `${deviceConfig.coherence_t1}µs / ${deviceConfig.coherence_t2}µs` : '100µs / 80µs';
+                        const fidelity = deviceConfig.gate_fidelity !== undefined ? `${(deviceConfig.gate_fidelity * 100).toFixed(2)}%` : '99.85%';
+                        
+                        const disabledAttr = currentRole === 'admin' ? '' : 'disabled';
+                        const cursorStyle = currentRole === 'admin' ? 'cursor-pointer' : 'cursor-not-allowed opacity-50';
+
+                        return `
+                            <div class="bg-zinc-900 border border-zinc-800 rounded-lg p-6 hover:border-zinc-700 transition-colors">
+                                <div class="flex justify-between items-start mb-6">
+                                    <div>
+                                        <h3 class="text-lg font-bold font-geist text-primary">${q.name}</h3>
+                                        <p class="text-xs text-zinc-500 mt-1">ID: ${q.id}</p>
+                                    </div>
+                                    <div class="flex items-center gap-2 border px-3 py-1 rounded-full ${statusColors[q.status] || ''}">
+                                        <div class="w-2 h-2 rounded-full ${dotColor[q.status] || 'bg-zinc-500'} ${q.status === 'online' ? 'animate-pulse' : ''}"></div>
+                                        <span class="text-xs font-semibold uppercase tracking-wider">${q.status}</span>
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-4 mb-6">
+                                    <div class="bg-background border border-zinc-800 rounded p-3">
+                                        <span class="text-[10px] font-semibold text-zinc-500 block mb-1 uppercase tracking-wider">Command Port</span>
+                                        <span class="font-mono text-xs text-zinc-300">tcp://*:${q.nng_command_port || '--'}</span>
+                                    </div>
+                                    <div class="bg-background border border-zinc-800 rounded p-3">
+                                        <span class="text-[10px] font-semibold text-zinc-500 block mb-1 uppercase tracking-wider">Result Port</span>
+                                        <span class="font-mono text-xs text-zinc-300">tcp://*:${q.nng_result_port || '--'}</span>
+                                    </div>
+                                </div>
+                                <div class="border-t border-zinc-800 pt-4 mb-6">
+                                    <h4 class="text-xs font-semibold text-zinc-500 mb-3 uppercase tracking-wider">Calibration Specs</h4>
+                                    <div class="space-y-2 text-xs">
+                                        <div class="flex justify-between items-center">
+                                            <span class="text-zinc-400">Coherence T1/T2</span>
+                                            <span class="font-mono text-zinc-300">${coherence}</span>
+                                        </div>
+                                        <div class="flex justify-between items-center">
+                                            <span class="text-zinc-400">Avg Gate Fidelity</span>
+                                            <span class="font-mono text-zinc-300">${fidelity}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="flex items-center justify-between border-t border-zinc-800 pt-4 mt-auto">
+                                    <span class="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Driver Toggle (Admin)</span>
+                                    <label class="relative inline-flex items-center ${cursorStyle}">
+                                        <input type="checkbox" ${q.enabled ? 'checked' : ''} ${disabledAttr} onchange="toggleQpuState('${q.id}', this.checked)" class="sr-only peer"/>
+                                        <div class="w-11 h-6 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-success"></div>
+                                    </label>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        async function toggleQpuState(id, enabled) {
+            try {
+                const res = await fetch(`/api/op/qpu/toggle`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${pb.authStore.token}`
+                    },
+                    body: JSON.stringify({ id, enabled })
+                });
+                if (res.ok) {
+                    loadQpus();
+                } else {
+                    const text = await res.text();
+                    alert(`Failed to toggle QPU driver: ${text}`);
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function showRegisterQpuModal() {
+            document.getElementById('register-qpu-modal').classList.remove('hidden');
+        }
+
+        async function handleRegisterQpu(e) {
+            e.preventDefault();
+            const name = document.getElementById('reg-qpu-name').value;
+            const registration_token = document.getElementById('reg-qpu-token').value;
+            const executor_type = document.getElementById('reg-qpu-executor').value;
+            
+            try {
+                const res = await fetch(`/api/op/qpu/register`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${pb.authStore.token}`
+                    },
+                    body: JSON.stringify({
+                        name,
+                        registration_token,
+                        executor_type,
+                        device_config: {
+                            coherence_t1: 120,
+                            coherence_t2: 90,
+                            gate_fidelity: 0.999
+                        }
+                    })
+                });
+                if (res.ok) {
+                    closeModal('register-qpu-modal');
+                    loadQpus();
+                } else {
+                    const text = await res.text();
+                    alert(`Failed to register QPU: ${text}`);
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        // BOOKINGS
+        async function loadBookings() {
+            try {
+                const slots = await pb.collection('time_slots').getFullList({
+                    sort: 'start_time'
+                });
+
+                const tbody = document.getElementById('bookings-list-tbody');
+                if (slots.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="4" class="py-8 px-4 text-center text-zinc-500 font-medium">No booking slots scheduled yet.</td></tr>`;
+                } else {
+                    tbody.innerHTML = slots.map(slot => {
+                        const start = new Date(slot.start_time).toLocaleString();
+                        const end = new Date(slot.end_time).toLocaleString();
+                        
+                        const isOwner = slot.booked_by === currentUser.id || currentRole === 'admin';
+                        const deleteBtn = isOwner 
+                            ? `<button onclick="deleteBooking('${slot.id}')" class="text-error border border-error/20 hover:bg-error/10 font-medium px-3 py-1 rounded text-xs transition-colors">Cancel</button>`
+                            : `<span class="text-zinc-600 text-xs">Locked</span>`;
+
+                        return `
+                            <tr class="hover:bg-zinc-800/30 transition-colors">
+                                <td class="py-3 px-4 font-mono text-xs text-zinc-400">${slot.booked_by || 'Broadcast'}</td>
+                                <td class="py-3 px-4">${start}</td>
+                                <td class="py-3 px-4">${end}</td>
+                                <td class="py-3 px-4 text-right">${deleteBtn}</td>
+                            </tr>
+                        `;
+                    }).join('');
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function showBookSlotModal() {
+            document.getElementById('book-slot-modal').classList.remove('hidden');
+        }
+
+        async function handleBookSlot(e) {
+            e.preventDefault();
+            const start = document.getElementById('book-start').value;
+            const end = document.getElementById('book-end').value;
+
+            try {
+                const record = {
+                    start_time: new Date(start).toISOString(),
+                    end_time: new Date(end).toISOString()
+                };
+                if (currentRole === 'user') {
+                    record.booked_by = currentUser.id;
+                }
+                
+                await pb.collection('time_slots').create(record);
+                closeModal('book-slot-modal');
+                loadBookings();
+                loadOverviewData();
+            } catch (err) {
+                alert(`Booking failed: ${err.message || 'Overlap detected or invalid times.'}`);
+            }
+        }
+
+        async function deleteBooking(id) {
+            if (!confirm('Are you sure you want to cancel this booking slot?')) return;
+            try {
+                await pb.collection('time_slots').delete(id);
+                loadBookings();
+                loadOverviewData();
+            } catch (err) {
+                alert(`Cancel failed: ${err.message}`);
+            }
+        }
+
+        // TIME REQUESTS
+        function showRequestTimeModal() {
+            document.getElementById('request-time-modal').classList.remove('hidden');
+        }
+
+        async function handleRequestTime(e) {
+            e.preventDefault();
+            const seconds = parseInt(document.getElementById('req-seconds').value);
+            const reason = document.getElementById('req-reason').value;
+
+            try {
+                await pb.collection('qpu_time_requests').create({
+                    user: currentUser.id,
+                    seconds,
+                    requested_reason: reason,
+                    status: 'pending'
+                });
+                closeModal('request-time-modal');
+                alert('Time request submitted successfully.');
+            } catch (err) {
+                alert(`Failed to submit request: ${err.message}`);
+            }
+        }
+
+        // JOBS CONSOLE & RESULTS VISUALIZATION
+        function copyQASMExample() {
+            const code = `OPENQASM 3.0;\ninclude "stdgates.inc";\nqubit[2] q;\nbit[2] c;\nh q[0];\ncx q[0], q[1];\nc = measure q;`;
+            document.getElementById('job-qasm-code').value = code;
+        }
+
+        function updateMeasLevelLbl(val) {
+            const text = val == 0 ? '0 (Raw)' : (val == 1 ? '1 (Kerneled)' : '2 (Counts)');
+            document.getElementById('meas-level-val').innerText = text;
+            document.getElementById('meas-level-lbl').innerText = text;
+        }
+
+        async function submitQuantumJob() {
+            const qpu = document.getElementById('job-target-qpu').value;
+            const qasm = document.getElementById('job-qasm-code').value;
+            const shots = parseInt(document.getElementById('job-shots').value);
+            const measLevel = parseInt(document.getElementById('job-meas-level').value);
+
+            if (!qasm) {
+                alert('Please enter QASM code.');
+                return;
+            }
+
+            try {
+                const payload = {
+                    circuits: [{ circuit: qasm }],
+                    shots,
+                    meas_level: measLevel,
+                    meas_return: 'single',
+                    qpu_target: qpu
+                };
+
+                const res = await fetch(`/api/jobs`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${pb.authStore.token}`
+                    },
+                    body: JSON.stringify(payload)
+                });
+                if (!res.ok) {
+                    const text = await res.text();
+                    throw new Error(text);
+                }
+
+                const data = await res.json();
+                const jobId = data.id || data.job_id;
+                
+                // Active polling for job completion
+                pollJob(jobId);
+            } catch (err) {
+                alert(`Job submission failed: ${err.message}`);
+            }
+        }
+
+        async function pollJob(jobId) {
+            loadJobResult(jobId);
+            const interval = setInterval(async () => {
+                try {
+                    const job = await pb.collection('quantum_jobs').getOne(jobId);
+                    if (['completed', 'failed', 'cancelled'].includes(job.status)) {
+                        clearInterval(interval);
+                        loadJobResult(jobId);
+                        loadOverviewData();
+                    } else {
+                        loadJobResult(jobId);
+                    }
+                } catch (err) {
+                    clearInterval(interval);
+                    console.error(err);
+                }
+            }, 1500);
+        }
+
+        async function loadJobResult(jobId) {
+            try {
+                const job = await pb.collection('quantum_jobs').getOne(jobId);
+                currentSelectedJob = job;
+
+                document.getElementById('res-job-id').innerText = `#${job.id.substring(0,8)}`;
+                
+                const badge = document.getElementById('res-job-badge');
+                badge.innerText = job.status;
+                badge.className = "flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[10px] uppercase font-semibold ";
+                if (job.status === 'completed') badge.className += "border-success/30 bg-success/10 text-success";
+                else if (job.status === 'pending') badge.className += "border-warning/30 bg-warning/10 text-warning";
+                else if (job.status === 'running') badge.className += "border-secondary/30 bg-secondary/10 text-secondary";
+                else badge.className += "border-error/30 bg-error/10 text-error";
+                badge.classList.remove('hidden');
+
+                document.getElementById('res-job-qpu').innerText = `Executed on ${job.qpu_target || 'Default QPU'}`;
+                
+                const resultsObj = job.results || {};
+                document.getElementById('res-job-duration').innerText = resultsObj.duration !== undefined ? `${resultsObj.duration}ms` : '--';
+                document.getElementById('res-job-created').innerText = new Date(job.created).toLocaleTimeString();
+
+                renderChart(job);
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function setResultVisualizerTab(tab) {
+            activeResultVisualizerTab = tab;
+            
+            // Set styles
+            document.querySelectorAll('#res-tab-counts, #res-tab-iq, #res-tab-trace').forEach(btn => {
+                btn.className = "px-4 py-2 font-geist text-sm text-zinc-500 hover:text-zinc-300";
+            });
+            document.getElementById(`res-tab-${tab}`).className = "px-4 py-2 font-geist text-sm text-primary border-b-2 border-primary -mb-[1px]";
+
+            if (currentSelectedJob) {
+                renderChart(currentSelectedJob);
+            }
+        }
+
+        function renderChart(job) {
+            const container = document.getElementById('visualization-chart-container');
+            const results = job.results || {};
+
+            if (job.status !== 'completed') {
+                container.innerHTML = `<div class="text-zinc-500 text-sm">Job status is currently <span class="text-warning">${job.status}</span>. Waiting for completion...</div>`;
+                return;
+            }
+
+            if (activeResultVisualizerTab === 'counts') {
+                const counts = results.counts || results.hex_counts || {};
+                const keys = Object.keys(counts);
+                if (keys.length === 0) {
+                    container.innerHTML = `<div class="text-zinc-500 text-sm">No counts data available.</div>`;
+                    return;
+                }
+
+                const maxVal = Math.max(...Object.values(counts));
+                const barsHTML = keys.map(k => {
+                    const count = counts[k];
+                    const percent = maxVal > 0 ? (count / maxVal) * 80 : 0;
+                    return `
+                        <div class="w-full max-w-[60px] flex flex-col items-center gap-2 group">
+                            <span class="font-mono text-zinc-400 opacity-0 group-hover:opacity-100 transition-opacity text-[10px]">${count}</span>
+                            <div class="w-full bg-secondary hover:bg-secondary/85 transition-colors rounded-t-sm" style="height: ${percent}%;"></div>
+                            <span class="font-mono text-primary text-xs mt-2">${k}</span>
+                        </div>
+                    `;
+                }).join('');
+
+                container.innerHTML = `
+                    <div class="flex-1 flex items-end justify-around pt-8 pb-6 px-4 gap-4 w-full h-full">
+                        ${barsHTML}
+                    </div>
+                    <div class="absolute inset-0 pointer-events-none" style="background-image: linear-gradient(to bottom, #27272a 1px, transparent 1px); background-size: 100% 20%; opacity: 0.1;"></div>
+                `;
+            } else if (activeResultVisualizerTab === 'iq') {
+                const memory = results.memory || [];
+                if (memory.length === 0) {
+                    container.innerHTML = `<div class="text-zinc-500 text-sm">No IQ memory data available. (Must submit with meas_level=1)</div>`;
+                    return;
+                }
+
+                // Render simple scatter plot points
+                let pointsHTML = '';
+                // Flatten memory to get bounds or assume -2.0 to 2.0
+                const flatPoints = [];
+                
+                // memory is (shots, qubits, 2) or (1, qubits, 2)
+                // Let's render shot points
+                // We'll map values to SVG viewBox 0 to 200
+                const mapVal = (v) => {
+                    // Assume v is in range -0.5 to 1.5
+                    const min = -0.5, max = 1.5;
+                    return ((v - min) / (max - min)) * 200;
+                };
+
+                // Just take first qubit for simpler visualization
+                memory.forEach((shot, idx) => {
+                    if (idx > 200) return; // limit count
+                    const qPoint = shot[0]; // first qubit [I, Q]
+                    if (qPoint) {
+                        const cx = mapVal(qPoint[0]);
+                        const cy = 200 - mapVal(qPoint[1]);
+                        const color = qPoint[0] > 0.5 ? '#6366f1' : '#22c55e'; // color by cluster
+                        pointsHTML += `<circle cx="${cx}" cy="${cy}" r="3" fill="${color}" opacity="0.7" />`;
+                    }
+                });
+
+                container.innerHTML = `
+                    <svg viewBox="0 0 200 200" class="w-64 h-64 border border-zinc-800 rounded bg-background/50">
+                        <line x1="0" y1="100" x2="200" y2="100" stroke="#27272a" stroke-dasharray="2" />
+                        <line x1="100" y1="0" x2="100" y2="200" stroke="#27272a" stroke-dasharray="2" />
+                        ${pointsHTML}
+                    </svg>
+                    <div class="text-[10px] text-zinc-500 mt-2 font-mono">I component vs Q component scatter plot</div>
+                `;
+            } else {
+                // trace / line plot
+                const memory = results.memory || [];
+                if (memory.length === 0) {
+                    container.innerHTML = `<div class="text-zinc-500 text-sm">No raw trace data available. (Must submit with meas_level=0)</div>`;
+                    return;
+                }
+
+                // Plot raw trace line path
+                // Assume first qubit
+                const qubitTrace = memory[0] || [];
+                if (qubitTrace.length === 0) {
+                    container.innerHTML = `<div class="text-zinc-500 text-sm">No trace points.</div>`;
+                    return;
+                }
+
+                let pathPoints = '';
+                const maxLen = Math.min(qubitTrace.length, 100);
+                for (let i = 0; i < maxLen; i++) {
+                    const val = qubitTrace[i][0]; // real component
+                    const x = (i / (maxLen - 1)) * 200;
+                    const y = 100 - (val * 40); // scale factor
+                    pathPoints += `${i === 0 ? 'M' : 'L'} ${x} ${y} `;
+                }
+
+                container.innerHTML = `
+                    <svg viewBox="0 0 200 100" class="w-full h-48 border border-zinc-800 rounded bg-background/50 px-2">
+                        <line x1="0" y1="50" x2="200" y2="50" stroke="#27272a" stroke-dasharray="2" />
+                        <path d="${pathPoints}" fill="none" stroke="#6366f1" stroke-width="1.5" />
+                    </svg>
+                    <div class="text-[10px] text-zinc-500 mt-2 font-mono">Voltage signal trace vs time</div>
+                `;
+            }
+        }
+
+        // ADMIN PANEL
+        function setAdminSubtab(subtab) {
+            activeAdminSubtab = subtab;
+            document.querySelectorAll('#admin-subtab-users, #admin-subtab-announcements, #admin-subtab-requests').forEach(btn => {
+                btn.className = "px-4 py-2 font-geist text-sm text-zinc-500 hover:text-zinc-300";
+            });
+            document.getElementById(`admin-subtab-${subtab}`).className = "px-4 py-2 font-geist text-sm text-primary border-b-2 border-primary -mb-[1px]";
+
+            // Hide/Show sub-panels
+            document.getElementById('admin-panel-users').classList.add('hidden');
+            document.getElementById('admin-panel-announcements').classList.add('hidden');
+            document.getElementById('admin-panel-requests').classList.add('hidden');
+            
+            document.getElementById(`admin-panel-${subtab}`).classList.remove('hidden');
+
+            loadAdminData();
+        }
+
+        async function loadAdminData() {
+            if (currentRole !== 'admin') return;
+
+            if (activeAdminSubtab === 'users') {
+                try {
+                    const users = await pb.collection('users').getFullList({ sort: '-created' });
+                    const tbody = document.getElementById('admin-users-tbody');
+                    
+                    if (users.length === 0) {
+                        tbody.innerHTML = `<tr><td colspan="4" class="py-8 px-4 text-center text-zinc-500">No users found.</td></tr>`;
+                    } else {
+                        tbody.innerHTML = users.map(user => `
+                            <tr class="hover:bg-zinc-800/30 transition-colors">
+                                <td class="py-3 px-4 font-mono text-xs text-zinc-300">${user.id}</td>
+                                <td class="py-3 px-4">${user.email || user.username || 'No email'}</td>
+                                <td class="py-3 px-4 font-mono text-xs text-zinc-300">${user.qpu_seconds}s</td>
+                                <td class="py-3 px-4 text-right">
+                                    <button onclick="showAllocationModal('${user.id}', '${user.email || user.username}', ${user.qpu_seconds})" class="bg-primary text-zinc-950 px-3 py-1 rounded text-xs font-semibold hover:opacity-90 transition-opacity">Allocate Time</button>
+                                </td>
+                            </tr>
+                        `).join('');
+                    }
+                } catch (err) {
+                    console.error(err);
+                }
+            } else if (activeAdminSubtab === 'requests') {
+                try {
+                    const reqs = await pb.collection('qpu_time_requests').getFullList({ sort: '-created' });
+                    const tbody = document.getElementById('admin-requests-tbody');
+                    
+                    if (reqs.length === 0) {
+                        tbody.innerHTML = `<tr><td colspan="5" class="py-8 px-4 text-center text-zinc-500">No requests found.</td></tr>`;
+                    } else {
+                        tbody.innerHTML = reqs.map(req => {
+                            const showActions = req.status === 'pending';
+                            const actionButtons = showActions 
+                                ? `
+                                    <div class="flex gap-2 justify-end">
+                                        <button onclick="handleRequestAction('${req.id}', 'rejected')" class="bg-error/20 border border-error/30 text-error hover:bg-error hover:text-zinc-950 font-semibold px-2 py-1 rounded text-xs transition-all">Reject</button>
+                                        <button onclick="handleRequestAction('${req.id}', 'approved')" class="bg-success/20 border border-success/30 text-success hover:bg-success hover:text-zinc-950 font-semibold px-2 py-1 rounded text-xs transition-all">Approve</button>
+                                    </div>
+                                  `
+                                : `<span class="text-zinc-500 text-xs">${req.status}</span>`;
+
+                            return `
+                                <tr class="hover:bg-zinc-800/30 transition-colors">
+                                    <td class="py-3 px-4 font-mono text-xs text-zinc-400">${req.user}</td>
+                                    <td class="py-3 px-4 font-mono text-xs text-zinc-300">${req.seconds}s</td>
+                                    <td class="py-3 px-4 text-zinc-400 max-w-xs truncate" title="${req.requested_reason || ''}">${req.requested_reason || 'No reason'}</td>
+                                    <td class="py-3 px-4">
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium border ${req.status === 'approved' ? 'border-success/30 bg-success/10 text-success' : (req.status === 'rejected' ? 'border-error/30 bg-error/10 text-error' : 'border-warning/30 bg-warning/10 text-warning')}">
+                                            ${req.status}
+                                        </span>
+                                    </td>
+                                    <td class="py-3 px-4 text-right">${actionButtons}</td>
+                                </tr>
+                            `;
+                        }).join('');
+                    }
+                } catch (err) {
+                    console.error(err);
+                }
+            }
+        }
+
+        function showAllocationModal(userId, userLbl, seconds) {
+            document.getElementById('alloc-user-id').value = userId;
+            document.getElementById('alloc-user-lbl').value = userLbl;
+            document.getElementById('alloc-seconds').value = seconds;
+            document.getElementById('allocation-modal').classList.remove('hidden');
+        }
+
+        async function handleAllocateTime(e) {
+            e.preventDefault();
+            const userId = document.getElementById('alloc-user-id').value;
+            const seconds = parseInt(document.getElementById('alloc-seconds').value);
+
+            try {
+                const res = await fetch(`/api/admin/users/${encodeURIComponent(userId)}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${pb.authStore.token}`
+                    },
+                    body: JSON.stringify({ qpu_seconds: seconds })
+                });
+                if (res.ok) {
+                    closeModal('allocation-modal');
+                    loadAdminData();
+                } else {
+                    const text = await res.text();
+                    alert(`Failed to allocate QPU time: ${text}`);
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        async function handleRequestAction(id, status) {
+            try {
+                // PATCH request status
+                await pb.collection('qpu_time_requests').update(id, { status });
+                loadAdminData();
+            } catch (err) {
+                alert(`Failed to update request: ${err.message}`);
+            }
+        }
+
+        async function createAnnouncement(e) {
+            e.preventDefault();
+            const title = document.getElementById('ann-title').value;
+            const description = document.getElementById('ann-desc').value;
+            const start = document.getElementById('ann-start').value;
+            const end = document.getElementById('ann-end').value;
+
+            try {
+                const payload = { title, description };
+                if (start) payload.start_time = new Date(start).toISOString();
+                if (end) payload.end_time = new Date(end).toISOString();
+
+                await pb.collection('notifications').create(payload);
+                document.getElementById('ann-title').value = '';
+                document.getElementById('ann-desc').value = '';
+                document.getElementById('ann-start').value = '';
+                document.getElementById('ann-end').value = '';
+
+                alert('Announcement broadcasted successfully.');
+                loadOverviewData();
+            } catch (err) {
+                alert(`Failed to broadcast: ${err.message}`);
+            }
+        }
+
+        // PROFILE SETTINGS
+        function loadProfileSettings() {
+            document.getElementById('settings-avatar').innerText = (currentUser.email || currentUser.username || 'Q').charAt(0);
+            document.getElementById('settings-username').innerText = currentUser.username || 'N/A';
+            document.getElementById('settings-email').innerText = currentUser.email || 'N/A';
+            document.getElementById('settings-id').innerText = currentUser.id || 'N/A';
+            document.getElementById('settings-role').innerText = currentRole === 'admin' ? 'Administrator' : 'Regular User';
+            document.getElementById('settings-balance').innerText = currentUser.qpu_seconds !== undefined ? `${currentUser.qpu_seconds}s` : 'Unlimited (Superuser)';
+        }
+
+        // GENERAL UTILS
+        function closeModal(id) {
+            document.getElementById(id).classList.add('hidden');
+        }
+
+        // REAL-TIME BINDING
+        function subscribeToRealtime() {
+            // Unsubscribe first
+            pb.collection('qpus').unsubscribe('*').catch(() => {});
+            pb.collection('quantum_jobs').unsubscribe('*').catch(() => {});
+            pb.collection('time_slots').unsubscribe('*').catch(() => {});
+            pb.collection('notifications').unsubscribe('*').catch(() => {});
+
+            // Subscribe to all changes
+            pb.collection('qpus').subscribe('*', () => {
+                if (activeTab === 'qpus' || activeTab === 'overview') loadQpus();
+            });
+            pb.collection('quantum_jobs').subscribe('*', (e) => {
+                if (activeTab === 'overview') loadOverviewData();
+                if (activeTab === 'jobs' && currentSelectedJob && currentSelectedJob.id === e.record.id) {
+                    loadJobResult(e.record.id);
+                }
+            });
+            pb.collection('time_slots').subscribe('*', () => {
+                if (activeTab === 'bookings' || activeTab === 'overview') loadBookings();
+            });
+            pb.collection('notifications').subscribe('*', () => {
+                loadAnnouncements();
+            });
+        }
+    </script>
+</body>
+</html>

@@ -3,13 +3,16 @@
 package main
 
 import (
+	"embed"
 	"errors"
 	"fmt"
+	"io/fs"
 	"log"
 	"time"
 
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase"
+	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/hook"
 
@@ -18,6 +21,9 @@ import (
 	"qpi/internal/scheduler"
 	"qpi/internal/schema"
 )
+
+//go:embed all:dashboard
+var dashboardFS embed.FS
 
 var Version = "v0.0.1"
 
@@ -53,6 +59,13 @@ func main() {
 
 			// Register api register handler routes
 			api.RegisterRoutes(e)
+
+			// Serve static dashboard
+			subFS, err := fs.Sub(dashboardFS, "dashboard")
+			if err != nil {
+				return err
+			}
+			e.Router.GET("/dashboard/{path...}", apis.Static(subFS, true))
 
 			// Start the global recovery engine
 			go scheduler.RunRecoveryEngine(e.App)

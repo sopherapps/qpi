@@ -64,6 +64,47 @@ type JobRecord struct {
 	Updated string `json:"updated"`
 }
 
+// QpuRecord describes a QPU.
+type QpuRecord struct {
+	ID                string `json:"id,omitempty"`
+	Name              string `json:"name"`
+	RegistrationToken string `json:"registration_token,omitempty"`
+	ExecutorType      string `json:"executor_type,omitempty"`
+	DeviceConfig      any    `json:"device_config,omitempty"`
+}
+
+// NotificationRecord describes a notification.
+type NotificationRecord struct {
+	ID      string `json:"id"`
+	Title   string `json:"title"`
+	Message string `json:"message"`
+	Active  bool   `json:"active"`
+}
+
+// TimeSlotRecord describes a booking slot.
+type TimeSlotRecord struct {
+	ID        string `json:"id,omitempty"`
+	StartTime string `json:"start_time"`
+	EndTime   string `json:"end_time"`
+	BookedBy  string `json:"booked_by,omitempty"`
+}
+
+// TimeRequestRecord describes a QPU time request.
+type TimeRequestRecord struct {
+	ID              string `json:"id,omitempty"`
+	Seconds         int    `json:"seconds"`
+	RequestedReason string `json:"requested_reason,omitempty"`
+	Status          string `json:"status,omitempty"`
+	RejectionReason string `json:"rejection_reason,omitempty"`
+}
+
+// UserRecord describes a user.
+type UserRecord struct {
+	ID         string `json:"id"`
+	Email      string `json:"email"`
+	QpuSeconds int    `json:"qpu_seconds"`
+}
+
 // ---------------------------------------------------------------------------
 // Client
 // ---------------------------------------------------------------------------
@@ -74,6 +115,8 @@ type Client struct {
 	BaseURL string
 	// APIToken is sent via the X-API-Token header when non-empty.
 	APIToken string
+	// BearerToken is sent via the Authorization header when non-empty.
+	BearerToken string
 	// HTTPClient is the underlying *http.Client used for requests.
 	// If nil, http.DefaultClient is used.
 	HTTPClient *http.Client
@@ -220,6 +263,9 @@ func (c *Client) doRaw(ctx context.Context, method, path string, body any) ([]by
 	if c.APIToken != "" {
 		req.Header.Set("X-API-Token", c.APIToken)
 	}
+	if c.BearerToken != "" {
+		req.Header.Set("Authorization", "Bearer "+c.BearerToken)
+	}
 
 	resp, err := c.httpClient().Do(req)
 	if err != nil {
@@ -256,4 +302,174 @@ type APIError struct {
 
 func (e *APIError) Error() string {
 	return fmt.Sprintf("qpi api error %s: %s", e.Status, e.Body)
+}
+
+// ListQpus lists all online QPUs.
+func (c *Client) ListQpus(ctx context.Context) ([]QpuRecord, error) {
+	var list []QpuRecord
+	if err := c.doJSON(ctx, http.MethodGet, "/api/qpus", nil, &list); err != nil {
+		return nil, fmt.Errorf("list qpus: %w", err)
+	}
+	return list, nil
+}
+
+// GetQpu retrieves a single QPU by name.
+func (c *Client) GetQpu(ctx context.Context, name string) (*QpuRecord, error) {
+	var qpu QpuRecord
+	if err := c.doJSON(ctx, http.MethodGet, "/api/qpus/"+name, nil, &qpu); err != nil {
+		return nil, fmt.Errorf("get qpu %s: %w", name, err)
+	}
+	return &qpu, nil
+}
+
+// RegisterQpu registers a new QPU (admin-only).
+func (c *Client) RegisterQpu(ctx context.Context, req QpuRecord) (*QpuRecord, error) {
+	var resp QpuRecord
+	if err := c.doJSON(ctx, http.MethodPost, "/api/op/qpu/register", req, &resp); err != nil {
+		return nil, fmt.Errorf("register qpu: %w", err)
+	}
+	return &resp, nil
+}
+
+// ToggleQpu toggles QPU driver state (admin-only).
+func (c *Client) ToggleQpu(ctx context.Context, id string, enabled bool) (any, error) {
+	var resp any
+	payload := map[string]any{"id": id, "enabled": enabled}
+	if err := c.doJSON(ctx, http.MethodPost, "/api/op/qpu/toggle", payload, &resp); err != nil {
+		return nil, fmt.Errorf("toggle qpu %s: %w", id, err)
+	}
+	return resp, nil
+}
+
+// ListNotifications lists notifications visible to the authenticated user.
+func (c *Client) ListNotifications(ctx context.Context) ([]NotificationRecord, error) {
+	raw, err := c.doRaw(ctx, http.MethodGet, "/api/collections/notifications/records", nil)
+	if err != nil {
+		return nil, fmt.Errorf("list notifications: %w", err)
+	}
+	// PocketBase lists are wrapped in items
+	var resp struct {
+		Items []NotificationRecord `json:"items"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		// Try bare array
+		var bare []NotificationRecord
+		if err2 := json.Unmarshal(raw, &bare); err2 == nil {
+			return bare, nil
+		}
+		return nil, fmt.Errorf("list notifications: decode: %w", err)
+	}
+	return resp.Items, nil
+}
+
+// DismissNotification dismisses a notification.
+func (c *Client) DismissNotification(ctx context.Context, id string) (any, error) {
+	var resp any
+	if err := c.doJSON(ctx, http.MethodPost, "/api/notifications/"+id+"/dismiss", nil, &resp); err != nil {
+		return nil, fmt.Errorf("dismiss notification %s: %w", id, err)
+	}
+	return resp, nil
+}
+
+// ListTimeSlots lists all booking slots.
+func (c *Client) ListTimeSlots(ctx context.Context) ([]TimeSlotRecord, error) {
+	var resp struct {
+		Items []TimeSlotRecord `json:"items"`
+	}
+	if err := c.doJSON(ctx, http.MethodGet, "/api/collections/time_slots/records", nil, &resp); err != nil {
+		return nil, fmt.Errorf("list time slots: %w", err)
+	}
+	return resp.Items, nil
+}
+
+// CreateTimeSlot creates a new booking slot.
+func (c *Client) CreateTimeSlot(ctx context.Context, slot TimeSlotRecord) (*TimeSlotRecord, error) {
+	var resp TimeSlotRecord
+	if err := c.doJSON(ctx, http.MethodPost, "/api/collections/time_slots/records", slot, &resp); err != nil {
+		return nil, fmt.Errorf("create time slot: %w", err)
+	}
+	return &resp, nil
+}
+
+// UpdateTimeSlot updates an existing booking slot.
+func (c *Client) UpdateTimeSlot(ctx context.Context, id string, slot TimeSlotRecord) (*TimeSlotRecord, error) {
+	var resp TimeSlotRecord
+	if err := c.doJSON(ctx, http.MethodPatch, "/api/collections/time_slots/records/"+id, slot, &resp); err != nil {
+		return nil, fmt.Errorf("update time slot %s: %w", id, err)
+	}
+	return &resp, nil
+}
+
+// DeleteTimeSlot deletes a booking slot.
+func (c *Client) DeleteTimeSlot(ctx context.Context, id string) error {
+	if _, err := c.doRaw(ctx, http.MethodDelete, "/api/collections/time_slots/records/"+id, nil); err != nil {
+		return fmt.Errorf("delete time slot %s: %w", id, err)
+	}
+	return nil
+}
+
+// ListTimeRequests lists QPU time requests.
+func (c *Client) ListTimeRequests(ctx context.Context) ([]TimeRequestRecord, error) {
+	var resp struct {
+		Items []TimeRequestRecord `json:"items"`
+	}
+	if err := c.doJSON(ctx, http.MethodGet, "/api/collections/qpu_time_requests/records", nil, &resp); err != nil {
+		return nil, fmt.Errorf("list time requests: %w", err)
+	}
+	return resp.Items, nil
+}
+
+// CreateTimeRequest creates a new QPU time request.
+func (c *Client) CreateTimeRequest(ctx context.Context, req TimeRequestRecord) (*TimeRequestRecord, error) {
+	var resp TimeRequestRecord
+	if err := c.doJSON(ctx, http.MethodPost, "/api/collections/qpu_time_requests/records", req, &resp); err != nil {
+		return nil, fmt.Errorf("create time request: %w", err)
+	}
+	return &resp, nil
+}
+
+// UpdateTimeRequest updates/handles a QPU time request (admin-only).
+func (c *Client) UpdateTimeRequest(ctx context.Context, id string, req TimeRequestRecord) (*TimeRequestRecord, error) {
+	var resp TimeRequestRecord
+	if err := c.doJSON(ctx, http.MethodPatch, "/api/collections/qpu_time_requests/records/"+id, req, &resp); err != nil {
+		return nil, fmt.Errorf("update time request %s: %w", id, err)
+	}
+	return &resp, nil
+}
+
+// ListUsers lists all registered users (admin-only).
+func (c *Client) ListUsers(ctx context.Context) ([]UserRecord, error) {
+	var resp struct {
+		Items []UserRecord `json:"items"`
+	}
+	if err := c.doJSON(ctx, http.MethodGet, "/api/collections/users/records", nil, &resp); err != nil {
+		return nil, fmt.Errorf("list users: %w", err)
+	}
+	return resp.Items, nil
+}
+
+// AllocateQpuTime allocates QPU time to a user (admin-only).
+func (c *Client) AllocateQpuTime(ctx context.Context, userID string, seconds int) (*UserRecord, error) {
+	var resp UserRecord
+	payload := map[string]int{"qpu_seconds": seconds}
+	if err := c.doJSON(ctx, http.MethodPatch, "/api/admin/users/"+userID, payload, &resp); err != nil {
+		return nil, fmt.Errorf("allocate qpu time: %w", err)
+	}
+	return &resp, nil
+}
+
+// AuthWithPassword authenticates as a regular user using email/password.
+func (c *Client) AuthWithPassword(ctx context.Context, identity, password string) (any, error) {
+	var resp struct {
+		Token  string `json:"token"`
+		Record any    `json:"record"`
+	}
+	payload := map[string]string{"identity": identity, "password": password}
+	if err := c.doJSON(ctx, http.MethodPost, "/api/collections/users/auth-with-password", payload, &resp); err != nil {
+		return nil, fmt.Errorf("auth with password: %w", err)
+	}
+	if resp.Token != "" {
+		c.BearerToken = resp.Token
+	}
+	return resp, nil
 }

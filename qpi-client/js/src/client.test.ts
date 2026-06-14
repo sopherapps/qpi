@@ -298,3 +298,220 @@ describe("HTTP error handling", () => {
     spy.mockRestore();
   });
 });
+
+// ---------------------------------------------------------------------------
+// New client methods
+// ---------------------------------------------------------------------------
+
+describe("QPU discovery and management", () => {
+  it("listQpus calls GET /api/qpus", async () => {
+    const client = new QPIClient({ baseUrl: "http://localhost:8090" });
+    const spy = mockFetch({ json: async () => [{ name: "qpu-01" }] });
+    const qpus = await client.listQpus();
+    expect(qpus).toEqual([{ name: "qpu-01" }]);
+    expect(spy.mock.calls[0][0]).toBe("http://localhost:8090/api/qpus");
+    spy.mockRestore();
+  });
+
+  it("getQpu calls GET /api/qpus/{name}", async () => {
+    const client = new QPIClient({ baseUrl: "http://localhost:8090" });
+    const spy = mockFetch({ json: async () => ({ name: "qpu-01" }) });
+    const qpu = await client.getQpu("qpu-01");
+    expect(qpu).toEqual({ name: "qpu-01" });
+    expect(spy.mock.calls[0][0]).toBe("http://localhost:8090/api/qpus/qpu-01");
+    spy.mockRestore();
+  });
+
+  it("registerQpu calls POST /api/op/qpu/register", async () => {
+    const client = new QPIClient({ baseUrl: "http://localhost:8090" });
+    const spy = mockFetch({ json: async () => ({ id: "qpu-123" }) });
+    const resp = await client.registerQpu({
+      name: "qpu-02",
+      registration_token: "token123",
+      executor_type: "mock",
+    });
+    expect(resp).toEqual({ id: "qpu-123" });
+    expect(spy.mock.calls[0][0]).toBe(
+      "http://localhost:8090/api/op/qpu/register",
+    );
+    const init = spy.mock.calls[0][1] as RequestInit;
+    expect(JSON.parse(init.body as string)).toEqual({
+      name: "qpu-02",
+      registration_token: "token123",
+      executor_type: "mock",
+    });
+    spy.mockRestore();
+  });
+
+  it("toggleQpu calls POST /api/op/qpu/toggle", async () => {
+    const client = new QPIClient({ baseUrl: "http://localhost:8090" });
+    const spy = mockFetch({ json: async () => ({ success: true }) });
+    const resp = await client.toggleQpu("qpu-123", true);
+    expect(resp).toEqual({ success: true });
+    expect(spy.mock.calls[0][0]).toBe(
+      "http://localhost:8090/api/op/qpu/toggle",
+    );
+    const init = spy.mock.calls[0][1] as RequestInit;
+    expect(JSON.parse(init.body as string)).toEqual({
+      id: "qpu-123",
+      enabled: true,
+    });
+    spy.mockRestore();
+  });
+});
+
+describe("Notifications", () => {
+  it("listNotifications handles array and items wrappers", async () => {
+    const client = new QPIClient({ baseUrl: "http://localhost:8090" });
+    const spy = mockFetch({ json: async () => ({ items: [{ id: "n1" }] }) });
+    const notes = await client.listNotifications();
+    expect(notes).toEqual([{ id: "n1" }]);
+    expect(spy.mock.calls[0][0]).toBe(
+      "http://localhost:8090/api/collections/notifications/records",
+    );
+    spy.mockRestore();
+  });
+
+  it("dismissNotification calls POST /api/notifications/{id}/dismiss", async () => {
+    const client = new QPIClient({ baseUrl: "http://localhost:8090" });
+    const spy = mockFetch({ json: async () => ({ status: "dismissed" }) });
+    const resp = await client.dismissNotification("n1");
+    expect(resp).toEqual({ status: "dismissed" });
+    expect(spy.mock.calls[0][0]).toBe(
+      "http://localhost:8090/api/notifications/n1/dismiss",
+    );
+    spy.mockRestore();
+  });
+});
+
+describe("Booking Slots", () => {
+  it("listTimeSlots, createTimeSlot, updateTimeSlot, deleteTimeSlot work", async () => {
+    const client = new QPIClient({ baseUrl: "http://localhost:8090" });
+
+    // list
+    let spy = mockFetch({ json: async () => ({ items: [{ id: "s1" }] }) });
+    const slots = await client.listTimeSlots();
+    expect(slots).toEqual([{ id: "s1" }]);
+    expect(spy.mock.calls[0][0]).toBe(
+      "http://localhost:8090/api/collections/time_slots/records",
+    );
+    spy.mockRestore();
+
+    // create
+    spy = mockFetch({ json: async () => ({ id: "s1" }) });
+    const newSlot = await client.createTimeSlot({
+      start_time: "2026-06-14T12:00:00Z",
+      end_time: "2026-06-14T13:00:00Z",
+    });
+    expect(newSlot).toEqual({ id: "s1" });
+    expect(spy.mock.calls[0][0]).toBe(
+      "http://localhost:8090/api/collections/time_slots/records",
+    );
+    spy.mockRestore();
+
+    // update
+    spy = mockFetch({ json: async () => ({ id: "s1", end_time: "new" }) });
+    const updated = await client.updateTimeSlot("s1", { end_time: "new" });
+    expect(updated).toEqual({ id: "s1", end_time: "new" });
+    expect(spy.mock.calls[0][0]).toBe(
+      "http://localhost:8090/api/collections/time_slots/records/s1",
+    );
+    expect((spy.mock.calls[0][1] as RequestInit).method).toBe("PATCH");
+    spy.mockRestore();
+
+    // delete
+    spy = mockFetch({ status: 204 });
+    await client.deleteTimeSlot("s1");
+    expect(spy.mock.calls[0][0]).toBe(
+      "http://localhost:8090/api/collections/time_slots/records/s1",
+    );
+    expect((spy.mock.calls[0][1] as RequestInit).method).toBe("DELETE");
+    spy.mockRestore();
+  });
+});
+
+describe("QPU Time Requests", () => {
+  it("listTimeRequests, createTimeRequest, updateTimeRequest work", async () => {
+    const client = new QPIClient({ baseUrl: "http://localhost:8090" });
+
+    // list
+    let spy = mockFetch({ json: async () => ({ items: [{ id: "tr1" }] }) });
+    const reqs = await client.listTimeRequests();
+    expect(reqs).toEqual([{ id: "tr1" }]);
+    expect(spy.mock.calls[0][0]).toBe(
+      "http://localhost:8090/api/collections/qpu_time_requests/records",
+    );
+    spy.mockRestore();
+
+    // create
+    spy = mockFetch({ json: async () => ({ id: "tr1" }) });
+    const newReq = await client.createTimeRequest({
+      seconds: 100,
+      requested_reason: "test",
+    });
+    expect(newReq).toEqual({ id: "tr1" });
+    expect(spy.mock.calls[0][0]).toBe(
+      "http://localhost:8090/api/collections/qpu_time_requests/records",
+    );
+    spy.mockRestore();
+
+    // update
+    spy = mockFetch({ json: async () => ({ id: "tr1", status: "approved" }) });
+    const updated = await client.updateTimeRequest("tr1", {
+      status: "approved",
+    });
+    expect(updated).toEqual({ id: "tr1", status: "approved" });
+    expect(spy.mock.calls[0][0]).toBe(
+      "http://localhost:8090/api/collections/qpu_time_requests/records/tr1",
+    );
+    expect((spy.mock.calls[0][1] as RequestInit).method).toBe("PATCH");
+    spy.mockRestore();
+  });
+});
+
+describe("Admin User Management", () => {
+  it("listUsers and allocateQpuTime work", async () => {
+    const client = new QPIClient({ baseUrl: "http://localhost:8090" });
+
+    // list
+    let spy = mockFetch({
+      json: async () => ({ items: [{ id: "u1", name: "Alice" }] }),
+    });
+    const users = await client.listUsers();
+    expect(users).toEqual([{ id: "u1", name: "Alice" }]);
+    expect(spy.mock.calls[0][0]).toBe(
+      "http://localhost:8090/api/collections/users/records",
+    );
+    spy.mockRestore();
+
+    // allocate
+    spy = mockFetch({ json: async () => ({ id: "u1", qpu_seconds: 1000 }) });
+    const updated = await client.allocateQpuTime("u1", 1000);
+    expect(updated).toEqual({ id: "u1", qpu_seconds: 1000 });
+    expect(spy.mock.calls[0][0]).toBe(
+      "http://localhost:8090/api/admin/users/u1",
+    );
+    expect((spy.mock.calls[0][1] as RequestInit).method).toBe("PATCH");
+    spy.mockRestore();
+  });
+});
+
+describe("Auth helpers", () => {
+  it("authWithPassword updates Authorization header", async () => {
+    const client = new QPIClient({ baseUrl: "http://localhost:8090" });
+    let spy = mockFetch({
+      json: async () => ({ token: "token123", record: { id: "u1" } }),
+    });
+    const resp = await client.authWithPassword("alice@test.com", "pass123");
+    expect(resp).toEqual({ token: "token123", record: { id: "u1" } });
+    spy.mockRestore();
+
+    // subsequent requests should have Authorization header
+    spy = mockFetch({ json: async () => ({ name: "qpu-01" }) });
+    await client.getQpu("qpu-01");
+    expect((spy.mock.calls[0][1] as RequestInit).headers).toMatchObject({
+      Authorization: "Bearer token123",
+    });
+    spy.mockRestore();
+  });
+});

@@ -202,3 +202,188 @@ class TestQPU:
         assert qpu["name"] == "mock"
         assert qpu["num_qubits"] == 5
         mock_get.assert_called_once_with("http://localhost:8090/api/qpus/mock")
+
+
+class TestNewClientMethods:
+    def test_register_qpu(self, client: QPIClient, mock_response: MagicMock) -> None:
+        mock_response.json.return_value = {"id": "qpu-123"}
+        with patch.object(
+            client._session, "post", return_value=mock_response
+        ) as mock_post:
+            resp = client.register_qpu("qpu-02", "token123", executor_type="mock")
+
+        assert resp == {"id": "qpu-123"}
+        mock_post.assert_called_once()
+        args, kwargs = mock_post.call_args
+        assert args[0] == "http://localhost:8090/api/op/qpu/register"
+        assert kwargs["json"] == {
+            "name": "qpu-02",
+            "registration_token": "token123",
+            "executor_type": "mock",
+        }
+
+    def test_toggle_qpu(self, client: QPIClient, mock_response: MagicMock) -> None:
+        mock_response.json.return_value = {"success": True}
+        with patch.object(
+            client._session, "post", return_value=mock_response
+        ) as mock_post:
+            resp = client.toggle_qpu("qpu-123", True)
+
+        assert resp == {"success": True}
+        mock_post.assert_called_once_with(
+            "http://localhost:8090/api/op/qpu/toggle",
+            json={"id": "qpu-123", "enabled": True},
+        )
+
+    def test_list_notifications(
+        self, client: QPIClient, mock_response: MagicMock
+    ) -> None:
+        mock_response.json.return_value = {"items": [{"id": "n1"}]}
+        with patch.object(
+            client._session, "get", return_value=mock_response
+        ) as mock_get:
+            resp = client.list_notifications()
+
+        assert resp == [{"id": "n1"}]
+        mock_get.assert_called_once_with(
+            "http://localhost:8090/api/collections/notifications/records"
+        )
+
+    def test_dismiss_notification_direct(
+        self, client: QPIClient, mock_response: MagicMock
+    ) -> None:
+        mock_response.json.return_value = {"status": "dismissed"}
+        with patch.object(
+            client._session, "post", return_value=mock_response
+        ) as mock_post:
+            resp = client.dismiss_notification("n1")
+
+        assert resp == {"status": "dismissed"}
+        mock_post.assert_called_once_with(
+            "http://localhost:8090/api/notifications/n1/dismiss"
+        )
+
+    def test_time_slots(self, client: QPIClient, mock_response: MagicMock) -> None:
+        # list
+        mock_response.json.return_value = {"items": [{"id": "s1"}]}
+        with patch.object(
+            client._session, "get", return_value=mock_response
+        ) as mock_get:
+            assert client.list_time_slots() == [{"id": "s1"}]
+            mock_get.assert_called_once_with(
+                "http://localhost:8090/api/collections/time_slots/records"
+            )
+
+        # create
+        mock_response.json.return_value = {"id": "s1"}
+        with patch.object(
+            client._session, "post", return_value=mock_response
+        ) as mock_post:
+            assert client.create_time_slot("start", "end") == {"id": "s1"}
+            mock_post.assert_called_once_with(
+                "http://localhost:8090/api/collections/time_slots/records",
+                json={"start_time": "start", "end_time": "end"},
+            )
+
+        # update
+        mock_response.json.return_value = {"id": "s1", "start_time": "start2"}
+        with patch.object(
+            client._session, "patch", return_value=mock_response
+        ) as mock_patch:
+            assert client.update_time_slot("s1", start_time="start2") == {
+                "id": "s1",
+                "start_time": "start2",
+            }
+            mock_patch.assert_called_once_with(
+                "http://localhost:8090/api/collections/time_slots/records/s1",
+                json={"start_time": "start2"},
+            )
+
+        # delete
+        mock_response.json.return_value = None
+        with patch.object(
+            client._session, "delete", return_value=mock_response
+        ) as mock_delete:
+            client.delete_time_slot("s1")
+            mock_delete.assert_called_once_with(
+                "http://localhost:8090/api/collections/time_slots/records/s1"
+            )
+
+    def test_time_requests(self, client: QPIClient, mock_response: MagicMock) -> None:
+        # list
+        mock_response.json.return_value = {"items": [{"id": "tr1"}]}
+        with patch.object(
+            client._session, "get", return_value=mock_response
+        ) as mock_get:
+            assert client.list_time_requests() == [{"id": "tr1"}]
+            mock_get.assert_called_once_with(
+                "http://localhost:8090/api/collections/qpu_time_requests/records"
+            )
+
+        # create
+        mock_response.json.return_value = {"id": "tr1"}
+        with patch.object(
+            client._session, "post", return_value=mock_response
+        ) as mock_post:
+            assert client.create_time_request(100, "reason") == {"id": "tr1"}
+            mock_post.assert_called_once_with(
+                "http://localhost:8090/api/collections/qpu_time_requests/records",
+                json={"seconds": 100, "requested_reason": "reason"},
+            )
+
+        # update
+        mock_response.json.return_value = {"id": "tr1", "status": "approved"}
+        with patch.object(
+            client._session, "patch", return_value=mock_response
+        ) as mock_patch:
+            assert client.update_time_request("tr1", "approved") == {
+                "id": "tr1",
+                "status": "approved",
+            }
+            mock_patch.assert_called_once_with(
+                "http://localhost:8090/api/collections/qpu_time_requests/records/tr1",
+                json={"status": "approved"},
+            )
+
+    def test_admin_user_quota(
+        self, client: QPIClient, mock_response: MagicMock
+    ) -> None:
+        # list users
+        mock_response.json.return_value = {"items": [{"id": "u1"}]}
+        with patch.object(
+            client._session, "get", return_value=mock_response
+        ) as mock_get:
+            assert client.list_users() == [{"id": "u1"}]
+            mock_get.assert_called_once_with(
+                "http://localhost:8090/api/collections/users/records"
+            )
+
+        # allocate
+        mock_response.json.return_value = {"id": "u1", "qpu_seconds": 500}
+        with patch.object(
+            client._session, "patch", return_value=mock_response
+        ) as mock_patch:
+            assert client.allocate_qpu_time("u1", 500) == {
+                "id": "u1",
+                "qpu_seconds": 500,
+            }
+            mock_patch.assert_called_once_with(
+                "http://localhost:8090/api/admin/users/u1",
+                json={"qpu_seconds": 500},
+            )
+
+    def test_auth_with_password(
+        self, client: QPIClient, mock_response: MagicMock
+    ) -> None:
+        mock_response.json.return_value = {"token": "jwt123"}
+        with patch.object(
+            client._session, "post", return_value=mock_response
+        ) as mock_post:
+            resp = client.auth_with_password("alice", "secret")
+
+        assert resp == {"token": "jwt123"}
+        assert client._session.headers["Authorization"] == "Bearer jwt123"
+        mock_post.assert_called_once_with(
+            "http://localhost:8090/api/collections/users/auth-with-password",
+            json={"identity": "alice", "password": "secret"},
+        )
