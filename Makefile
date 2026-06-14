@@ -1,4 +1,4 @@
-.PHONY: all build test lint lint-go lint-py lint-js lint-go-client lint-py-client format format-go format-py format-js format-go-client format-py-client package package-js package-py package-go clean venv-check
+.PHONY: all build build-dashboard test lint lint-go lint-py lint-js lint-go-client lint-py-client format format-go format-py format-js format-go-client format-py-client package package-js package-py package-go clean venv-check
 
 VERSION ?= 0.0.1
 UV := $(shell command -v uv 2> /dev/null || echo "$$HOME/.local/bin/uv")
@@ -12,7 +12,7 @@ venv-check:
 		curl -LsSf https://astral.sh/uv/install.sh | sh; \
 	fi
 
-build: venv-check
+build: venv-check build-dashboard
 	@echo "Building Go orchestrator..."
 	mkdir -p bin
 	(cd qpi-interface && go build -o ../bin/qpi .)
@@ -24,6 +24,10 @@ build: venv-check
 	fi
 	@echo "Building JS client..."
 	(cd qpi-client/js && npm ci && npm run build)
+
+build-dashboard:
+	@echo "Building React dashboard..."
+	(cd qpi-interface/internal/dashboard && npm ci && npm run build)
 
 # ---------------------------------------------------------------------------
 # Test targets

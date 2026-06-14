@@ -22,7 +22,7 @@ import (
 	"qpi/internal/schema"
 )
 
-//go:embed all:dashboard
+//go:embed all:internal/dashboard/dist
 var dashboardFS embed.FS
 
 var Version = "v0.0.1"
@@ -61,7 +61,7 @@ func main() {
 			api.RegisterRoutes(e)
 
 			// Serve static dashboard
-			subFS, err := fs.Sub(dashboardFS, "dashboard")
+			subFS, err := fs.Sub(dashboardFS, "internal/dashboard/dist")
 			if err != nil {
 				return err
 			}
