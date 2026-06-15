@@ -145,7 +145,7 @@ start_driver() {
     echo "[e2e] Starting Python driver with executor: $executor..."
     local py
     py="$(detect_python)"
-    REGISTRATION_TOKEN=my-super-secret-token-12345 "$py" -m qpi_driver.cli start --executor "$executor" --data-dir "${PROJECT_ROOT}/bin/data" &
+    QPI_ACCESS_TOKEN=my-super-secret-token-12345 "$py" -m qpi_driver.cli start --executor "$executor" --data-dir "${PROJECT_ROOT}/bin/data" &
     DRIVER_PID=$!
 }
 

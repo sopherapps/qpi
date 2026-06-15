@@ -6,6 +6,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 import pynng
 import requests
@@ -37,20 +38,35 @@ class HandshakeInfo:
     auth_token: str
 
 
+def _normalize_qpi_addr(qpi_addr: str) -> str:
+    """Ensure *qpi_addr* has a scheme so :func:`urlparse` works correctly.
+
+    If the caller passes a bare ``host:port`` pair (e.g. ``"127.0.0.1:8090"``),
+    we prepend ``http://`` so downstream code can parse it uniformly.
+    """
+    if "://" not in qpi_addr:
+        qpi_addr = f"http://{qpi_addr}"
+    return qpi_addr.rstrip("/")
+
+
+def _extract_host(qpi_addr: str) -> str:
+    """Extract the hostname (no port, no scheme) from a normalised QPI address."""
+    return urlparse(qpi_addr).hostname or "127.0.0.1"
+
+
 def do_handshake(
-    host: str,
-    port: int,
+    qpi_addr: str,
     token: str,
     name: str,
     executor_type: str = "",
     device_config: dict[str, Any] | None = None,
 ) -> HandshakeInfo:
-    """POST to /api/op/qpu/register and return dynamic port configurations.
+    """POST to /api/op/qpus/connect and return dynamic port configurations.
 
     Args:
-        host: Hostname or IP of the Go PocketBase server.
-        port: PocketBase HTTP port.
-        token: Unique QPU registration token.
+        qpi_addr: Full URL of the QPI orchestrator (e.g. ``"http://localhost:8090"``
+            or ``"https://qpi.example.com"``).
+        token: QPU access token.
         name: Human-readable name for this QPU.
         executor_type: The executor backend type (e.g. ``"mock"``, ``"qiskit_aer"``).
         device_config: Optional device configuration dict to store on the QPU record.
@@ -59,21 +75,22 @@ def do_handshake(
         HandshakeInfo: Strongly typed port and token credentials.
 
     Raises:
-        ValueError: If the registration token is empty.
+        ValueError: If the access token is empty.
         requests.RequestException: If the HTTP request fails.
     """
     if not token:
-        raise ValueError("Registration token must be provided")
+        raise ValueError("Access token must be provided")
 
-    register_url = f"http://{host}:{port}/api/op/qpu/register"
-    payload: dict[str, Any] = {"name": name, "registration_token": token}
+    qpi_addr = _normalize_qpi_addr(qpi_addr)
+    connect_url = f"{qpi_addr}/api/op/qpus/connect"
+    payload: dict[str, Any] = {"name": name, "access_token": token}
     if executor_type:
         payload["executor_type"] = executor_type
     if device_config:
         payload["device_config"] = device_config
 
-    log.info("Handshaking with %s …", register_url)
-    resp = requests.post(register_url, json=payload, timeout=10)
+    log.info("Handshaking with %s …", connect_url)
+    resp = requests.post(connect_url, json=payload, timeout=10)
     resp.raise_for_status()
     data = resp.json()
     log.info(
@@ -169,14 +186,16 @@ def execute_job(
     executor_instance.close()
 
 
-def send_results(result_queue: multiprocessing.Queue, res_port: int, host: str) -> None:
+def send_results(
+    result_queue: multiprocessing.Queue, res_port: int, nng_host: str
+) -> None:
     """Result sender process: reads Qiskit-format result dicts from result_queue
     and pushes them to the Go orchestrator via NNG PUSH.
 
     Args:
         result_queue: Queue used to receive result dicts from the worker.
         res_port: Port allocated for the NNG PUSH socket to return results.
-        host: Hostname or IP of the Go PocketBase server.
+        nng_host: Hostname or IP of the Go PocketBase server (for NNG TCP connections).
     """
     logging.basicConfig(
         level=logging.INFO,
@@ -185,7 +204,7 @@ def send_results(result_queue: multiprocessing.Queue, res_port: int, host: str) 
     rs_log = logging.getLogger("result_sender")
     rs_log.info("Result sender process started")
 
-    addr = f"tcp://{host}:{res_port}"
+    addr = f"tcp://{nng_host}:{res_port}"
     rs_log.info("Connecting NNG PUSH → %s", addr)
 
     with pynng.Push0() as sock:
@@ -218,27 +237,41 @@ def send_results(result_queue: multiprocessing.Queue, res_port: int, host: str) 
 
 
 def run_driver(
-    host: str,
-    port: int,
-    token: str,
-    name: str,
+    qpi_addr: str = "http://127.0.0.1:8090",
+    token: str = "",
+    name: str = "QPU-Sim-01",
     executor: str | type[Executor] | Executor = "mock",
     custom_executors: dict[str, type[Executor]] | None = None,
     data_dir: Path = Path("bin/data"),
+    *,
+    # Legacy parameters — accepted but deprecated
+    host: str | None = None,
+    port: int | None = None,
     **executor_options: Any,
 ) -> None:
     """Run the QPI Python hardware driver.
 
     Args:
-        host: Hostname or IP of the Go PocketBase server.
-        port: PocketBase HTTP port.
-        token: Unique QPU registration token.
+        qpi_addr: Full URL of the QPI orchestrator
+            (e.g. ``"http://localhost:8090"`` or ``"https://qpi.example.com"``).
+        token: QPU access token.
         name: Human-readable name for this QPU.
         executor: Executor specification (string key, class, or instance).
         custom_executors: Optional dict of custom executors for resolving string keys.
         data_dir: Directory for executor working data.
+        host: *Deprecated* — use *qpi_addr* instead.
+        port: *Deprecated* — use *qpi_addr* instead.
         executor_options: other options to pass to the executor.
     """
+    # FIXME (antigravity): delete the host,port  stuff aggressively. Let it be a breaking change.
+    # Legacy fallback: honour host/port if qpi_addr was not explicitly set
+    if host is not None or port is not None:
+        _host = host or "127.0.0.1"
+        _port = port or 8090
+        qpi_addr = f"http://{_host}:{_port}"
+
+    qpi_addr = _normalize_qpi_addr(qpi_addr)
+
     # Determine executor type string for registration
     executor_type_str = ""
     if isinstance(executor, str):
@@ -265,13 +298,13 @@ def run_driver(
 
     # do_handshake returns strongly typed dataclass
     info = do_handshake(
-        host,
-        port,
+        qpi_addr,
         token,
         name,
         executor_type=executor_type_str,
         device_config=device_config,
     )
+    nng_host = _extract_host(qpi_addr)
     cmd_port = info.nng_command_port
     res_port = info.nng_result_port
 
@@ -295,14 +328,14 @@ def run_driver(
     # 3. Start Result Sender Process
     result_sender = multiprocessing.Process(
         target=send_results,
-        args=(result_queue, res_port, host),
+        args=(result_queue, res_port, nng_host),
         name="QPI-ResultSender",
         daemon=True,
     )
     result_sender.start()
 
     # 4. Start NNG PULL (commands) in Main Process
-    addr = f"tcp://{host}:{cmd_port}"
+    addr = f"tcp://{nng_host}:{cmd_port}"
     log.info("Connecting NNG PULL → %s", addr)
 
     try:

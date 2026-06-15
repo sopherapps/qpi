@@ -11,6 +11,11 @@ _QUANTIFY_DEVICE_CONFIG: dict = load_yaml_fixture("quantify.device.yml")
 
 has_qblox = IS_QBLOX_SCHEDULER_INSTALLED
 
+pytestmark = pytest.mark.skipif(
+    not has_qblox,
+    reason="qblox-scheduler and qblox-instruments must be installed to run qblox tests",
+)
+
 if has_qblox:
     from qpi_driver.executors.qblox import QbloxExecutor
 
@@ -68,10 +73,6 @@ ccx q[0], q[1], q[2];""",
 ]
 
 
-@pytest.mark.skipif(
-    not has_qblox,
-    reason="qblox-scheduler and qblox-instruments must be installed to run qblox tests",
-)
 @pytest.mark.parametrize("qasm", _QASM_PARAMS)
 def test_qblox_executor_execute_dummy(qasm):
     """Verify that QbloxExecutor compiles and executes successfully on a dummy cluster with standard output."""
@@ -99,10 +100,6 @@ def test_qblox_executor_execute_dummy(qasm):
     assert len(dataset.coords["acq_index_1"]) == 1
 
 
-@pytest.mark.skipif(
-    not has_qblox,
-    reason="qblox-scheduler and qblox-instruments must be installed to run qblox tests",
-)
 @pytest.mark.parametrize("qasm", _QASM_PARAMS_ONE_QUBIT)
 def test_qblox_executor_with_config_fixture(qasm):
     """Verify that QbloxExecutor correctly loads and validates hardware configuration from fixture."""
@@ -125,10 +122,6 @@ def test_qblox_executor_with_config_fixture(qasm):
     assert len(dataset.coords["acq_index_0"]) == 1
 
 
-@pytest.mark.skipif(
-    not has_qblox,
-    reason="qblox-scheduler and qblox-instruments must be installed to run qblox tests",
-)
 @pytest.mark.parametrize("qasm", _QASM_PARAMS_INVALID)
 def test_qblox_executor_invalid_gate_raises(qasm):
     """Verify that invalid gates in QASM raise ValueError."""
@@ -146,10 +139,6 @@ def test_qblox_executor_invalid_gate_raises(qasm):
     assert "not supported" in str(excinfo.value)
 
 
-@pytest.mark.skipif(
-    not has_qblox,
-    reason="qblox-scheduler and qblox-instruments must be installed to run qblox tests",
-)
 def test_qblox_executor_payload_rotation_threshold():
     """Verify that QbloxExecutor respects acq_rotation and acq_threshold in JobPayload."""
     executor = resolve_executor(

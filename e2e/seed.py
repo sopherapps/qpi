@@ -1,6 +1,6 @@
 """
 seed.py — Seeds PocketBase with:
-  - A QPU record (with a known registration token)
+  - A QPU record (with a known access token)
   - A test user (with 0 qpu_seconds, then granted time via admin API)
   - API tokens assigned to the test user via admin API
   - A time slot (active for the next 5 minutes)
@@ -27,7 +27,7 @@ BASE  = f"http://{HOST}:{PORT}"
 ADMIN_EMAIL    = os.getenv("ADMIN_EMAIL", "admin@example.com")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "supersecretpassword1234")
 
-REGISTRATION_TOKEN = "my-super-secret-token-12345"
+ACCESS_TOKEN = "my-super-secret-token-12345"
 TEST_API_TOKEN     = "test-api-token-abc-123"
 
 s = requests.Session()
@@ -45,7 +45,7 @@ def admin_auth():
 def create_qpu():
     resp = s.post(f"{BASE}/api/collections/qpus/records", json={
         "name": "QPU-Sim-01",
-        "registration_token": REGISTRATION_TOKEN,
+        "access_token": ACCESS_TOKEN,
         "status": "offline",
         "nng_command_port": 0,
         "nng_result_port": 0,
@@ -147,5 +147,5 @@ if __name__ == "__main__":
     grant_user_qpu_time(user["id"], qpu_seconds=1000.0, api_tokens=[TEST_API_TOKEN])
     create_time_slot(user["id"])
     create_jobs_via_api(user["id"], qpu["id"], n=5)
-    print(f"\n[seed] Done!  REGISTRATION_TOKEN={REGISTRATION_TOKEN}")
-    print(f"[seed] Run the driver with:  REGISTRATION_TOKEN={REGISTRATION_TOKEN} python driver.py")
+    print(f"\n[seed] Done!  ACCESS_TOKEN={ACCESS_TOKEN}")
+    print(f"[seed] Run the driver with:  QPI_ACCESS_TOKEN={ACCESS_TOKEN} python driver.py")

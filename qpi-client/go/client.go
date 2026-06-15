@@ -67,11 +67,11 @@ type JobRecord struct {
 
 // QpuRecord describes a QPU.
 type QpuRecord struct {
-	ID                string `json:"id,omitempty"`
-	Name              string `json:"name"`
-	RegistrationToken string `json:"registration_token,omitempty"`
-	ExecutorType      string `json:"executor_type,omitempty"`
-	DeviceConfig      any    `json:"device_config,omitempty"`
+	ID           string `json:"id,omitempty"`
+	Name         string `json:"name"`
+	AccessToken  string `json:"access_token,omitempty"`
+	ExecutorType string `json:"executor_type,omitempty"`
+	DeviceConfig any    `json:"device_config,omitempty"`
 }
 
 // NotificationRecord describes a notification.
@@ -323,11 +323,20 @@ func (c *Client) GetQpu(ctx context.Context, name string) (*QpuRecord, error) {
 	return &qpu, nil
 }
 
-// RegisterQpu registers a new QPU (admin-only).
-func (c *Client) RegisterQpu(ctx context.Context, req QpuRecord) (*QpuRecord, error) {
+// CreateQpu creates a new QPU record (admin-only) and returns the generated access token.
+func (c *Client) CreateQpu(ctx context.Context, req QpuRecord) (*QpuRecord, error) {
 	var resp QpuRecord
-	if err := c.doJSON(ctx, http.MethodPost, "/api/op/qpu/register", req, &resp); err != nil {
-		return nil, fmt.Errorf("register qpu: %w", err)
+	if err := c.doJSON(ctx, http.MethodPost, "/api/op/qpus/create", req, &resp); err != nil {
+		return nil, fmt.Errorf("create qpu: %w", err)
+	}
+	return &resp, nil
+}
+
+// ConnectQpu connects a QPU driver node using its access token.
+func (c *Client) ConnectQpu(ctx context.Context, req QpuRecord) (*QpuRecord, error) {
+	var resp QpuRecord
+	if err := c.doJSON(ctx, http.MethodPost, "/api/op/qpus/connect", req, &resp); err != nil {
+		return nil, fmt.Errorf("connect qpu: %w", err)
 	}
 	return &resp, nil
 }

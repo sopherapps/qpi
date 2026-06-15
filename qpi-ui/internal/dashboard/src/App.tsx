@@ -299,20 +299,23 @@ export const App: React.FC = () => {
     loadQpus();
   };
 
-  const handleRegisterQpu = async (
+  const handleCreateQpu = async (
     name: string,
-    token: string,
     executor: string,
   ) => {
-    await pb.send("/api/op/qpu/register", {
+    const res = await pb.send<{ access_token: string }>("/api/op/qpus/create", {
       method: "POST",
       body: JSON.stringify({
         name: name,
-        registration_token: token,
         executor_type: executor,
       }),
       headers: { "Content-Type": "application/json" },
     });
+    if (res && res.access_token) {
+      alert(`QPU created successfully!\n\nHere is your QPU Access Token (copy this, it will NOT be shown again):\n\n${res.access_token}`);
+    } else {
+      alert("QPU created successfully!");
+    }
     loadQpus();
   };
 
@@ -410,7 +413,7 @@ export const App: React.FC = () => {
             qpus={qpus}
             isAdmin={isAdmin}
             onToggleQpu={handleToggleQpu}
-            onRegisterQpu={handleRegisterQpu}
+            onRegisterQpu={handleCreateQpu}
           />
         );
       case "jobs":

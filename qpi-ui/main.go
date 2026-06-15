@@ -87,9 +87,9 @@ func main() {
 					return err
 				}
 			case cfg.CollectionQPUs:
-				token := e.Record.GetString("registration_token")
+				token := e.Record.GetString("access_token")
 				if token != "" {
-					e.Record.Set("registration_token", api.HashToken(token))
+					e.Record.Set("access_token", api.HashToken(token))
 				}
 				if !e.Record.GetBool("enabled") {
 					e.Record.Set("status", "offline")
@@ -111,11 +111,11 @@ func main() {
 					return err
 				}
 			case cfg.CollectionQPUs:
-				// Hash registration_token if it changed
-				originalToken := e.Record.Original().GetString("registration_token")
-				newToken := e.Record.GetString("registration_token")
+				// Hash access_token if it changed
+				originalToken := e.Record.Original().GetString("access_token")
+				newToken := e.Record.GetString("access_token")
 				if newToken != "" && newToken != originalToken {
-					e.Record.Set("registration_token", api.HashToken(newToken))
+					e.Record.Set("access_token", api.HashToken(newToken))
 				}
 
 				originalEnabled := e.Record.Original().GetBool("enabled")

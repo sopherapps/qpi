@@ -233,7 +233,7 @@ func ensureQPUsCollection(app core.App, cfg *config.AppConfig) error {
 	col = core.NewBaseCollection(cfg.CollectionQPUs)
 	col.Id = "name"
 	col.Fields.Add(&core.TextField{Name: "name", Required: true})
-	col.Fields.Add(&core.TextField{Name: "registration_token", Required: true})
+	col.Fields.Add(&core.TextField{Name: "access_token", Required: true})
 	col.Fields.Add(&core.SelectField{
 		Name:      "status",
 		Values:    []string{"offline", "online", "maintenance"},

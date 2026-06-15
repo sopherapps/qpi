@@ -34,11 +34,12 @@ for PLATFORM in "${PLATFORMS[@]}"; do
     mkdir -p "$BUILD_DIR"
 
     echo "Building for $OS/$ARCH..."
-    GOOS=$OS GOARCH=$ARCH go build -ldflags="-X 'main.Version=v${VERSION#v}'" -C "$SRC_DIR" -o "../$BUILD_DIR/$BIN_NAME" .
+    GOOS=$OS GOARCH=$ARCH go build -C "$SRC_DIR" -ldflags="-X 'main.Version=v${VERSION#v}'" -o "../$BUILD_DIR/$BIN_NAME" .
 
     # Copy metadata or license files if needed
     cp README.md "$BUILD_DIR/" 2>/dev/null || true
-    cp qpi.config.example.yml "$BUILD_DIR/" 2>/dev/null || true
+    cp "$SRC_DIR/qpi.config.example.yml" "$BUILD_DIR/" 2>/dev/null || true
+    cp "$SRC_DIR/LICENSE" "$BUILD_DIR/" 2>/dev/null || true
 
     # Create archive package
     ARCHIVE_NAME="qpi-${VERSION}-${OS}-${ARCH}"

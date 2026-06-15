@@ -3,12 +3,11 @@ import { X } from "lucide-react";
 
 interface Props {
   onClose: () => void;
-  onRegister: (name: string, token: string, executor: string) => Promise<void>;
+  onRegister: (name: string, executor: string) => Promise<void>;
 }
 
 export function RegisterQpuModal({ onClose, onRegister }: Props) {
   const [regName, setRegName] = useState("");
-  const [regToken, setRegToken] = useState("");
   const [regExecutor, setRegExecutor] = useState("mock");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -18,10 +17,9 @@ export function RegisterQpuModal({ onClose, onRegister }: Props) {
     setError("");
     setLoading(true);
     try {
-      await onRegister(regName, regToken, regExecutor);
+      await onRegister(regName, regExecutor);
       onClose();
       setRegName("");
-      setRegToken("");
       setRegExecutor("mock");
     } catch (err: unknown) {
       const message =
@@ -64,19 +62,6 @@ export function RegisterQpuModal({ onClose, onRegister }: Props) {
           </div>
           <div>
             <label className="block text-xs font-medium text-zinc-400 mb-1.5 uppercase tracking-wider">
-              Registration Token
-            </label>
-            <input
-              type="text"
-              required
-              value={regToken}
-              onChange={(e) => setRegToken(e.target.value)}
-              className="w-full bg-zinc-950 border border-zinc-800 rounded px-3 py-2 text-white font-mono focus:outline-none focus:border-zinc-500 transition-colors"
-              placeholder="Enter QPU secret token"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-zinc-400 mb-1.5 uppercase tracking-wider">
               Executor Type
             </label>
             <select
@@ -87,6 +72,7 @@ export function RegisterQpuModal({ onClose, onRegister }: Props) {
               <option value="mock">mock (Local Simulator)</option>
               <option value="qiskit_aer">qiskit_aer (Aer Simulator)</option>
               <option value="quantify">quantify (Quantify Driver)</option>
+              <option value="qblox">qblox (Qblox Driver)</option>
             </select>
           </div>
 
@@ -108,3 +94,4 @@ export function RegisterQpuModal({ onClose, onRegister }: Props) {
     </div>
   );
 }
+

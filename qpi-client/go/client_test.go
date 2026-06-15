@@ -364,11 +364,24 @@ func TestNewClientMethods(t *testing.T) {
 		}
 	})
 
-	t.Run("RegisterQpu", func(t *testing.T) {
+	t.Run("CreateQpu", func(t *testing.T) {
 		server := newTestServer(t, http.StatusOK, QpuRecord{ID: "q1", Name: "qpu-1"})
 		defer server.Close()
 		client := NewClient(server.URL, "")
-		res, err := client.RegisterQpu(ctx, QpuRecord{Name: "qpu-1"})
+		res, err := client.CreateQpu(ctx, QpuRecord{Name: "qpu-1"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if res.ID != "q1" {
+			t.Errorf("unexpected: %+v", res)
+		}
+	})
+
+	t.Run("ConnectQpu", func(t *testing.T) {
+		server := newTestServer(t, http.StatusOK, QpuRecord{ID: "q1", Name: "qpu-1"})
+		defer server.Close()
+		client := NewClient(server.URL, "")
+		res, err := client.ConnectQpu(ctx, QpuRecord{Name: "qpu-1", AccessToken: "secret"})
 		if err != nil {
 			t.Fatal(err)
 		}

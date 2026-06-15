@@ -43,8 +43,8 @@ graph TD
     %% Client Interactions
     User[Client] -->|Submit Job| PB
     
-    %% Handshake & Registration
-    MainProc -->|HTTP POST /api/op/qpu/register| PB
+    %% Handshake & Connection
+    MainProc -->|HTTP POST /api/op/qpus/connect| PB
     PB -->|Assigned Ports & JWT| MainProc
     
     %% Multiprocessing Communication
@@ -91,7 +91,8 @@ The orchestrator exposes both **custom HTTP routes** and **PocketBase collection
 
 | Method | Route | Auth | Description |
 |---|---|---|---|
-| `POST` | `/api/op/qpu/register` | Registration token | Registers a QPU driver and returns assigned NNG ports + JWT. |
+| `POST` | `/api/op/qpus/create` | Superuser | Creates a new QPU record and returns the generated access token. |
+| `POST` | `/api/op/qpus/connect` | Access token | Connects a QPU driver and returns assigned NNG ports + JWT. |
 | `POST` | `/api/op/qpu/toggle` | Superuser | Enables or disables a QPU by name. |
 | `POST` | `/api/jobs` | Authenticated | Submits a new quantum job. |
 | `GET`  | `/api/jobs` | Authenticated | Lists jobs for the authenticated user. |
@@ -214,7 +215,7 @@ The package exposes a command-line interface via `typer`. Options can be passed 
 Common options:
 * `-H`, `--host`: Hostname/IP of the Go PocketBase server (env: `GO_SERVER_HOST`, default: `127.0.0.1`).
 * `-P`, `--port`: PocketBase HTTP port (env: `GO_SERVER_PORT`, default: `8090`).
-* `-t`, `--token`: Registration token matching a `qpus.registration_token` record (env: `REGISTRATION_TOKEN`, required).
+* `-t`, `--access-token`: Access token for the QPU (env: `QPI_ACCESS_TOKEN`, required).
 * `-n`, `--name`: Human-readable name for this QPU (env: `QPU_NAME`, default: `QPU-Sim-01`).
 * `-e`, `--executor`: Which executor backend to use (env: `DRIVER_BACKEND`, default: `mock`).
 * `-d`, `--data-dir`: Directory for intermediate NetCDF datasets (env: `QPI_DATA_DIR`, default: `bin/data`).

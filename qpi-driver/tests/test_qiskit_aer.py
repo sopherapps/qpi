@@ -8,6 +8,10 @@ from qpi_driver.executors.qiskit_aer import QiskitAerExecutor
 
 has_aer = importlib.util.find_spec("qiskit_aer") is not None
 
+pytestmark = pytest.mark.skipif(
+    not has_aer, reason="qiskit-aer must be installed to run qiskit-aer tests"
+)
+
 
 _QASM_PARAMS = [
     # OpenQASM 2.0
@@ -30,9 +34,6 @@ c[1] = measure q[1];""",
 ]
 
 
-@pytest.mark.skipif(
-    not has_aer, reason="qiskit-aer must be installed to run qiskit-aer tests"
-)
 @pytest.mark.parametrize("qasm", _QASM_PARAMS)
 def test_qiskit_aer_executor_execute(qasm):
     """Verify that QiskitAerExecutor runs successfully and returns correct standard output."""

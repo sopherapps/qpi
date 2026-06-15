@@ -34,7 +34,7 @@ ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "supersecretpassword1234")
 MAX_WAIT_SECS = 120   # give the driver up to 2 minutes to finish all jobs
 TEST_API_TOKEN = "test-api-token-abc-123"
 TEST_USER_EMAIL = "user@example.com"
-REGISTRATION_TOKEN = "my-super-secret-token-12345"
+ACCESS_TOKEN = "my-super-secret-token-12345"
 
 s = requests.Session()
 
@@ -1098,7 +1098,7 @@ def test_qpus_auth_rules():
 
     resp = user_session.post(f"{BASE}/api/collections/qpus/records", json={
         "name": "Unauthorized-QPU",
-        "registration_token": "secret",
+        "access_token": "secret",
         "status": "offline",
     })
     if resp.status_code not in (403, 404):
@@ -1232,17 +1232,17 @@ def test_qpu_toggle_switch():
     
     # 3. Verify driver handshake is rejected with 403 Forbidden while disabled.
     reg_payload = {
-        "registration_token": REGISTRATION_TOKEN,
+        "access_token": ACCESS_TOKEN,
         "name": qpu["name"],
         "executor_type": qpu["executor_type"],
         "device_config": qpu.get("device_config") or {},
     }
-    resp = s.post(f"{BASE}/api/op/qpu/register", json=reg_payload)
+    resp = s.post(f"{BASE}/api/op/qpus/connect", json=reg_payload)
     if resp.status_code != 403:
-        print(f"[verify] ✗ Registration request was not blocked (expected 403, got {resp.status_code}): {resp.text}")
+        print(f"[verify] ✗ Connection request was not blocked (expected 403, got {resp.status_code}): {resp.text}")
         return False
         
-    print("[verify] ✓ Registration blocked successfully with 403 Forbidden.")
+    print("[verify] ✓ Connection blocked successfully with 403 Forbidden.")
     
     # 4. Re-enable QPU via custom POST /api/op/qpu/toggle (enabled = True)
     print("[verify] Re-enabling QPU …")

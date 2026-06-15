@@ -34,16 +34,16 @@ var (
 	activeQPUsMu sync.Mutex
 )
 
-// registerRequest represents the JSON payload passed to /api/op/qpu/register.
-type registerRequest struct {
-	Name              string         `json:"name"`
-	RegistrationToken string         `json:"registration_token"`
-	ExecutorType      string         `json:"executor_type,omitempty"`
-	DeviceConfig      map[string]any `json:"device_config,omitempty"`
+// connectRequest represents the JSON payload passed to /api/op/qpus/connect.
+type connectRequest struct {
+	Name         string         `json:"name"`
+	AccessToken  string         `json:"access_token"`
+	ExecutorType string         `json:"executor_type,omitempty"`
+	DeviceConfig map[string]any `json:"device_config,omitempty"`
 }
 
-// registerResponse represents the JSON payload returned by /api/op/qpu/register.
-type registerResponse struct {
+// connectResponse represents the JSON payload returned by /api/op/qpus/connect.
+type connectResponse struct {
 	Status         string `json:"status"`
 	NNGCommandPort int    `json:"nng_command_port"`
 	NNGResultPort  int    `json:"nng_result_port"`
@@ -125,8 +125,11 @@ func generateAPIToken() string {
 
 // RegisterRoutes sets up custom HTTP routes for QPU interactions.
 func RegisterRoutes(e *core.ServeEvent) {
-	e.Router.POST("/api/op/qpu/register", func(re *core.RequestEvent) error {
-		return handleQPURegister(re)
+	e.Router.POST("/api/op/qpus/connect", func(re *core.RequestEvent) error {
+		return handleQPUConnect(re)
+	})
+	e.Router.POST("/api/op/qpus/create", func(re *core.RequestEvent) error {
+		return handleQPUCreate(re)
 	})
 	e.Router.POST("/api/op/qpu/toggle", func(re *core.RequestEvent) error {
 		return handleQPUToggle(re)
@@ -753,24 +756,89 @@ func handleTokenDelete(re *core.RequestEvent) error {
 	return re.JSON(http.StatusOK, map[string]string{"status": "deleted"})
 }
 
-// handleQPURegister registers a new hardware driver node, allocating dynamic command/result ports
+// handleQPUCreate creates a new QPU record (admin-only), generating a random
+// access token and returning it in the response.  The hashed token is stored.
+// POST /api/op/qpus/create
+func handleQPUCreate(re *core.RequestEvent) error {
+	cfg, err := config.GetConfigFromApp(re.App)
+	if err != nil {
+		return re.Error(http.StatusInternalServerError, "failed to retrieve configuration", err)
+	}
+
+	if !re.HasSuperuserAuth() {
+		return re.Error(http.StatusForbidden, "admin access required", nil)
+	}
+
+	var req struct {
+		Name         string `json:"name"`
+		ExecutorType string `json:"executor_type,omitempty"`
+		NumQubits    int    `json:"num_qubits,omitempty"`
+		Enabled      *bool  `json:"enabled,omitempty"`
+	}
+	if err := re.BindBody(&req); err != nil {
+		return re.Error(http.StatusBadRequest, "invalid request body", err)
+	}
+	if req.Name == "" {
+		return re.Error(http.StatusBadRequest, "name is required", nil)
+	}
+
+	qpuCol, err := re.App.FindCollectionByNameOrId(cfg.CollectionQPUs)
+	if err != nil {
+		return re.Error(http.StatusInternalServerError, "QPUs collection not found", err)
+	}
+
+	// Generate a random access token (raw token is returned once, hash is stored)
+	rawToken := generateAPIToken()
+
+	record := core.NewRecord(qpuCol)
+	record.Set("name", req.Name)
+	record.Set("access_token", HashToken(rawToken))
+	record.Set("status", "offline")
+	if req.ExecutorType != "" {
+		record.Set("executor_type", req.ExecutorType)
+	}
+	if req.NumQubits > 0 {
+		record.Set("num_qubits", req.NumQubits)
+	}
+	if req.Enabled != nil {
+		record.Set("enabled", *req.Enabled)
+	} else {
+		record.Set("enabled", true)
+	}
+
+	if err := re.App.Save(record); err != nil {
+		return re.Error(http.StatusInternalServerError, "failed to create QPU", err)
+	}
+
+	return re.JSON(http.StatusCreated, map[string]any{
+		"id":            record.Id,
+		"name":          record.GetString("name"),
+		"access_token":  rawToken,
+		"executor_type": record.GetString("executor_type"),
+		"status":        record.GetString("status"),
+		"enabled":       record.GetBool("enabled"),
+	})
+}
+
+// handleQPUConnect connects a hardware driver node, allocating dynamic command/result ports
 // and starting parallel dispatcher and result listener routines.
-func handleQPURegister(re *core.RequestEvent) error {
+// POST /api/op/qpus/connect
+func handleQPUConnect(re *core.RequestEvent) error {
 	cfg, err := config.GetConfigFromApp(re.App)
 	if err != nil {
 		return re.Error(http.StatusInternalServerError, "failed to retrieve custom configuration", err)
 	}
 
-	var req registerRequest
+	var req connectRequest
 	if err := re.BindBody(&req); err != nil {
 		return re.Error(http.StatusBadRequest, "invalid request body", err)
 	}
 
-	// Find QPU by registration token (hashed)
-	hashedToken := HashToken(req.RegistrationToken)
-	qpu, err := re.App.FindFirstRecordByData(cfg.CollectionQPUs, "registration_token", hashedToken)
+	// Find QPU by access token (hashed)
+	hashedToken := HashToken(req.AccessToken)
+	qpu, err := re.App.FindFirstRecordByData(cfg.CollectionQPUs, "access_token", hashedToken)
 	if err != nil {
-		return re.Error(http.StatusUnauthorized, "invalid registration token", err)
+		return re.Error(http.StatusUnauthorized, "invalid access token", err)
 	}
 
 	// Check if QPU is enabled
@@ -816,11 +884,11 @@ func handleQPURegister(re *core.RequestEvent) error {
 	// Generate auth token for the QPU record
 	token, err := qpu.NewStaticAuthToken(0) // 0 = use app default duration
 	if err != nil {
-		// Non-fatal: fall back to the registration token as a simple identifier
-		token = req.RegistrationToken
+		// Non-fatal: fall back to the access token as a simple identifier
+		token = req.AccessToken
 	}
 
-	return re.JSON(http.StatusOK, registerResponse{
+	return re.JSON(http.StatusOK, connectResponse{
 		Status:         "success",
 		NNGCommandPort: cmdPort,
 		NNGResultPort:  resPort,

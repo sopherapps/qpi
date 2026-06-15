@@ -177,34 +177,68 @@ class QPIClient:
 
     # -- QPU Registry & Toggles (admin-only) ---------------------------------
 
-    def register_qpu(
+    def create_qpu(
         self,
         name: str,
-        registration_token: str,
         executor_type: str | None = None,
-        device_config: dict[str, Any] | None = None,
+        num_qubits: int | None = None,
+        enabled: bool | None = None,
     ) -> dict[str, Any]:
-        """Register a new QPU (admin-only).
+        """Create a new QPU record (admin-only).
+
+        The server generates a random ``access_token`` and returns it in
+        plain text exactly once; only the hash is persisted.
 
         Args:
             name: QPU name.
-            registration_token: The token required to register.
+            executor_type: Type of executor.
+            num_qubits: Number of qubits on the device.
+            enabled: Whether the QPU should be enabled (default ``True``).
+
+        Returns:
+            A dict containing at least ``id``, ``name``, ``access_token``,
+            ``executor_type``, ``status``, and ``enabled``.
+        """
+        payload: dict[str, Any] = {"name": name}
+        if executor_type is not None:
+            payload["executor_type"] = executor_type
+        if num_qubits is not None:
+            payload["num_qubits"] = num_qubits
+        if enabled is not None:
+            payload["enabled"] = enabled
+
+        resp = self._session.post(f"{self.base_url}/api/op/qpus/create", json=payload)
+        resp.raise_for_status()
+        return resp.json()
+
+    def connect_qpu(
+        self,
+        name: str,
+        access_token: str,
+        executor_type: str | None = None,
+        device_config: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Connect a QPU driver node.
+
+        Args:
+            name: QPU name.
+            access_token: The access token for the QPU.
             executor_type: Type of executor.
             device_config: Configuration dict for the device.
 
         Returns:
-            The QPU record dict.
+            The connection response dict with NNG port assignments.
         """
-        payload = {
+        payload: dict[str, Any] = {
             "name": name,
-            "registration_token": registration_token,
+            "access_token": access_token,
         }
         if executor_type is not None:
             payload["executor_type"] = executor_type
         if device_config is not None:
             payload["device_config"] = device_config
 
-        resp = self._session.post(f"{self.base_url}/api/op/qpu/register", json=payload)
+        resp = self._session.post(f"{self.base_url}/api/op/qpus/connect", json=payload)
         resp.raise_for_status()
         return resp.json()
 

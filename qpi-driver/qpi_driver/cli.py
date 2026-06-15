@@ -11,28 +11,22 @@ if typer.IS_TYPER_INSTALLED:
 
     @app.command()
     def start(
-        host: Annotated[
+        qpi_addr: Annotated[
             str,
             typer.Option(
-                "--host",
-                "-H",
-                envvar="GO_SERVER_HOST",
-                help="LAN IP or hostname of the Go PocketBase server",
+                "--qpi-addr",
+                "-a",
+                envvar="QPI_ADDR",
+                help="Full URL of the QPI orchestrator (e.g. http://localhost:8090 or https://qpi.example.com)",
             ),
-        ] = "127.0.0.1",
-        port: Annotated[
-            int,
-            typer.Option(
-                "--port", "-P", envvar="GO_SERVER_PORT", help="PocketBase HTTP port"
-            ),
-        ] = 8090,
+        ] = "http://127.0.0.1:8090",
         token: Annotated[
             str,
             typer.Option(
                 "--token",
                 "-t",
-                envvar="REGISTRATION_TOKEN",
-                help="Token that matches a qpus.registration_token record",
+                envvar="QPI_ACCESS_TOKEN",
+                help="QPU access token matching a qpus.access_token record",
             ),
         ] = "",
         name: Annotated[
@@ -109,15 +103,14 @@ if typer.IS_TYPER_INSTALLED:
         """
         if not token:
             typer.echo(
-                "Error: registration token is required. "
-                "Set it via --token / -t or the REGISTRATION_TOKEN environment variable.",
+                "Error: access token is required. "
+                "Set it via --token / -t or the QPI_ACCESS_TOKEN environment variable.",
                 err=True,
             )
             raise typer.Exit(code=1)
 
         run_driver(
-            host=host,
-            port=port,
+            qpi_addr=qpi_addr,
             token=token,
             name=name,
             executor=executor,

@@ -25,7 +25,14 @@ Usage::
     past_job = backend.job(job_id)
 """
 
+import importlib.metadata
+
+try:
+    __version__ = importlib.metadata.version("qpi-client")
+except importlib.metadata.PackageNotFoundError:
+    __version__ = "0.0.1"
+
 from qpi_client.client import QPIClient
 from qpi_client.provider import QPIBackend, QPIJob
 
-__all__ = ["QPIClient", "QPIBackend", "QPIJob"]
+__all__ = ["__version__", "QPIClient", "QPIBackend", "QPIJob"]

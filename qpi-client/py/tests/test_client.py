@@ -207,20 +207,39 @@ class TestQPU:
 
 
 class TestNewClientMethods:
-    def test_register_qpu(self, client: QPIClient, mock_response: MagicMock) -> None:
-        mock_response.json.return_value = {"id": "qpu-123"}
+    def test_create_qpu(self, client: QPIClient, mock_response: MagicMock) -> None:
+        mock_response.json.return_value = {"id": "qpu-123", "access_token": "qpi_abc"}
         with patch.object(
             client._session, "post", return_value=mock_response
         ) as mock_post:
-            resp = client.register_qpu("qpu-02", "token123", executor_type="mock")
+            resp = client.create_qpu("qpu-02", executor_type="mock")
 
-        assert resp == {"id": "qpu-123"}
+        assert resp == {"id": "qpu-123", "access_token": "qpi_abc"}
         mock_post.assert_called_once()
         args, kwargs = mock_post.call_args
-        assert args[0] == "http://localhost:8090/api/op/qpu/register"
+        assert args[0] == "http://localhost:8090/api/op/qpus/create"
         assert kwargs["json"] == {
             "name": "qpu-02",
-            "registration_token": "token123",
+            "executor_type": "mock",
+        }
+
+    def test_connect_qpu(self, client: QPIClient, mock_response: MagicMock) -> None:
+        mock_response.json.return_value = {
+            "status": "success",
+            "nng_command_port": 6000,
+        }
+        with patch.object(
+            client._session, "post", return_value=mock_response
+        ) as mock_post:
+            resp = client.connect_qpu("qpu-02", "token123", executor_type="mock")
+
+        assert resp["status"] == "success"
+        mock_post.assert_called_once()
+        args, kwargs = mock_post.call_args
+        assert args[0] == "http://localhost:8090/api/op/qpus/connect"
+        assert kwargs["json"] == {
+            "name": "qpu-02",
+            "access_token": "token123",
             "executor_type": "mock",
         }
 

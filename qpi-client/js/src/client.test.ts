@@ -324,22 +324,41 @@ describe("QPU discovery and management", () => {
     spy.mockRestore();
   });
 
-  it("registerQpu calls POST /api/op/qpu/register", async () => {
+  it("createQpu calls POST /api/op/qpus/create", async () => {
     const client = new QPIClient({ baseUrl: "http://localhost:8090" });
-    const spy = mockFetch({ json: async () => ({ id: "qpu-123" }) });
-    const resp = await client.registerQpu({
+    const spy = mockFetch({ json: async () => ({ id: "qpu-123", access_token: "qpi_abc" }) });
+    const resp = await client.createQpu({
       name: "qpu-02",
-      registration_token: "token123",
       executor_type: "mock",
     });
-    expect(resp).toEqual({ id: "qpu-123" });
+    expect(resp).toEqual({ id: "qpu-123", access_token: "qpi_abc" });
     expect(spy.mock.calls[0][0]).toBe(
-      "http://localhost:8090/api/op/qpu/register",
+      "http://localhost:8090/api/op/qpus/create",
     );
     const init = spy.mock.calls[0][1] as RequestInit;
     expect(JSON.parse(init.body as string)).toEqual({
       name: "qpu-02",
-      registration_token: "token123",
+      executor_type: "mock",
+    });
+    spy.mockRestore();
+  });
+
+  it("connectQpu calls POST /api/op/qpus/connect", async () => {
+    const client = new QPIClient({ baseUrl: "http://localhost:8090" });
+    const spy = mockFetch({ json: async () => ({ status: "success", nng_command_port: 6000 }) });
+    const resp = await client.connectQpu({
+      name: "qpu-02",
+      access_token: "token123",
+      executor_type: "mock",
+    });
+    expect(resp).toEqual({ status: "success", nng_command_port: 6000 });
+    expect(spy.mock.calls[0][0]).toBe(
+      "http://localhost:8090/api/op/qpus/connect",
+    );
+    const init = spy.mock.calls[0][1] as RequestInit;
+    expect(JSON.parse(init.body as string)).toEqual({
+      name: "qpu-02",
+      access_token: "token123",
       executor_type: "mock",
     });
     spy.mockRestore();

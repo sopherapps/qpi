@@ -10,7 +10,6 @@ interface QpuRegistryTabProps {
   onToggleQpu: (id: string, enabled: boolean) => Promise<void>;
   onRegisterQpu: (
     name: string,
-    token: string,
     executor: string,
   ) => Promise<void>;
 }

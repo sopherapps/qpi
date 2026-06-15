@@ -186,14 +186,24 @@ export class QPIClient {
     return this.get<any>(`/api/qpus/${encodeURIComponent(name)}`);
   }
 
-  /** Register a new QPU (admin-only). */
-  async registerQpu(request: {
+  /** Create a new QPU record (admin-only). Returns the generated access token. */
+  async createQpu(request: {
     name: string;
-    registration_token: string;
+    executor_type?: string;
+    num_qubits?: number;
+    enabled?: boolean;
+  }): Promise<any> {
+    return this.post<any>("/api/op/qpus/create", request);
+  }
+
+  /** Connect a QPU driver node using its access token. */
+  async connectQpu(request: {
+    name: string;
+    access_token: string;
     executor_type?: string;
     device_config?: Record<string, any>;
   }): Promise<any> {
-    return this.post<any>("/api/op/qpu/register", request);
+    return this.post<any>("/api/op/qpus/connect", request);
   }
 
   /** Toggle QPU driver state (admin-only). */

@@ -4,7 +4,8 @@ import pytest
 import xarray as xr
 from qpi_driver.executors import resolve_executor
 from qpi_driver.executors.base import CircuitPayload, JobPayload
-from utils import load_json_fixture, load_yaml_fixture
+
+from .utils import load_json_fixture, load_yaml_fixture
 
 _QUANTIFY_HARDWARE_CONFIG: dict = load_json_fixture("quantify.hardware.json")
 _QUANTIFY_DEVICE_CONFIG: dict = load_yaml_fixture("quantify.device.yml")
@@ -12,6 +13,11 @@ _QUANTIFY_DEVICE_CONFIG: dict = load_yaml_fixture("quantify.device.yml")
 has_quantify = (
     importlib.util.find_spec("quantify_scheduler") is not None
     and importlib.util.find_spec("qblox_instruments") is not None
+)
+
+pytestmark = pytest.mark.skipif(
+    not has_quantify,
+    reason="quantify-scheduler and qblox-instruments must be installed to run quantify tests",
 )
 
 if has_quantify:
@@ -69,10 +75,6 @@ ccx q[0], q[1], q[2];""",
 ]
 
 
-@pytest.mark.skipif(
-    not has_quantify,
-    reason="quantify-scheduler and qblox-instruments must be installed to run quantify tests",
-)
 @pytest.mark.parametrize("qasm", _QASM_PARAMS)
 def test_quantify_executor_execute_dummy(qasm):
     """Verify that QuantifyExecutor compiles and executes successfully on a dummy cluster with standard output."""
@@ -100,10 +102,6 @@ def test_quantify_executor_execute_dummy(qasm):
     assert len(dataset.coords["acq_index_1"]) == 1
 
 
-@pytest.mark.skipif(
-    not has_quantify,
-    reason="quantify-scheduler and qblox-instruments must be installed to run quantify tests",
-)
 @pytest.mark.parametrize("qasm", _QASM_PARAMS_ONE_QUBIT)
 def test_quantify_executor_with_config_fixture(qasm):
     """Verify that QuantifyExecutor correctly loads and validates hardware configuration from fixture."""
@@ -126,10 +124,6 @@ def test_quantify_executor_with_config_fixture(qasm):
     assert len(dataset.coords["acq_index_0"]) == 1
 
 
-@pytest.mark.skipif(
-    not has_quantify,
-    reason="quantify-scheduler and qblox-instruments must be installed to run quantify tests",
-)
 @pytest.mark.parametrize("qasm", _QASM_PARAMS_INVALID)
 def test_quantify_executor_invalid_gate_raises(qasm):
     """Verify that invalid gates in QASM raise ValueError."""
@@ -147,10 +141,6 @@ def test_quantify_executor_invalid_gate_raises(qasm):
     assert "not supported" in str(excinfo.value)
 
 
-@pytest.mark.skipif(
-    not has_quantify,
-    reason="quantify-scheduler and qblox-instruments must be installed to run quantify tests",
-)
 def test_quantify_executor_payload_rotation_threshold():
     """Verify that QuantifyExecutor respects acq_rotation and acq_threshold in JobPayload."""
     executor = resolve_executor(
