@@ -4,13 +4,11 @@ package main
 
 import (
 	"embed"
-	"errors"
 	"fmt"
 	"io/fs"
 	"log"
 	"time"
 
-	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
@@ -83,7 +81,7 @@ func main() {
 			}
 			switch e.Record.Collection().Name {
 			case cfg.CollectionTimeSlots:
-				if err := validateTimeSlot(e.App, e.Record); err != nil {
+				if err := schema.ValidateTimeSlot(e.App, e.Record); err != nil {
 					return err
 				}
 			case cfg.CollectionQPUs:
@@ -107,7 +105,7 @@ func main() {
 			}
 			switch e.Record.Collection().Name {
 			case cfg.CollectionTimeSlots:
-				if err := validateTimeSlot(e.App, e.Record); err != nil {
+				if err := schema.ValidateTimeSlot(e.App, e.Record); err != nil {
 					return err
 				}
 			case cfg.CollectionQPUs:
@@ -159,7 +157,7 @@ func main() {
 				if start.Before(time.Now()) {
 					return e.Error(400, "Cannot book a slot in the past.", nil)
 				}
-				if err := validateTimeSlot(e.App, e.Record); err != nil {
+				if err := schema.ValidateTimeSlot(e.App, e.Record); err != nil {
 					return e.Error(400, err.Error(), nil)
 				}
 			case cfg.CollectionQPUTimeRequests:
@@ -197,7 +195,7 @@ func main() {
 				if newStart.Before(time.Now()) {
 					return e.Error(400, "Cannot reschedule a booking slot to a start time in the past.", nil)
 				}
-				if err := validateTimeSlot(e.App, e.Record); err != nil {
+				if err := schema.ValidateTimeSlot(e.App, e.Record); err != nil {
 					return e.Error(400, err.Error(), nil)
 				}
 			case cfg.CollectionQPUTimeRequests:
@@ -276,38 +274,4 @@ func main() {
 	if err := app.Start(); err != nil {
 		log.Fatal(err)
 	}
-}
-
-// validateTimeSlot asserts start_time is before end_time and prevents globally overlapping bookings.
-func validateTimeSlot(app core.App, record *core.Record) error {
-	start := record.GetDateTime("start_time").Time()
-	end := record.GetDateTime("end_time").Time()
-
-	if start.After(end) || start.Equal(end) {
-		return errors.New("start_time must be strictly before end_time")
-	}
-
-	// Query DB to check if there are globally overlapping slots
-	query := app.DB().
-		Select("count(*)").
-		From("time_slots").
-		Where(dbx.NewExp("start_time < {:end_time} AND end_time > {:start_time}", dbx.Params{
-			"end_time":   end,
-			"start_time": start,
-		}))
-
-	if record.Id != "" {
-		query = query.AndWhere(dbx.NewExp("id != {:id}", dbx.Params{"id": record.Id}))
-	}
-
-	var count int
-	if err := query.Row(&count); err != nil {
-		return err
-	}
-
-	if count > 0 {
-		return errors.New("The requested booking slot overlaps with an existing reservation.")
-	}
-
-	return nil
 }

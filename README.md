@@ -258,10 +258,6 @@ make clean
 
 ## TODOs
 
-- [ ] Create schema definition structs in [schema.go](file:///Users/martinahindura/work/code/sopherapps/open-source/qpi/qpi-ui/internal/schema/schema.go)
-  - Define explicit Go structs matching the PocketBase collection schemas (e.g. `QPUs`, `QuantumJobs`, `Notifications`, `TimeSlots`, `TimeRequests`, `Users`) to clearly document the database structure.
-  - Define Go structs representing standard API request and response bodies for the custom endpoints.
-  - Integrate these structs into the API controllers to improve type safety and documentation.
 - [ ] Add support for presto control instruments
 
 ## License

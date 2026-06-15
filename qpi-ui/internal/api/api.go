@@ -26,6 +26,7 @@ import (
 
 	"qpi/internal/config"
 	"qpi/internal/scheduler"
+	"qpi/internal/schema"
 )
 
 var (
@@ -33,76 +34,6 @@ var (
 	activeQPUs   = make(map[string]context.CancelFunc)
 	activeQPUsMu sync.Mutex
 )
-
-// connectRequest represents the JSON payload passed to /api/op/qpus/connect.
-type connectRequest struct {
-	Name         string         `json:"name"`
-	AccessToken  string         `json:"access_token"`
-	ExecutorType string         `json:"executor_type,omitempty"`
-	DeviceConfig map[string]any `json:"device_config,omitempty"`
-}
-
-// connectResponse represents the JSON payload returned by /api/op/qpus/connect.
-type connectResponse struct {
-	Status         string `json:"status"`
-	NNGCommandPort int    `json:"nng_command_port"`
-	NNGResultPort  int    `json:"nng_result_port"`
-	AuthToken      string `json:"auth_token"`
-}
-
-// resultPayload represents the NNG incoming message format for job execution results.
-type resultPayload struct {
-	JobID   string         `json:"job_id"`
-	Results map[string]any `json:"results"`
-}
-
-// circuitPayload represents a single quantum circuit within a job submission.
-type circuitPayload struct {
-	Circuit         string      `json:"circuit"`
-	ParameterValues [][]float64 `json:"parameter_values,omitempty"`
-	Shots           *int        `json:"shots,omitempty"`
-}
-
-// jobSubmitRequest represents the JSON payload for POST /api/jobs.
-type jobSubmitRequest struct {
-	Circuits   []circuitPayload `json:"circuits"`
-	Shots      int              `json:"shots"`
-	MeasLevel  *int             `json:"meas_level,omitempty"`
-	MeasReturn string           `json:"meas_return,omitempty"`
-	QPUTarget  string           `json:"qpu_target,omitempty"`
-}
-
-// userUpdateRequest represents the JSON payload for PATCH /api/admin/users/{id}.
-type userUpdateRequest struct {
-	QpuSeconds *float64 `json:"qpu_seconds,omitempty"`
-	APITokens  []string `json:"api_tokens,omitempty"`
-}
-
-// tokenCreateRequest represents the JSON payload for POST /api/tokens.
-type tokenCreateRequest struct {
-	Name      string `json:"name,omitempty"`
-	ExpiresAt string `json:"expires_at,omitempty"` // ISO 8601 date string
-}
-
-// tokenCreateResponse represents the JSON payload returned by POST /api/tokens.
-type tokenCreateResponse struct {
-	ID        string `json:"id"`
-	Token     string `json:"token"`
-	Name      string `json:"name"`
-	ExpiresAt string `json:"expires_at,omitempty"`
-	Created   string `json:"created"`
-}
-
-// tokenUpdateRequest represents the JSON payload for PATCH /api/tokens/{id}.
-type tokenUpdateRequest struct {
-	Name      *string `json:"name,omitempty"`
-	ExpiresAt *string `json:"expires_at,omitempty"`
-}
-
-// dismissRequest represents the JSON payload for POST /api/notifications/{id}/dismiss.
-type dismissRequest struct {
-	UserID string `json:"user_id,omitempty"`
-}
 
 // HashToken returns a SHA-256 hex digest of the raw token value.
 func HashToken(raw string) string {
@@ -247,7 +178,7 @@ func handleJobSubmit(re *core.RequestEvent) error {
 	}
 
 	// Parse and validate request body
-	var req jobSubmitRequest
+	var req schema.JobSubmitRequest
 	if err := re.BindBody(&req); err != nil {
 		return re.Error(http.StatusBadRequest, "invalid request body", err)
 	}
@@ -446,7 +377,7 @@ func handleUserUpdate(re *core.RequestEvent) error {
 		return re.Error(http.StatusNotFound, "user not found", err)
 	}
 
-	var req userUpdateRequest
+	var req schema.UserUpdateRequest
 	if err := re.BindBody(&req); err != nil {
 		return re.Error(http.StatusBadRequest, "invalid request body", err)
 	}
@@ -522,7 +453,7 @@ func handleTokenCreate(re *core.RequestEvent) error {
 		return re.Error(http.StatusUnauthorized, "authentication required", err)
 	}
 
-	var req tokenCreateRequest
+	var req schema.TokenCreateRequest
 	if err := re.BindBody(&req); err != nil {
 		return re.Error(http.StatusBadRequest, "invalid request body", err)
 	}
@@ -547,7 +478,7 @@ func handleTokenCreate(re *core.RequestEvent) error {
 		return re.Error(http.StatusInternalServerError, "failed to create token", err)
 	}
 
-	return re.JSON(http.StatusCreated, tokenCreateResponse{
+	return re.JSON(http.StatusCreated, schema.TokenCreateResponse{
 		ID:        tokenRec.Id,
 		Token:     rawToken,
 		Name:      tokenRec.GetString("name"),
@@ -647,7 +578,7 @@ func handleTokenUpdate(re *core.RequestEvent) error {
 		return re.Error(http.StatusForbidden, "access denied", nil)
 	}
 
-	var req tokenUpdateRequest
+	var req schema.TokenUpdateRequest
 	if err := re.BindBody(&req); err != nil {
 		return re.Error(http.StatusBadRequest, "invalid request body", err)
 	}
@@ -839,7 +770,7 @@ func handleQPUConnect(re *core.RequestEvent) error {
 		return re.Error(http.StatusInternalServerError, "failed to retrieve custom configuration", err)
 	}
 
-	var req connectRequest
+	var req schema.ConnectRequest
 	if err := re.BindBody(&req); err != nil {
 		return re.Error(http.StatusBadRequest, "invalid request body", err)
 	}
@@ -898,17 +829,12 @@ func handleQPUConnect(re *core.RequestEvent) error {
 		token = req.AccessToken
 	}
 
-	return re.JSON(http.StatusOK, connectResponse{
+	return re.JSON(http.StatusOK, schema.ConnectResponse{
 		Status:         "success",
 		NNGCommandPort: cmdPort,
 		NNGResultPort:  resPort,
 		AuthToken:      token,
 	})
-}
-
-type qpuToggleRequest struct {
-	ID      string `json:"id"`
-	Enabled bool   `json:"enabled"`
 }
 
 // handleQPUToggle handles POST /api/op/qpu/toggle — toggles a QPU's enabled status (admin-only).
@@ -923,7 +849,7 @@ func handleQPUToggle(re *core.RequestEvent) error {
 		return re.Error(http.StatusForbidden, "admin access required", nil)
 	}
 
-	var req qpuToggleRequest
+	var req schema.QPUToggleRequest
 	if err := re.BindBody(&req); err != nil {
 		return re.Error(http.StatusBadRequest, "invalid request body", err)
 	}
@@ -970,7 +896,7 @@ func handleQPUList(re *core.RequestEvent) error {
 		return re.Error(http.StatusInternalServerError, "failed to query QPUs", err)
 	}
 
-	qpus := make([]map[string]any, 0, len(records))
+	qpus := make([]schema.QPU, 0, len(records))
 	for _, r := range records {
 		qpus = append(qpus, serializeQPU(r))
 	}
@@ -996,23 +922,8 @@ func handleQPUGet(re *core.RequestEvent) error {
 }
 
 // serializeQPU converts a QPU record to a public JSON representation.
-func serializeQPU(r *core.Record) map[string]any {
-	deviceConfig := r.Get("device_config")
-	if deviceConfig == nil {
-		deviceConfig = map[string]any{}
-	}
-	return map[string]any{
-		"id":               r.Id,
-		"name":             r.GetString("name"),
-		"status":           r.GetString("status"),
-		"num_qubits":       r.GetInt("num_qubits"),
-		"executor_type":    r.GetString("executor_type"),
-		"device_config":    deviceConfig,
-		"nng_command_port": r.GetInt("nng_command_port"),
-		"nng_result_port":  r.GetInt("nng_result_port"),
-		"created":          r.GetString("created"),
-		"updated":          r.GetString("updated"),
-	}
+func serializeQPU(r *core.Record) schema.QPU {
+	return schema.QPUFromRecord(r)
 }
 
 // StartQPUDistribution starts the goroutines for a specific QPU if not already running.
@@ -1163,7 +1074,7 @@ func runResultListener(ctx context.Context, app core.App, qpuID string, resPort 
 			continue
 		}
 
-		var result resultPayload
+		var result schema.ResultPayload
 		if err := json.Unmarshal(msg, &result); err != nil {
 			log.Printf("[Listener %s] JSON parse error: %v", qpuID, err)
 			continue
