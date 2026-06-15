@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Plus } from "lucide-react";
-import type { QPU } from "@/types";
+import type { QPU, CreateQpuResponse } from "@/types";
 import { QpuCard } from "./elements/QpuCard";
 import { RegisterQpuModal } from "./elements/RegisterQpuModal";
 
@@ -8,10 +8,7 @@ interface QpuRegistryTabProps {
   qpus: QPU[];
   isAdmin: boolean;
   onToggleQpu: (id: string, enabled: boolean) => Promise<void>;
-  onRegisterQpu: (
-    name: string,
-    executor: string,
-  ) => Promise<void>;
+  onRegisterQpu: (name: string, executor: string) => Promise<CreateQpuResponse>;
 }
 
 export const QpuRegistryTab: React.FC<QpuRegistryTabProps> = ({

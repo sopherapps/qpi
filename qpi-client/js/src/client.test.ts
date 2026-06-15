@@ -326,7 +326,9 @@ describe("QPU discovery and management", () => {
 
   it("createQpu calls POST /api/op/qpus/create", async () => {
     const client = new QPIClient({ baseUrl: "http://localhost:8090" });
-    const spy = mockFetch({ json: async () => ({ id: "qpu-123", access_token: "qpi_abc" }) });
+    const spy = mockFetch({
+      json: async () => ({ id: "qpu-123", access_token: "qpi_abc" }),
+    });
     const resp = await client.createQpu({
       name: "qpu-02",
       executor_type: "mock",
@@ -345,7 +347,9 @@ describe("QPU discovery and management", () => {
 
   it("connectQpu calls POST /api/op/qpus/connect", async () => {
     const client = new QPIClient({ baseUrl: "http://localhost:8090" });
-    const spy = mockFetch({ json: async () => ({ status: "success", nng_command_port: 6000 }) });
+    const spy = mockFetch({
+      json: async () => ({ status: "success", nng_command_port: 6000 }),
+    });
     const resp = await client.connectQpu({
       name: "qpu-02",
       access_token: "token123",

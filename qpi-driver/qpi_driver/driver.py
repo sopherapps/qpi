@@ -243,10 +243,6 @@ def run_driver(
     executor: str | type[Executor] | Executor = "mock",
     custom_executors: dict[str, type[Executor]] | None = None,
     data_dir: Path = Path("bin/data"),
-    *,
-    # Legacy parameters — accepted but deprecated
-    host: str | None = None,
-    port: int | None = None,
     **executor_options: Any,
 ) -> None:
     """Run the QPI Python hardware driver.
@@ -259,17 +255,8 @@ def run_driver(
         executor: Executor specification (string key, class, or instance).
         custom_executors: Optional dict of custom executors for resolving string keys.
         data_dir: Directory for executor working data.
-        host: *Deprecated* — use *qpi_addr* instead.
-        port: *Deprecated* — use *qpi_addr* instead.
         executor_options: other options to pass to the executor.
     """
-    # FIXME (antigravity): delete the host,port  stuff aggressively. Let it be a breaking change.
-    # Legacy fallback: honour host/port if qpi_addr was not explicitly set
-    if host is not None or port is not None:
-        _host = host or "127.0.0.1"
-        _port = port or 8090
-        qpi_addr = f"http://{_host}:{_port}"
-
     qpi_addr = _normalize_qpi_addr(qpi_addr)
 
     # Determine executor type string for registration

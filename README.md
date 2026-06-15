@@ -213,9 +213,8 @@ Compiles and runs circuits using `qblox-scheduler`.
 The package exposes a command-line interface via `typer`. Options can be passed as CLI arguments/flags or will automatically fall back to their corresponding environment variables.
 
 Common options:
-* `-H`, `--host`: Hostname/IP of the Go PocketBase server (env: `GO_SERVER_HOST`, default: `127.0.0.1`).
-* `-P`, `--port`: PocketBase HTTP port (env: `GO_SERVER_PORT`, default: `8090`).
-* `-t`, `--access-token`: Access token for the QPU (env: `QPI_ACCESS_TOKEN`, required).
+* `-a`, `--qpi-addr`: Full URL of the QPI orchestrator (env: `QPI_ADDR`, default: `http://127.0.0.1:8090`).
+* `-t`, `--token`: Access token for the QPU (env: `QPI_ACCESS_TOKEN`, required).
 * `-n`, `--name`: Human-readable name for this QPU (env: `QPU_NAME`, default: `QPU-Sim-01`).
 * `-e`, `--executor`: Which executor backend to use (env: `DRIVER_BACKEND`, default: `mock`).
 * `-d`, `--data-dir`: Directory for intermediate NetCDF datasets (env: `QPI_DATA_DIR`, default: `bin/data`).
@@ -259,6 +258,10 @@ make clean
 
 ## TODOs
 
+- [ ] Create schema definition structs in [schema.go](file:///Users/martinahindura/work/code/sopherapps/open-source/qpi/qpi-ui/internal/schema/schema.go)
+  - Define explicit Go structs matching the PocketBase collection schemas (e.g. `QPUs`, `QuantumJobs`, `Notifications`, `TimeSlots`, `TimeRequests`, `Users`) to clearly document the database structure.
+  - Define Go structs representing standard API request and response bodies for the custom endpoints.
+  - Integrate these structs into the API controllers to improve type safety and documentation.
 - [ ] Add support for presto control instruments
 
 ## License

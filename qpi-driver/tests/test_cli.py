@@ -1,3 +1,4 @@
+import importlib.metadata
 import importlib.util
 
 import pytest
@@ -16,10 +17,14 @@ if has_typer:
 
 
 def test_cli_version():
-    """Verify that the version command outputs 1.0.0."""
+    """Verify that the version command outputs the correct package version."""
     result = runner.invoke(app, ["version"])
     assert result.exit_code == 0
-    assert "1.0.0" in result.stdout
+    try:
+        expected_version = importlib.metadata.version("qpi-driver")
+    except importlib.metadata.PackageNotFoundError:
+        expected_version = "0.0.1"
+    assert expected_version in result.stdout
 
 
 def test_cli_start_requires_token():
@@ -33,4 +38,4 @@ def test_cli_start_requires_token():
             output += "\n" + result.stderr
     except ValueError:
         pass
-    assert "Error: registration token is required" in output
+    assert "Error: access token is required" in output

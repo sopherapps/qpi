@@ -810,6 +810,15 @@ func handleQPUCreate(re *core.RequestEvent) error {
 		return re.Error(http.StatusInternalServerError, "failed to create QPU", err)
 	}
 
+	scheme := "http"
+	if re.Request.TLS != nil {
+		scheme = "https"
+	}
+	if proto := re.Request.Header.Get("X-Forwarded-Proto"); proto != "" {
+		scheme = proto
+	}
+	qpiAddr := fmt.Sprintf("%s://%s", scheme, re.Request.Host)
+
 	return re.JSON(http.StatusCreated, map[string]any{
 		"id":            record.Id,
 		"name":          record.GetString("name"),
@@ -817,6 +826,7 @@ func handleQPUCreate(re *core.RequestEvent) error {
 		"executor_type": record.GetString("executor_type"),
 		"status":        record.GetString("status"),
 		"enabled":       record.GetBool("enabled"),
+		"qpi_addr":      qpiAddr,
 	})
 }
 

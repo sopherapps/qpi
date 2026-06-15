@@ -1,5 +1,7 @@
 describe("QPI Dashboard E2E Tests", () => {
   beforeEach(() => {
+    cy.clearCookies();
+    cy.clearLocalStorage();
     // Visit the dashboard page
     cy.visit("/");
   });
@@ -85,8 +87,24 @@ describe("QPI Dashboard E2E Tests", () => {
     // 2. Verify admin panel tab button is visible
     cy.contains("button", "Admin Panel").should("be.visible");
 
-    // 3. Toggle QPU state on QPU Registry
+    // 3. Register a new QPU on QPU Registry
     cy.contains("button", "QPU Registry").click();
+    cy.contains("button", "Register QPU").click();
+    cy.get('input[placeholder="rigetti-aspen-9"]').type("cypress-test-qpu");
+    cy.get('select').select("qblox");
+    cy.contains("button", "Register Unit").click();
+
+    // Verify success screen is displayed
+    cy.contains("h3", "QPU Registered Successfully!").should("be.visible");
+    cy.contains("cypress-test-qpu").should("be.visible");
+    cy.contains("qblox").should("be.visible");
+    cy.contains("Connection Command").should("be.visible");
+    cy.contains("button", "Done").click();
+
+    // Verify the QPU is now listed in the grid
+    cy.contains("h3", "cypress-test-qpu").should("be.visible");
+
+    // 4. Toggle QPU state on QPU Registry
     cy.contains("span", "Driver Enable Control").should("be.visible");
     // Toggle the QPU (which is Online / Enabled) to Offline
     cy.contains("button", "Online (Enabled)").click();

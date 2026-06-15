@@ -17,6 +17,7 @@ import type {
   TimeSlot,
   User,
   TimeRequest,
+  CreateQpuResponse,
 } from "./types";
 
 export const App: React.FC = () => {
@@ -302,8 +303,8 @@ export const App: React.FC = () => {
   const handleCreateQpu = async (
     name: string,
     executor: string,
-  ) => {
-    const res = await pb.send<{ access_token: string }>("/api/op/qpus/create", {
+  ): Promise<CreateQpuResponse> => {
+    const res = await pb.send<CreateQpuResponse>("/api/op/qpus/create", {
       method: "POST",
       body: JSON.stringify({
         name: name,
@@ -311,12 +312,8 @@ export const App: React.FC = () => {
       }),
       headers: { "Content-Type": "application/json" },
     });
-    if (res && res.access_token) {
-      alert(`QPU created successfully!\n\nHere is your QPU Access Token (copy this, it will NOT be shown again):\n\n${res.access_token}`);
-    } else {
-      alert("QPU created successfully!");
-    }
     loadQpus();
+    return res;
   };
 
   const handleSubmitQuantumJob = async (

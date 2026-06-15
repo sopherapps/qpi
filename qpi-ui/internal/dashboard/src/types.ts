@@ -75,3 +75,20 @@ export interface Notification {
   user_id?: string;
   created: string;
 }
+
+export interface CreateQpuRequest {
+  name: string;
+  executor_type?: string;
+  num_qubits?: number;
+  enabled?: boolean;
+}
+
+export interface CreateQpuResponse {
+  id: string;
+  name: string;
+  access_token: string;
+  executor_type: string;
+  status: string;
+  enabled: boolean;
+  qpi_addr?: string;
+}
