@@ -3,6 +3,7 @@ import xarray as xr
 from qpi_driver.compat.qblox import IS_QBLOX_SCHEDULER_INSTALLED
 from qpi_driver.executors import resolve_executor
 from qpi_driver.executors.base import CircuitPayload, JobPayload
+
 from .utils import load_json_fixture, load_yaml_fixture
 
 _QUANTIFY_HARDWARE_CONFIG: dict = load_json_fixture("quantify.hardware.json")

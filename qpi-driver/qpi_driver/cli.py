@@ -1,3 +1,4 @@
+import importlib.metadata
 from pathlib import Path
 from typing import Annotated
 
@@ -132,8 +133,13 @@ if typer.IS_TYPER_INSTALLED:
         """
         Show the version of the QPI driver.
         """
-        # FIXME: Extract version dynamically if possible
-        typer.echo("1.0.0")
+
+        try:
+            ver = importlib.metadata.version("qpi-driver")
+        except importlib.metadata.PackageNotFoundError:
+            ver = "0.0.1"
+
+        typer.echo(ver)
 
     if __name__ == "__main__":
         app()

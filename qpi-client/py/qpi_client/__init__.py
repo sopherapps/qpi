@@ -29,4 +29,3 @@ from qpi_client.client import QPIClient
 from qpi_client.provider import QPIBackend, QPIJob
 
 __all__ = ["QPIClient", "QPIBackend", "QPIJob"]
-__version__ = "0.1.0"
