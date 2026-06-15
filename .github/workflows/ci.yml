@@ -224,10 +224,8 @@ jobs:
     - name: Build Package
       run: make package-driver
 
-    - name: Publish package distributions to PyPI
-      uses: pypa/gh-action-pypi-publish@release/v1
-      with:
-        packages-dir: qpi-driver/dist/
+    - name: Upload to pypi
+      run: twine upload --skip-existing -u __token__ -p ${{ secrets.TINI_PYPI_TOKEN }} qpi-driver/dist/*
 
   # -------------------------------------------------------------------------
   # Publish qpi-client/py to PyPI
@@ -251,10 +249,8 @@ jobs:
     - name: Build Package
       run: make package-py
 
-    - name: Publish package distributions to PyPI
-      uses: pypa/gh-action-pypi-publish@release/v1
-      with:
-        packages-dir: qpi-client/py/dist/
+    - name: Upload to pypi
+      run: twine upload --skip-existing -u __token__ -p ${{ secrets.TINI_PYPI_TOKEN }} qpi-client/py/dist/*
 
   # -------------------------------------------------------------------------
   # Publish qpi-client/js to npm
