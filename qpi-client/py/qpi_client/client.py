@@ -454,7 +454,7 @@ class QPIClient:
             The updated user record dict.
         """
         resp = self._session.patch(
-            f"{self.base_url}/api/admin/users/{user_id}",
+            f"{self.base_url}/api/collections/users/records/{user_id}",
             json={"qpu_seconds": seconds},
         )
         resp.raise_for_status()

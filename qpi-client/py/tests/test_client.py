@@ -389,7 +389,7 @@ class TestNewClientMethods:
                 "qpu_seconds": 500,
             }
             mock_patch.assert_called_once_with(
-                "http://localhost:8090/api/admin/users/u1",
+                "http://localhost:8090/api/collections/users/records/u1",
                 json={"qpu_seconds": 500},
             )
 

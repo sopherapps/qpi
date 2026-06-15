@@ -462,7 +462,7 @@ func (c *Client) ListUsers(ctx context.Context) ([]UserRecord, error) {
 func (c *Client) AllocateQpuTime(ctx context.Context, userID string, seconds int) (*UserRecord, error) {
 	var resp UserRecord
 	payload := map[string]int{"qpu_seconds": seconds}
-	if err := c.doJSON(ctx, http.MethodPatch, "/api/admin/users/"+userID, payload, &resp); err != nil {
+	if err := c.doJSON(ctx, http.MethodPatch, "/api/collections/users/records/"+userID, payload, &resp); err != nil {
 		return nil, fmt.Errorf("allocate qpu time: %w", err)
 	}
 	return &resp, nil

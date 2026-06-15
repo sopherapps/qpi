@@ -514,7 +514,7 @@ describe("Admin User Management", () => {
     const updated = await client.allocateQpuTime("u1", 1000);
     expect(updated).toEqual({ id: "u1", qpu_seconds: 1000 });
     expect(spy.mock.calls[0][0]).toBe(
-      "http://localhost:8090/api/admin/users/u1",
+      "http://localhost:8090/api/collections/users/records/u1",
     );
     expect((spy.mock.calls[0][1] as RequestInit).method).toBe("PATCH");
     spy.mockRestore();

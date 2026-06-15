@@ -311,9 +311,12 @@ export class QPIClient {
 
   /** Allocate QPU time to a user (admin-only). */
   async allocateQpuTime(userId: string, seconds: number): Promise<any> {
-    return this.patch<any>(`/api/admin/users/${encodeURIComponent(userId)}`, {
-      qpu_seconds: seconds,
-    });
+    return this.patch<any>(
+      `/api/collections/users/records/${encodeURIComponent(userId)}`,
+      {
+        qpu_seconds: seconds,
+      },
+    );
   }
 
   // -- Auth helpers -----------------------------------------------------------

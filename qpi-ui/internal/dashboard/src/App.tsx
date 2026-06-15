@@ -335,7 +335,7 @@ export const App: React.FC = () => {
     });
     loadJobs();
     loadUserQuota();
-    return res.job_id;
+    return res.id;
   };
 
   const handleBookSlot = async (startTime: string, endTime: string) => {
@@ -363,10 +363,8 @@ export const App: React.FC = () => {
   };
 
   const handleAllocateTime = async (targetUserId: string, seconds: number) => {
-    await pb.send(`/api/admin/users/${encodeURIComponent(targetUserId)}`, {
-      method: "PATCH",
-      body: JSON.stringify({ qpu_seconds: seconds }),
-      headers: { "Content-Type": "application/json" },
+    await pb.collection("users").update(targetUserId, {
+      qpu_seconds: seconds,
     });
     loadAdminUsers();
   };

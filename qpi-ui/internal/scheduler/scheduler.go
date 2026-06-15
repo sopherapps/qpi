@@ -9,13 +9,14 @@ import (
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 	"qpi/internal/config"
+	"qpi/internal/db"
 )
 
 // FetchNextJob implements the session-based booking + opportunistic FIFO algorithm.
 // It prioritizes the booked user's oldest pending job. If no slot is active, or if
 // the booked user remains idle beyond cfg.IdleThreshold, it falls back to the oldest
 // pending job from any user targetted at this QPU.
-func FetchNextJob(app core.App, qpuID string) *core.Record {
+func FetchNextJob(app core.App, qpuID string) *db.QuantumJob {
 	cfg, err := config.GetConfigFromApp(app)
 	if err != nil {
 		log.Printf("[Scheduler] failed to get config: %v", err)
@@ -46,7 +47,7 @@ func FetchNextJob(app core.App, qpuID string) *core.Record {
 			dbx.Params{"qpu": qpuID, "user": bookerID},
 		)
 		if len(jobs) > 0 {
-			return jobs[0]
+			return recordToQuantumJob(jobs[0])
 		}
 
 		// Priority 2: idle fallback — check booker's last completed job time
@@ -73,9 +74,19 @@ func FetchNextJob(app core.App, qpuID string) *core.Record {
 		dbx.Params{"qpu": qpuID},
 	)
 	if len(jobs) > 0 {
-		return jobs[0]
+		return recordToQuantumJob(jobs[0])
 	}
 	return nil
+}
+
+// recordToQuantumJob converts a pocketbase record into a QuantumJob model.
+func recordToQuantumJob(record *core.Record) *db.QuantumJob {
+	var job db.QuantumJob
+	if err := job.RefreshFromRecord(record); err != nil {
+		log.Printf("[Scheduler] failed to convert record to QuantumJob: %v", err)
+		return nil
+	}
+	return &job
 }
 
 // RunRecoveryEngine runs a background loop that identifies 'running' jobs

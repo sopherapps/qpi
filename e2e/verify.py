@@ -24,14 +24,14 @@ The script exits 0 on success, 1 on failure.
 import argparse, os, sys, time, requests, json
 from datetime import datetime, timezone, timedelta
 
-HOST  = os.getenv("GO_SERVER_HOST", "127.0.0.1")
-PORT  = int(os.getenv("GO_SERVER_PORT", "8090"))
-BASE  = f"http://{HOST}:{PORT}"
+HOST = os.getenv("GO_SERVER_HOST", "127.0.0.1")
+PORT = int(os.getenv("GO_SERVER_PORT", "8090"))
+BASE = f"http://{HOST}:{PORT}"
 
-ADMIN_EMAIL    = os.getenv("ADMIN_EMAIL", "admin@example.com")
+ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "admin@example.com")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "supersecretpassword1234")
 
-MAX_WAIT_SECS = 120   # give the driver up to 2 minutes to finish all jobs
+MAX_WAIT_SECS = 120  # give the driver up to 2 minutes to finish all jobs
 TEST_API_TOKEN = "test-api-token-abc-123"
 TEST_USER_EMAIL = "user@example.com"
 ACCESS_TOKEN = "my-super-secret-token-12345"
@@ -40,8 +40,10 @@ s = requests.Session()
 
 
 def admin_auth():
-    resp = s.post(f"{BASE}/api/collections/_superusers/auth-with-password",
-                  json={"identity": ADMIN_EMAIL, "password": ADMIN_PASSWORD})
+    resp = s.post(
+        f"{BASE}/api/collections/_superusers/auth-with-password",
+        json={"identity": ADMIN_EMAIL, "password": ADMIN_PASSWORD},
+    )
     resp.raise_for_status()
     token = resp.json()["token"]
     s.headers["Authorization"] = token
@@ -49,16 +51,20 @@ def admin_auth():
 
 
 def get_all_jobs():
-    resp = s.get(f"{BASE}/api/collections/quantum_jobs/records",
-                 params={"perPage": 200, "sort": "+created"})
+    resp = s.get(
+        f"{BASE}/api/collections/quantum_jobs/records",
+        params={"perPage": 200, "sort": "+created"},
+    )
     resp.raise_for_status()
     return resp.json()["items"]
 
 
 def get_test_user():
     """Fetch the test user record by email."""
-    resp = s.get(f"{BASE}/api/collections/users/records",
-                 params={"filter": f'email="{TEST_USER_EMAIL}"'})
+    resp = s.get(
+        f"{BASE}/api/collections/users/records",
+        params={"filter": f'email="{TEST_USER_EMAIL}"'},
+    )
     resp.raise_for_status()
     items = resp.json()["items"]
     return items[0] if items else None
@@ -70,12 +76,14 @@ def wait_for_completion(timeout=MAX_WAIT_SECS):
     while time.time() - start < timeout:
         jobs = get_all_jobs()
         statuses = [j["status"] for j in jobs]
-        pending  = statuses.count("pending")
-        running  = statuses.count("running")
-        done     = statuses.count("completed")
-        total    = len(jobs)
-        print(f"  [{int(time.time()-start):3d}s]  total={total}  "
-              f"pending={pending}  running={running}  completed={done}")
+        pending = statuses.count("pending")
+        running = statuses.count("running")
+        done = statuses.count("completed")
+        total = len(jobs)
+        print(
+            f"  [{int(time.time() - start):3d}s]  total={total}  "
+            f"pending={pending}  running={running}  completed={done}"
+        )
         if pending == 0 and running == 0 and done == total:
             return jobs
         time.sleep(5)
@@ -97,12 +105,21 @@ def print_summary(jobs):
         excerpt = str(results)[:50] + "…" if len(str(results)) > 50 else str(results)
         duration = j.get("duration")
         duration_str = f"{duration:.2f}s" if duration is not None else "--"
-        print(fmt.format(j["id"][:24], j["status"], duration_str, j.get("finished_at", "")[:19], excerpt))
+        print(
+            fmt.format(
+                j["id"][:24],
+                j["status"],
+                duration_str,
+                j.get("finished_at", "")[:19],
+                excerpt,
+            )
+        )
 
 
 # ---------------------------------------------------------------------------
 # New E2E tests for recently added features
 # ---------------------------------------------------------------------------
+
 
 def test_qpu_seconds_deduction():
     """Verify that QPU seconds were deducted from the test user after jobs ran."""
@@ -152,8 +169,8 @@ def test_api_token_auth():
 
 
 def test_admin_user_update():
-    """Verify the admin-only PATCH /api/admin/users/{id} endpoint."""
-    print("\n[verify] Testing admin user update endpoint …")
+    """Verify that superusers (admins) can update user records directly (e.g. qpu_seconds)."""
+    print("\n[verify] Testing admin user update via collection API …")
     user = get_test_user()
     if not user:
         print("[verify] ✗ Test user not found")
@@ -164,9 +181,12 @@ def test_admin_user_update():
 
     # Grant additional QPU seconds
     new_seconds = original_seconds + 500.0
-    resp = s.patch(f"{BASE}/api/admin/users/{user_id}", json={
-        "qpu_seconds": new_seconds,
-    })
+    resp = s.patch(
+        f"{BASE}/api/collections/users/records/{user_id}",
+        json={
+            "qpu_seconds": new_seconds,
+        },
+    )
     if resp.status_code != 200:
         print(f"[verify] ✗ Admin PATCH failed: {resp.status_code} {resp.text}")
         return False
@@ -344,7 +364,9 @@ def test_qiskit_hadamard_circuit():
             if status == "completed":
                 duration = data.get("duration")
                 duration_str = f"{duration:.2f}s" if duration is not None else "unknown"
-                print(f"[verify] ✓ Hadamard job completed after {i + 1}s (duration: {duration_str})")
+                print(
+                    f"[verify] ✓ Hadamard job completed after {i + 1}s (duration: {duration_str})"
+                )
                 return True
             if status in ("failed", "cancelled"):
                 print(f"[verify] ✗ Hadamard job {status}")
@@ -362,33 +384,41 @@ def test_recovery_engine():
         return True
 
     target = jobs[0]
-    jid    = target["id"]
+    jid = target["id"]
 
-    resp = s.patch(f"{BASE}/api/collections/quantum_jobs/records/{jid}",
-                   json={"status": "running", "qpu_target": None})
+    resp = s.patch(
+        f"{BASE}/api/collections/quantum_jobs/records/{jid}",
+        json={"status": "running", "qpu_target": None},
+    )
     resp.raise_for_status()
-    print(f"[verify] Marked job {jid[:12]}… as 'running'. "
-          f"Waiting up to 35s for recovery engine to reset it …")
+    print(
+        f"[verify] Marked job {jid[:12]}… as 'running'. "
+        f"Waiting up to 35s for recovery engine to reset it …"
+    )
 
     for i in range(35):
         time.sleep(1)
         job = s.get(f"{BASE}/api/collections/quantum_jobs/records/{jid}").json()
         if job.get("status") == "pending":
-            print(f"[verify] ✓ Recovery engine reset job after {i+1}s")
+            print(f"[verify] ✓ Recovery engine reset job after {i + 1}s")
             return True
 
-    print("[verify] ✗ Recovery engine did NOT reset job within 35s "
-          "(may need longer if jobTimeout > 20s in qpi-ui/main.go)")
+    print(
+        "[verify] ✗ Recovery engine did NOT reset job within 35s "
+        "(may need longer if jobTimeout > 20s in qpi-ui/main.go)"
+    )
     return False
 
 
 def test_time_slots_validation():
     print("\n[verify] Testing Time Slots CRUD & Validations …")
-    
+
     # 1. Authenticate test user
     user_session = requests.Session()
-    resp = user_session.post(f"{BASE}/api/collections/users/auth-with-password",
-                             json={"identity": "user@example.com", "password": "userpassword1234"})
+    resp = user_session.post(
+        f"{BASE}/api/collections/users/auth-with-password",
+        json={"identity": "user@example.com", "password": "userpassword1234"},
+    )
     if resp.status_code != 200:
         print(f"[verify] ✗ Failed to authenticate test user: {resp.text}")
         return False
@@ -405,20 +435,22 @@ def test_time_slots_validation():
         return False
     slots = resp.json()["items"]
     print(f"[verify] ✓ User listed {len(slots)} slots")
-    
+
     # Find the seeded slot
     seeded_slot = None
     for slot in slots:
         if slot["booked_by"] == user_id:
             seeded_slot = slot
             break
-            
+
     if not seeded_slot:
         print("[verify] ✗ Seeded slot not found in list")
         return False
 
     # Get single slot
-    resp = user_session.get(f"{BASE}/api/collections/time_slots/records/{seeded_slot['id']}")
+    resp = user_session.get(
+        f"{BASE}/api/collections/time_slots/records/{seeded_slot['id']}"
+    )
     if resp.status_code != 200:
         print(f"[verify] ✗ User cannot view single slot: {resp.text}")
         return False
@@ -428,26 +460,28 @@ def test_time_slots_validation():
     now = datetime.now(timezone.utc)
     past_start = (now - timedelta(hours=2)).strftime("%Y-%m-%d %H:%M:%S.000Z")
     past_end = (now - timedelta(hours=1)).strftime("%Y-%m-%d %H:%M:%S.000Z")
-    
-    resp = user_session.post(f"{BASE}/api/collections/time_slots/records", json={
-        "start_time": past_start,
-        "end_time": past_end,
-        "booked_by": user_id
-    })
+
+    resp = user_session.post(
+        f"{BASE}/api/collections/time_slots/records",
+        json={"start_time": past_start, "end_time": past_end, "booked_by": user_id},
+    )
     if resp.status_code != 400 or "past" not in resp.text.lower():
-        print(f"[verify] ✗ Past slot creation was not rejected: {resp.status_code} {resp.text}")
+        print(
+            f"[verify] ✗ Past slot creation was not rejected: {resp.status_code} {resp.text}"
+        )
         return False
     print("[verify] ✓ Past slot creation rejected correctly for regular user")
 
     # Verify that admin CAN create a slot in the past
     # (using admin session `s`)
-    resp = s.post(f"{BASE}/api/collections/time_slots/records", json={
-        "start_time": past_start,
-        "end_time": past_end,
-        "booked_by": user_id
-    })
+    resp = s.post(
+        f"{BASE}/api/collections/time_slots/records",
+        json={"start_time": past_start, "end_time": past_end, "booked_by": user_id},
+    )
     if resp.status_code != 200:
-        print(f"[verify] ✗ Admin failed to create slot in the past: {resp.status_code} {resp.text}")
+        print(
+            f"[verify] ✗ Admin failed to create slot in the past: {resp.status_code} {resp.text}"
+        )
         return False
     admin_past_slot_id = resp.json()["id"]
     print("[verify] ✓ Admin successfully created slot in the past")
@@ -457,118 +491,172 @@ def test_time_slots_validation():
     # Seeded slot is current, let's create a future slot first.
     future_start_1 = (now + timedelta(hours=1)).strftime("%Y-%m-%d %H:%M:%S.000Z")
     future_end_1 = (now + timedelta(hours=2)).strftime("%Y-%m-%d %H:%M:%S.000Z")
-    
-    resp = user_session.post(f"{BASE}/api/collections/time_slots/records", json={
-        "start_time": future_start_1,
-        "end_time": future_end_1,
-        "booked_by": user_id
-    })
+
+    resp = user_session.post(
+        f"{BASE}/api/collections/time_slots/records",
+        json={
+            "start_time": future_start_1,
+            "end_time": future_end_1,
+            "booked_by": user_id,
+        },
+    )
     if resp.status_code != 200:
-        print(f"[verify] ✗ Failed to create non-overlapping future slot: {resp.status_code} {resp.text}")
+        print(
+            f"[verify] ✗ Failed to create non-overlapping future slot: {resp.status_code} {resp.text}"
+        )
         return False
     future_slot_id = resp.json()["id"]
     print("[verify] ✓ Created future slot")
 
     # Try to create a slot that overlaps with the future slot
-    overlap_start = (now + timedelta(hours=1, minutes=30)).strftime("%Y-%m-%d %H:%M:%S.000Z")
-    overlap_end = (now + timedelta(hours=2, minutes=30)).strftime("%Y-%m-%d %H:%M:%S.000Z")
-    
-    resp = user_session.post(f"{BASE}/api/collections/time_slots/records", json={
-        "start_time": overlap_start,
-        "end_time": overlap_end,
-        "booked_by": user_id
-    })
+    overlap_start = (now + timedelta(hours=1, minutes=30)).strftime(
+        "%Y-%m-%d %H:%M:%S.000Z"
+    )
+    overlap_end = (now + timedelta(hours=2, minutes=30)).strftime(
+        "%Y-%m-%d %H:%M:%S.000Z"
+    )
+
+    resp = user_session.post(
+        f"{BASE}/api/collections/time_slots/records",
+        json={
+            "start_time": overlap_start,
+            "end_time": overlap_end,
+            "booked_by": user_id,
+        },
+    )
     if resp.status_code == 200:
         print("[verify] ✗ Overlapping slot creation was NOT rejected")
         return False
     if "overlap" not in resp.text.lower():
-        print(f"[verify] ✗ Overlapping slot creation failed but with unexpected message: {resp.text}")
+        print(
+            f"[verify] ✗ Overlapping slot creation failed but with unexpected message: {resp.text}"
+        )
         return False
     print("[verify] ✓ Overlapping slot creation rejected correctly")
 
     # Try to create a slot with start_time >= end_time
     invalid_start = (now + timedelta(hours=5)).strftime("%Y-%m-%d %H:%M:%S.000Z")
     invalid_end = (now + timedelta(hours=4)).strftime("%Y-%m-%d %H:%M:%S.000Z")
-    resp = user_session.post(f"{BASE}/api/collections/time_slots/records", json={
-        "start_time": invalid_start,
-        "end_time": invalid_end,
-        "booked_by": user_id
-    })
+    resp = user_session.post(
+        f"{BASE}/api/collections/time_slots/records",
+        json={
+            "start_time": invalid_start,
+            "end_time": invalid_end,
+            "booked_by": user_id,
+        },
+    )
     if resp.status_code == 200:
         print("[verify] ✗ Slot with start_time >= end_time was NOT rejected")
         return False
     if "strictly before" not in resp.text.lower():
-        print(f"[verify] ✗ Slot with start_time >= end_time failed with unexpected message: {resp.text}")
+        print(
+            f"[verify] ✗ Slot with start_time >= end_time failed with unexpected message: {resp.text}"
+        )
         return False
     print("[verify] ✓ Slot with start_time >= end_time rejected correctly")
 
     # 5. Test modifying a slot that has already started (seeded_slot starts 2 mins ago)
-    resp = user_session.patch(f"{BASE}/api/collections/time_slots/records/{seeded_slot['id']}", json={
-        "end_time": (now + timedelta(minutes=10)).strftime("%Y-%m-%d %H:%M:%S.000Z")
-    })
+    resp = user_session.patch(
+        f"{BASE}/api/collections/time_slots/records/{seeded_slot['id']}",
+        json={
+            "end_time": (now + timedelta(minutes=10)).strftime("%Y-%m-%d %H:%M:%S.000Z")
+        },
+    )
     if resp.status_code != 400 or "already started" not in resp.text.lower():
-        print(f"[verify] ✗ Modifying already-started slot was not rejected: {resp.status_code} {resp.text}")
+        print(
+            f"[verify] ✗ Modifying already-started slot was not rejected: {resp.status_code} {resp.text}"
+        )
         return False
-    print("[verify] ✓ Modifying already-started slot rejected correctly for regular user")
+    print(
+        "[verify] ✓ Modifying already-started slot rejected correctly for regular user"
+    )
 
     # Verify that admin CAN modify an already-started slot
-    resp = s.patch(f"{BASE}/api/collections/time_slots/records/{seeded_slot['id']}", json={
-        "end_time": (now + timedelta(minutes=10)).strftime("%Y-%m-%d %H:%M:%S.000Z")
-    })
+    resp = s.patch(
+        f"{BASE}/api/collections/time_slots/records/{seeded_slot['id']}",
+        json={
+            "end_time": (now + timedelta(minutes=10)).strftime("%Y-%m-%d %H:%M:%S.000Z")
+        },
+    )
     if resp.status_code != 200:
-        print(f"[verify] ✗ Admin failed to modify already-started slot: {resp.status_code} {resp.text}")
+        print(
+            f"[verify] ✗ Admin failed to modify already-started slot: {resp.status_code} {resp.text}"
+        )
         return False
     print("[verify] ✓ Admin successfully modified already-started slot")
 
     # 6. Test rescheduling a slot to a start time in the past
-    past_reschedule_start = (now - timedelta(minutes=45)).strftime("%Y-%m-%d %H:%M:%S.000Z")
-    past_reschedule_end = (now - timedelta(minutes=15)).strftime("%Y-%m-%d %H:%M:%S.000Z")
+    past_reschedule_start = (now - timedelta(minutes=45)).strftime(
+        "%Y-%m-%d %H:%M:%S.000Z"
+    )
+    past_reschedule_end = (now - timedelta(minutes=15)).strftime(
+        "%Y-%m-%d %H:%M:%S.000Z"
+    )
 
-    resp = user_session.patch(f"{BASE}/api/collections/time_slots/records/{future_slot_id}", json={
-        "start_time": past_reschedule_start,
-        "end_time": past_reschedule_end
-    })
+    resp = user_session.patch(
+        f"{BASE}/api/collections/time_slots/records/{future_slot_id}",
+        json={"start_time": past_reschedule_start, "end_time": past_reschedule_end},
+    )
     if resp.status_code != 400 or "past" not in resp.text.lower():
-        print(f"[verify] ✗ Rescheduling slot to past start time was not rejected: {resp.status_code} {resp.text}")
+        print(
+            f"[verify] ✗ Rescheduling slot to past start time was not rejected: {resp.status_code} {resp.text}"
+        )
         return False
-    print("[verify] ✓ Rescheduling slot to past start time rejected correctly for regular user")
+    print(
+        "[verify] ✓ Rescheduling slot to past start time rejected correctly for regular user"
+    )
 
     # Verify that admin CAN reschedule a slot to a start time in the past
-    resp = s.patch(f"{BASE}/api/collections/time_slots/records/{future_slot_id}", json={
-        "start_time": past_reschedule_start,
-        "end_time": past_reschedule_end
-    })
+    resp = s.patch(
+        f"{BASE}/api/collections/time_slots/records/{future_slot_id}",
+        json={"start_time": past_reschedule_start, "end_time": past_reschedule_end},
+    )
     if resp.status_code != 200:
-        print(f"[verify] ✗ Admin failed to reschedule slot to past start time: {resp.status_code} {resp.text}")
+        print(
+            f"[verify] ✗ Admin failed to reschedule slot to past start time: {resp.status_code} {resp.text}"
+        )
         return False
     print("[verify] ✓ Admin successfully rescheduled slot to past start time")
 
     # 7. Test deleting a slot that has already started (seeded_slot)
-    resp = user_session.delete(f"{BASE}/api/collections/time_slots/records/{seeded_slot['id']}")
+    resp = user_session.delete(
+        f"{BASE}/api/collections/time_slots/records/{seeded_slot['id']}"
+    )
     if resp.status_code != 400 or "already started" not in resp.text.lower():
-        print(f"[verify] ✗ Deleting already-started slot was not rejected: {resp.status_code} {resp.text}")
+        print(
+            f"[verify] ✗ Deleting already-started slot was not rejected: {resp.status_code} {resp.text}"
+        )
         return False
-    print("[verify] ✓ Deleting already-started slot rejected correctly for regular user")
+    print(
+        "[verify] ✓ Deleting already-started slot rejected correctly for regular user"
+    )
 
     # Verify that admin CAN delete an already-started slot
     resp = s.delete(f"{BASE}/api/collections/time_slots/records/{seeded_slot['id']}")
     if resp.status_code != 204:
-        print(f"[verify] ✗ Admin failed to delete already-started slot: {resp.status_code} {resp.text}")
+        print(
+            f"[verify] ✗ Admin failed to delete already-started slot: {resp.status_code} {resp.text}"
+        )
         return False
     print("[verify] ✓ Admin successfully deleted already-started slot")
 
     # 8. Test authorization: User B trying to update/delete User A's slot
     # Create User B
-    resp = s.post(f"{BASE}/api/collections/users/records", json={
-        "email": "userB@example.com",
-        "emailVisibility": True,
-        "password": "userBpassword1234",
-        "passwordConfirm": "userBpassword1234",
-    })
+    resp = s.post(
+        f"{BASE}/api/collections/users/records",
+        json={
+            "email": "userB@example.com",
+            "emailVisibility": True,
+            "password": "userBpassword1234",
+            "passwordConfirm": "userBpassword1234",
+        },
+    )
     if resp.status_code == 400 and "already" in resp.text.lower():
         # fetch existing
-        resp2 = s.get(f"{BASE}/api/collections/users/records",
-                      params={"filter": 'email="userB@example.com"'})
+        resp2 = s.get(
+            f"{BASE}/api/collections/users/records",
+            params={"filter": 'email="userB@example.com"'},
+        )
         resp2.raise_for_status()
         userB = resp2.json()["items"][0]
     else:
@@ -576,24 +664,35 @@ def test_time_slots_validation():
         userB = resp.json()
 
     userB_session = requests.Session()
-    resp = userB_session.post(f"{BASE}/api/collections/users/auth-with-password",
-                              json={"identity": "userB@example.com", "password": "userBpassword1234"})
+    resp = userB_session.post(
+        f"{BASE}/api/collections/users/auth-with-password",
+        json={"identity": "userB@example.com", "password": "userBpassword1234"},
+    )
     resp.raise_for_status()
     userB_session.headers["Authorization"] = resp.json()["token"]
 
     # Try to modify future_slot_id (owned by User A / user_id)
-    resp = userB_session.patch(f"{BASE}/api/collections/time_slots/records/{future_slot_id}", json={
-        "end_time": (now + timedelta(hours=3)).strftime("%Y-%m-%d %H:%M:%S.000Z")
-    })
+    resp = userB_session.patch(
+        f"{BASE}/api/collections/time_slots/records/{future_slot_id}",
+        json={
+            "end_time": (now + timedelta(hours=3)).strftime("%Y-%m-%d %H:%M:%S.000Z")
+        },
+    )
     if resp.status_code not in (403, 404):
-        print(f"[verify] ✗ User B modifying User A's slot was not rejected: {resp.status_code} {resp.text}")
+        print(
+            f"[verify] ✗ User B modifying User A's slot was not rejected: {resp.status_code} {resp.text}"
+        )
         return False
     print("[verify] ✓ User B modifying User A's slot was rejected correctly")
 
     # Try to delete future_slot_id (owned by User A)
-    resp = userB_session.delete(f"{BASE}/api/collections/time_slots/records/{future_slot_id}")
+    resp = userB_session.delete(
+        f"{BASE}/api/collections/time_slots/records/{future_slot_id}"
+    )
     if resp.status_code not in (403, 404):
-        print(f"[verify] ✗ User B deleting User A's slot was not rejected: {resp.status_code} {resp.text}")
+        print(
+            f"[verify] ✗ User B deleting User A's slot was not rejected: {resp.status_code} {resp.text}"
+        )
         return False
     print("[verify] ✓ User B deleting User A's slot was rejected correctly")
 
@@ -605,11 +704,13 @@ def test_time_slots_validation():
 
 def test_qpu_time_requests_validation():
     print("\n[verify] Testing QPU Time Requests CRUD & Approval Flow …")
-    
+
     # 1. Authenticate User A
     user_session = requests.Session()
-    resp = user_session.post(f"{BASE}/api/collections/users/auth-with-password",
-                             json={"identity": "user@example.com", "password": "userpassword1234"})
+    resp = user_session.post(
+        f"{BASE}/api/collections/users/auth-with-password",
+        json={"identity": "user@example.com", "password": "userpassword1234"},
+    )
     if resp.status_code != 200:
         print(f"[verify] ✗ Failed to authenticate User A: {resp.text}")
         return False
@@ -622,14 +723,19 @@ def test_qpu_time_requests_validation():
     initial_seconds = resp.json()["record"]["qpu_seconds"]
 
     # 2. User A creates a request (status defaults to pending)
-    resp = user_session.post(f"{BASE}/api/collections/qpu_time_requests/records", json={
-        "user": user_id,
-        "seconds": 300.0,
-        "status": "pending",
-        "requested_reason": "Need QPU time for running experiments",
-    })
+    resp = user_session.post(
+        f"{BASE}/api/collections/qpu_time_requests/records",
+        json={
+            "user": user_id,
+            "seconds": 300.0,
+            "status": "pending",
+            "requested_reason": "Need QPU time for running experiments",
+        },
+    )
     if resp.status_code not in (200, 201):
-        print(f"[verify] ✗ Failed to create time request: {resp.status_code} {resp.text}")
+        print(
+            f"[verify] ✗ Failed to create time request: {resp.status_code} {resp.text}"
+        )
         return False
     req = resp.json()
     req_id = req["id"]
@@ -639,18 +745,25 @@ def test_qpu_time_requests_validation():
     print("[verify] ✓ User A created pending time request successfully")
 
     # 3. User A tries to create a request with status = approved (should fail validation rule)
-    resp = user_session.post(f"{BASE}/api/collections/qpu_time_requests/records", json={
-        "user": user_id,
-        "seconds": 400.0,
-        "status": "approved",
-        "requested_reason": "Hack status",
-    })
+    resp = user_session.post(
+        f"{BASE}/api/collections/qpu_time_requests/records",
+        json={
+            "user": user_id,
+            "seconds": 400.0,
+            "status": "approved",
+            "requested_reason": "Hack status",
+        },
+    )
     if resp.status_code in (200, 201):
         if resp.json()["status"] == "approved":
-            print(f"[verify] ✗ User A successfully created an approved request! {resp.text}")
+            print(
+                f"[verify] ✗ User A successfully created an approved request! {resp.text}"
+            )
             return False
         else:
-            s.delete(f"{BASE}/api/collections/qpu_time_requests/records/{resp.json()['id']}")
+            s.delete(
+                f"{BASE}/api/collections/qpu_time_requests/records/{resp.json()['id']}"
+            )
             print("[verify] ✓ Creating approved request was overridden to pending")
     else:
         print("[verify] ✓ Creating approved request was rejected correctly")
@@ -669,8 +782,10 @@ def test_qpu_time_requests_validation():
 
     # 5. User B lists requests (should not see User A's request)
     userB_session = requests.Session()
-    resp = userB_session.post(f"{BASE}/api/collections/users/auth-with-password",
-                              json={"identity": "userB@example.com", "password": "userBpassword1234"})
+    resp = userB_session.post(
+        f"{BASE}/api/collections/users/auth-with-password",
+        json={"identity": "userB@example.com", "password": "userBpassword1234"},
+    )
     if resp.status_code != 200:
         print(f"[verify] ✗ Failed to authenticate User B: {resp.text}")
         return False
@@ -688,52 +803,77 @@ def test_qpu_time_requests_validation():
     print("[verify] ✓ User B did not see User A's requests in list")
 
     # 6. User B tries to view User A's request directly
-    resp = userB_session.get(f"{BASE}/api/collections/qpu_time_requests/records/{req_id}")
+    resp = userB_session.get(
+        f"{BASE}/api/collections/qpu_time_requests/records/{req_id}"
+    )
     if resp.status_code not in (403, 404):
-        print(f"[verify] ✗ User B viewing User A's request directly was not rejected: {resp.status_code}")
+        print(
+            f"[verify] ✗ User B viewing User A's request directly was not rejected: {resp.status_code}"
+        )
         return False
     print("[verify] ✓ User B direct view of User A's request was rejected")
 
     # 7. User B tries to delete User A's request
-    resp = userB_session.delete(f"{BASE}/api/collections/qpu_time_requests/records/{req_id}")
+    resp = userB_session.delete(
+        f"{BASE}/api/collections/qpu_time_requests/records/{req_id}"
+    )
     if resp.status_code not in (403, 404):
-        print(f"[verify] ✗ User B deleting User A's request was not rejected: {resp.status_code}")
+        print(
+            f"[verify] ✗ User B deleting User A's request was not rejected: {resp.status_code}"
+        )
         return False
     print("[verify] ✓ User B deleting User A's request was rejected")
 
     # 8. User A creates a second request and cancels (deletes) it (since it is pending)
-    resp = user_session.post(f"{BASE}/api/collections/qpu_time_requests/records", json={
-        "user": user_id,
-        "seconds": 100.0,
-        "status": "pending",
-        "requested_reason": "Temporary request to delete",
-    })
+    resp = user_session.post(
+        f"{BASE}/api/collections/qpu_time_requests/records",
+        json={
+            "user": user_id,
+            "seconds": 100.0,
+            "status": "pending",
+            "requested_reason": "Temporary request to delete",
+        },
+    )
     if resp.status_code not in (200, 201):
         print(f"[verify] ✗ Failed to create temporary request: {resp.text}")
         return False
     temp_id = resp.json()["id"]
 
-    resp = user_session.delete(f"{BASE}/api/collections/qpu_time_requests/records/{temp_id}")
+    resp = user_session.delete(
+        f"{BASE}/api/collections/qpu_time_requests/records/{temp_id}"
+    )
     if resp.status_code != 204:
-        print(f"[verify] ✗ User A failed to delete their own pending request: {resp.status_code} {resp.text}")
+        print(
+            f"[verify] ✗ User A failed to delete their own pending request: {resp.status_code} {resp.text}"
+        )
         return False
     print("[verify] ✓ User A deleted their own pending request successfully")
 
     # 9. User A tries to update their own request (should fail — update disabled for regular users)
-    resp = user_session.patch(f"{BASE}/api/collections/qpu_time_requests/records/{req_id}", json={
-        "requested_reason": "Changed",
-    })
+    resp = user_session.patch(
+        f"{BASE}/api/collections/qpu_time_requests/records/{req_id}",
+        json={
+            "requested_reason": "Changed",
+        },
+    )
     if resp.status_code not in (403, 404):
-        print(f"[verify] ✗ User A was allowed to update their own request: {resp.status_code}")
+        print(
+            f"[verify] ✗ User A was allowed to update their own request: {resp.status_code}"
+        )
         return False
     print("[verify] ✓ User A updating own request was rejected")
 
     # 10. Admin approves User A's request
-    resp = s.patch(f"{BASE}/api/collections/qpu_time_requests/records/{req_id}", json={
-        "status": "approved",
-    })
+    resp = s.patch(
+        f"{BASE}/api/collections/qpu_time_requests/records/{req_id}",
+        json={
+            "status": "approved",
+        },
+    )
     if resp.status_code != 200:
-        print(f"[verify] ✗ Admin failed to approve request: {resp.status_code} {resp.text}")
+        print(
+            f"[verify] ✗ Admin failed to approve request: {resp.status_code} {resp.text}"
+        )
         return False
     approved_req = resp.json()
     if approved_req["status"] != "approved":
@@ -749,21 +889,28 @@ def test_qpu_time_requests_validation():
     resp.raise_for_status()
     updated_seconds = resp.json()["qpu_seconds"]
     if abs(updated_seconds - (initial_seconds + 300.0)) > 0.01:
-        print(f"[verify] ✗ User's QPU seconds was not credited correctly. Initial: {initial_seconds}, Updated: {updated_seconds}")
+        print(
+            f"[verify] ✗ User's QPU seconds was not credited correctly. Initial: {initial_seconds}, Updated: {updated_seconds}"
+        )
         return False
     print(f"[verify] ✓ User credited successfully (New balance: {updated_seconds})")
 
     # 11. Admin tries to change status from approved to pending or rejected (should fail)
-    resp = s.patch(f"{BASE}/api/collections/qpu_time_requests/records/{req_id}", json={
-        "status": "pending",
-    })
+    resp = s.patch(
+        f"{BASE}/api/collections/qpu_time_requests/records/{req_id}",
+        json={
+            "status": "pending",
+        },
+    )
     if resp.status_code == 200:
         print("[verify] ✗ Admin changed status from approved back to pending!")
         return False
     print("[verify] ✓ Modifying processed request status was rejected correctly")
 
     # 12. User A tries to delete the approved request (should fail because status is not pending)
-    resp = user_session.delete(f"{BASE}/api/collections/qpu_time_requests/records/{req_id}")
+    resp = user_session.delete(
+        f"{BASE}/api/collections/qpu_time_requests/records/{req_id}"
+    )
     if resp.status_code == 204:
         print("[verify] ✗ User A successfully deleted an approved request!")
         return False
@@ -780,8 +927,10 @@ def test_notifications_crud():
 
     # 1. Authenticate User A
     user_session = requests.Session()
-    resp = user_session.post(f"{BASE}/api/collections/users/auth-with-password",
-                             json={"identity": "user@example.com", "password": "userpassword1234"})
+    resp = user_session.post(
+        f"{BASE}/api/collections/users/auth-with-password",
+        json={"identity": "user@example.com", "password": "userpassword1234"},
+    )
     if resp.status_code != 200:
         print(f"[verify] ✗ Failed to authenticate User A: {resp.text}")
         return False
@@ -794,28 +943,38 @@ def test_notifications_crud():
     now = datetime.now(timezone.utc)
     past_start = (now - timedelta(hours=1)).strftime("%Y-%m-%d %H:%M:%S.000Z")
     future_end = (now + timedelta(hours=1)).strftime("%Y-%m-%d %H:%M:%S.000Z")
-    resp = s.post(f"{BASE}/api/collections/notifications/records", json={
-        "title": "System Maintenance",
-        "description": "Scheduled maintenance tonight.",
-        "start_time": past_start,
-        "end_time": future_end,
-    })
+    resp = s.post(
+        f"{BASE}/api/collections/notifications/records",
+        json={
+            "title": "System Maintenance",
+            "description": "Scheduled maintenance tonight.",
+            "start_time": past_start,
+            "end_time": future_end,
+        },
+    )
     if resp.status_code not in (200, 201):
-        print(f"[verify] ✗ Admin failed to create broadcast notification: {resp.status_code} {resp.text}")
+        print(
+            f"[verify] ✗ Admin failed to create broadcast notification: {resp.status_code} {resp.text}"
+        )
         return False
     broadcast_id = resp.json()["id"]
     print("[verify] ✓ Admin created broadcast notification")
 
     # 3. Admin creates a targeted notification for User A only
-    resp = s.post(f"{BASE}/api/collections/notifications/records", json={
-        "title": "Personal Alert",
-        "description": "Your QPU time is low.",
-        "target_users": [user_id],
-        "start_time": past_start,
-        "end_time": future_end,
-    })
+    resp = s.post(
+        f"{BASE}/api/collections/notifications/records",
+        json={
+            "title": "Personal Alert",
+            "description": "Your QPU time is low.",
+            "target_users": [user_id],
+            "start_time": past_start,
+            "end_time": future_end,
+        },
+    )
     if resp.status_code not in (200, 201):
-        print(f"[verify] ✗ Admin failed to create targeted notification: {resp.status_code} {resp.text}")
+        print(
+            f"[verify] ✗ Admin failed to create targeted notification: {resp.status_code} {resp.text}"
+        )
         return False
     targeted_id = resp.json()["id"]
     print("[verify] ✓ Admin created targeted notification")
@@ -823,14 +982,19 @@ def test_notifications_crud():
     # 4. Admin creates a future notification (not yet visible)
     future_start = (now + timedelta(hours=2)).strftime("%Y-%m-%d %H:%M:%S.000Z")
     future_end_2 = (now + timedelta(hours=3)).strftime("%Y-%m-%d %H:%M:%S.000Z")
-    resp = s.post(f"{BASE}/api/collections/notifications/records", json={
-        "title": "Future Announcement",
-        "description": "This should not be visible yet.",
-        "start_time": future_start,
-        "end_time": future_end_2,
-    })
+    resp = s.post(
+        f"{BASE}/api/collections/notifications/records",
+        json={
+            "title": "Future Announcement",
+            "description": "This should not be visible yet.",
+            "start_time": future_start,
+            "end_time": future_end_2,
+        },
+    )
     if resp.status_code not in (200, 201):
-        print(f"[verify] ✗ Admin failed to create future notification: {resp.status_code} {resp.text}")
+        print(
+            f"[verify] ✗ Admin failed to create future notification: {resp.status_code} {resp.text}"
+        )
         return False
     future_id = resp.json()["id"]
     print("[verify] ✓ Admin created future notification")
@@ -855,8 +1019,10 @@ def test_notifications_crud():
 
     # 6. User B lists notifications — should see broadcast only, not targeted
     userB_session = requests.Session()
-    resp = userB_session.post(f"{BASE}/api/collections/users/auth-with-password",
-                              json={"identity": "userB@example.com", "password": "userBpassword1234"})
+    resp = userB_session.post(
+        f"{BASE}/api/collections/users/auth-with-password",
+        json={"identity": "userB@example.com", "password": "userBpassword1234"},
+    )
     if resp.status_code != 200:
         print(f"[verify] ✗ Failed to authenticate User B: {resp.text}")
         return False
@@ -879,14 +1045,18 @@ def test_notifications_crud():
     # 7. User A dismisses the broadcast notification
     resp = user_session.post(f"{BASE}/api/notifications/{broadcast_id}/dismiss")
     if resp.status_code != 200:
-        print(f"[verify] ✗ User A failed to dismiss notification: {resp.status_code} {resp.text}")
+        print(
+            f"[verify] ✗ User A failed to dismiss notification: {resp.status_code} {resp.text}"
+        )
         return False
     print("[verify] ✓ User A dismissed broadcast notification")
 
     # 8. User A lists again — broadcast should be gone, targeted still visible
     resp = user_session.get(f"{BASE}/api/collections/notifications/records")
     if resp.status_code != 200:
-        print(f"[verify] ✗ User A failed to list notifications after dismiss: {resp.text}")
+        print(
+            f"[verify] ✗ User A failed to list notifications after dismiss: {resp.text}"
+        )
         return False
     items = resp.json()["items"]
     ids = {i["id"] for i in items}
@@ -908,37 +1078,56 @@ def test_notifications_crud():
     print("[verify] ✓ User B still sees broadcast after User A dismissed")
 
     # 10. Non-admin user tries to create a notification (should fail)
-    resp = user_session.post(f"{BASE}/api/collections/notifications/records", json={
-        "title": "Unauthorized",
-        "description": "Should not be allowed.",
-    })
+    resp = user_session.post(
+        f"{BASE}/api/collections/notifications/records",
+        json={
+            "title": "Unauthorized",
+            "description": "Should not be allowed.",
+        },
+    )
     if resp.status_code not in (403, 404):
-        print(f"[verify] ✗ Non-admin was allowed to create notification: {resp.status_code}")
+        print(
+            f"[verify] ✗ Non-admin was allowed to create notification: {resp.status_code}"
+        )
         return False
     print("[verify] ✓ Non-admin creation rejected")
 
     # 11. Non-admin user tries to update a notification (should fail)
-    resp = user_session.patch(f"{BASE}/api/collections/notifications/records/{broadcast_id}", json={
-        "title": "Hacked",
-    })
+    resp = user_session.patch(
+        f"{BASE}/api/collections/notifications/records/{broadcast_id}",
+        json={
+            "title": "Hacked",
+        },
+    )
     if resp.status_code not in (403, 404):
-        print(f"[verify] ✗ Non-admin was allowed to update notification: {resp.status_code}")
+        print(
+            f"[verify] ✗ Non-admin was allowed to update notification: {resp.status_code}"
+        )
         return False
     print("[verify] ✓ Non-admin update rejected")
 
     # 12. Non-admin user tries to delete a notification (should fail)
-    resp = user_session.delete(f"{BASE}/api/collections/notifications/records/{broadcast_id}")
+    resp = user_session.delete(
+        f"{BASE}/api/collections/notifications/records/{broadcast_id}"
+    )
     if resp.status_code not in (403, 404):
-        print(f"[verify] ✗ Non-admin was allowed to delete notification: {resp.status_code}")
+        print(
+            f"[verify] ✗ Non-admin was allowed to delete notification: {resp.status_code}"
+        )
         return False
     print("[verify] ✓ Non-admin delete rejected")
 
     # 13. Admin updates notification
-    resp = s.patch(f"{BASE}/api/collections/notifications/records/{broadcast_id}", json={
-        "title": "Updated Maintenance",
-    })
+    resp = s.patch(
+        f"{BASE}/api/collections/notifications/records/{broadcast_id}",
+        json={
+            "title": "Updated Maintenance",
+        },
+    )
     if resp.status_code != 200:
-        print(f"[verify] ✗ Admin failed to update notification: {resp.status_code} {resp.text}")
+        print(
+            f"[verify] ✗ Admin failed to update notification: {resp.status_code} {resp.text}"
+        )
         return False
     if resp.json()["title"] != "Updated Maintenance":
         print("[verify] ✗ Notification title not updated")
@@ -948,7 +1137,9 @@ def test_notifications_crud():
     # 14. Admin deletes future notification
     resp = s.delete(f"{BASE}/api/collections/notifications/records/{future_id}")
     if resp.status_code != 204:
-        print(f"[verify] ✗ Admin failed to delete notification: {resp.status_code} {resp.text}")
+        print(
+            f"[verify] ✗ Admin failed to delete notification: {resp.status_code} {resp.text}"
+        )
         return False
     print("[verify] ✓ Admin deleted notification")
 
@@ -964,8 +1155,10 @@ def test_api_tokens_auth_rules():
 
     # Authenticate User A
     userA_session = requests.Session()
-    resp = userA_session.post(f"{BASE}/api/collections/users/auth-with-password",
-                              json={"identity": "user@example.com", "password": "userpassword1234"})
+    resp = userA_session.post(
+        f"{BASE}/api/collections/users/auth-with-password",
+        json={"identity": "user@example.com", "password": "userpassword1234"},
+    )
     if resp.status_code != 200:
         print(f"[verify] ✗ Failed to authenticate User A: {resp.text}")
         return False
@@ -974,13 +1167,18 @@ def test_api_tokens_auth_rules():
     userA_session.headers["Authorization"] = userA_token
 
     # User A creates a token via collection API
-    resp = userA_session.post(f"{BASE}/api/collections/api_tokens/records", json={
-        "token": "hashed-token-abc",
-        "user": userA_id,
-        "name": "Test Token",
-    })
+    resp = userA_session.post(
+        f"{BASE}/api/collections/api_tokens/records",
+        json={
+            "token": "hashed-token-abc",
+            "user": userA_id,
+            "name": "Test Token",
+        },
+    )
     if resp.status_code not in (200, 201):
-        print(f"[verify] ✗ User A failed to create token: {resp.status_code} {resp.text}")
+        print(
+            f"[verify] ✗ User A failed to create token: {resp.status_code} {resp.text}"
+        )
         return False
     token_id = resp.json()["id"]
     print("[verify] ✓ User A created token via collection API")
@@ -1004,9 +1202,12 @@ def test_api_tokens_auth_rules():
     print("[verify] ✓ User A views their own token")
 
     # User A updates token
-    resp = userA_session.patch(f"{BASE}/api/collections/api_tokens/records/{token_id}", json={
-        "name": "Updated Token",
-    })
+    resp = userA_session.patch(
+        f"{BASE}/api/collections/api_tokens/records/{token_id}",
+        json={
+            "name": "Updated Token",
+        },
+    )
     if resp.status_code != 200:
         print(f"[verify] ✗ User A failed to update token: {resp.status_code}")
         return False
@@ -1014,8 +1215,10 @@ def test_api_tokens_auth_rules():
 
     # Authenticate User B
     userB_session = requests.Session()
-    resp = userB_session.post(f"{BASE}/api/collections/users/auth-with-password",
-                              json={"identity": "userB@example.com", "password": "userBpassword1234"})
+    resp = userB_session.post(
+        f"{BASE}/api/collections/users/auth-with-password",
+        json={"identity": "userB@example.com", "password": "userBpassword1234"},
+    )
     if resp.status_code != 200:
         print(f"[verify] ✗ Failed to authenticate User B: {resp.text}")
         return False
@@ -1035,23 +1238,32 @@ def test_api_tokens_auth_rules():
     # User B tries to view User A's token directly
     resp = userB_session.get(f"{BASE}/api/collections/api_tokens/records/{token_id}")
     if resp.status_code not in (403, 404):
-        print(f"[verify] ✗ User B viewing User A's token was not rejected: {resp.status_code}")
+        print(
+            f"[verify] ✗ User B viewing User A's token was not rejected: {resp.status_code}"
+        )
         return False
     print("[verify] ✓ User B direct view of User A's token rejected")
 
     # User B tries to update User A's token
-    resp = userB_session.patch(f"{BASE}/api/collections/api_tokens/records/{token_id}", json={
-        "name": "Hacked",
-    })
+    resp = userB_session.patch(
+        f"{BASE}/api/collections/api_tokens/records/{token_id}",
+        json={
+            "name": "Hacked",
+        },
+    )
     if resp.status_code not in (403, 404):
-        print(f"[verify] ✗ User B updating User A's token was not rejected: {resp.status_code}")
+        print(
+            f"[verify] ✗ User B updating User A's token was not rejected: {resp.status_code}"
+        )
         return False
     print("[verify] ✓ User B update of User A's token rejected")
 
     # User B tries to delete User A's token
     resp = userB_session.delete(f"{BASE}/api/collections/api_tokens/records/{token_id}")
     if resp.status_code not in (403, 404):
-        print(f"[verify] ✗ User B deleting User A's token was not rejected: {resp.status_code}")
+        print(
+            f"[verify] ✗ User B deleting User A's token was not rejected: {resp.status_code}"
+        )
         return False
     print("[verify] ✓ User B delete of User A's token rejected")
 
@@ -1089,43 +1301,60 @@ def test_qpus_auth_rules():
 
     # Authenticated regular user tries to create a QPU
     user_session = requests.Session()
-    resp = user_session.post(f"{BASE}/api/collections/users/auth-with-password",
-                             json={"identity": "user@example.com", "password": "userpassword1234"})
+    resp = user_session.post(
+        f"{BASE}/api/collections/users/auth-with-password",
+        json={"identity": "user@example.com", "password": "userpassword1234"},
+    )
     if resp.status_code != 200:
         print(f"[verify] ✗ Failed to authenticate user: {resp.text}")
         return False
     user_session.headers["Authorization"] = resp.json()["token"]
 
-    resp = user_session.post(f"{BASE}/api/collections/qpus/records", json={
-        "name": "Unauthorized-QPU",
-        "access_token": "secret",
-        "status": "offline",
-    })
+    resp = user_session.post(
+        f"{BASE}/api/collections/qpus/records",
+        json={
+            "name": "Unauthorized-QPU",
+            "access_token": "secret",
+            "status": "offline",
+        },
+    )
     if resp.status_code not in (403, 404):
-        print(f"[verify] ✗ Regular user creating QPU was not rejected: {resp.status_code}")
+        print(
+            f"[verify] ✗ Regular user creating QPU was not rejected: {resp.status_code}"
+        )
         return False
     print("[verify] ✓ Regular user create QPU rejected")
 
     # Regular user tries to update a QPU
-    resp = user_session.patch(f"{BASE}/api/collections/qpus/records/{qpu_id}", json={
-        "status": "maintenance",
-    })
+    resp = user_session.patch(
+        f"{BASE}/api/collections/qpus/records/{qpu_id}",
+        json={
+            "status": "maintenance",
+        },
+    )
     if resp.status_code not in (403, 404):
-        print(f"[verify] ✗ Regular user updating QPU was not rejected: {resp.status_code}")
+        print(
+            f"[verify] ✗ Regular user updating QPU was not rejected: {resp.status_code}"
+        )
         return False
     print("[verify] ✓ Regular user update QPU rejected")
 
     # Regular user tries to delete a QPU
     resp = user_session.delete(f"{BASE}/api/collections/qpus/records/{qpu_id}")
     if resp.status_code not in (403, 404):
-        print(f"[verify] ✗ Regular user deleting QPU was not rejected: {resp.status_code}")
+        print(
+            f"[verify] ✗ Regular user deleting QPU was not rejected: {resp.status_code}"
+        )
         return False
     print("[verify] ✓ Regular user delete QPU rejected")
 
     # Admin CAN update a QPU
-    resp = s.patch(f"{BASE}/api/collections/qpus/records/{qpu_id}", json={
-        "num_qubits": 8,
-    })
+    resp = s.patch(
+        f"{BASE}/api/collections/qpus/records/{qpu_id}",
+        json={
+            "num_qubits": 8,
+        },
+    )
     if resp.status_code != 200:
         print(f"[verify] ✗ Admin failed to update QPU: {resp.status_code} {resp.text}")
         return False
@@ -1189,7 +1418,7 @@ def run_driver_tests():
 def test_qpu_toggle_switch():
     """Verify that disabling and re-enabling a QPU toggles its status and goroutines."""
     print("\n[verify] Testing QPU enabled/disabled toggle switch …")
-    
+
     # 1. Fetch QPU and verify it is initially enabled and online
     resp = s.get(f"{BASE}/api/collections/qpus/records")
     resp.raise_for_status()
@@ -1199,37 +1428,47 @@ def test_qpu_toggle_switch():
         return False
     qpu = qpus[0]
     qpu_id = qpu["id"]
-    
+
     if qpu.get("status") != "online" or not qpu.get("enabled"):
-        print(f"[verify] ✗ Precondition failed: QPU {qpu_id} is status={qpu.get('status')} enabled={qpu.get('enabled')}")
+        print(
+            f"[verify] ✗ Precondition failed: QPU {qpu_id} is status={qpu.get('status')} enabled={qpu.get('enabled')}"
+        )
         return False
-    
+
     print(f"[verify] QPU {qpu_id} is online and enabled. Testing toggle switch …")
-    
+
     # 2a. Verify unauthorized request to toggle is rejected
-    unauth_resp = requests.post(f"{BASE}/api/op/qpu/toggle", json={"id": qpu_id, "enabled": False})
+    unauth_resp = requests.post(
+        f"{BASE}/api/op/qpu/toggle", json={"id": qpu_id, "enabled": False}
+    )
     if unauth_resp.status_code != 403:
-        print(f"[verify] ✗ Unauthorized toggle request was not blocked (expected 403, got {unauth_resp.status_code})")
+        print(
+            f"[verify] ✗ Unauthorized toggle request was not blocked (expected 403, got {unauth_resp.status_code})"
+        )
         return False
-    print("[verify] ✓ Unauthorized toggle request blocked successfully with 403 Forbidden.")
+    print(
+        "[verify] ✓ Unauthorized toggle request blocked successfully with 403 Forbidden."
+    )
 
     # 2b. Disable QPU via custom POST /api/op/qpu/toggle (authorized as admin)
     resp = s.post(f"{BASE}/api/op/qpu/toggle", json={"id": qpu_id, "enabled": False})
     resp.raise_for_status()
-    
+
     # Give the backend a second to run the update hook and close the goroutines
     time.sleep(1.5)
-    
+
     # Verify it became offline
     resp = s.get(f"{BASE}/api/collections/qpus/records/{qpu_id}")
     resp.raise_for_status()
     qpu = resp.json()
     if qpu.get("status") != "offline" or qpu.get("enabled") is not False:
-        print(f"[verify] ✗ QPU did not transition to offline/disabled: status={qpu.get('status')} enabled={qpu.get('enabled')}")
+        print(
+            f"[verify] ✗ QPU did not transition to offline/disabled: status={qpu.get('status')} enabled={qpu.get('enabled')}"
+        )
         return False
-    
+
     print("[verify] ✓ QPU transitioned to offline. Testing registration block …")
-    
+
     # 3. Verify driver handshake is rejected with 403 Forbidden while disabled.
     reg_payload = {
         "access_token": ACCESS_TOKEN,
@@ -1239,34 +1478,46 @@ def test_qpu_toggle_switch():
     }
     resp = s.post(f"{BASE}/api/op/qpus/connect", json=reg_payload)
     if resp.status_code != 403:
-        print(f"[verify] ✗ Connection request was not blocked (expected 403, got {resp.status_code}): {resp.text}")
+        print(
+            f"[verify] ✗ Connection request was not blocked (expected 403, got {resp.status_code}): {resp.text}"
+        )
         return False
-        
+
     print("[verify] ✓ Connection blocked successfully with 403 Forbidden.")
-    
+
     # 4. Re-enable QPU via custom POST /api/op/qpu/toggle (enabled = True)
     print("[verify] Re-enabling QPU …")
     resp = s.post(f"{BASE}/api/op/qpu/toggle", json={"id": qpu_id, "enabled": True})
     resp.raise_for_status()
-    
+
     time.sleep(1.5)
     resp = s.get(f"{BASE}/api/collections/qpus/records/{qpu_id}")
     resp.raise_for_status()
     qpu = resp.json()
     if qpu.get("status") != "online" or qpu.get("enabled") is not True:
-        print(f"[verify] ✗ QPU did not transition back to online/enabled: status={qpu.get('status')} enabled={qpu.get('enabled')}")
+        print(
+            f"[verify] ✗ QPU did not transition back to online/enabled: status={qpu.get('status')} enabled={qpu.get('enabled')}"
+        )
         return False
-        
+
     print("[verify] ✓ QPU successfully re-enabled and transitioned back to online.")
     return True
 
 
 def main():
     parser = argparse.ArgumentParser(description="QPi E2E verification script")
-    parser.add_argument("--driver", action="store_true", help="Run driver-focused tests only")
-    parser.add_argument("--client-py", action="store_true", help="Run Python client smoke test only")
-    parser.add_argument("--client-js", action="store_true", help="Run JS client smoke test only")
-    parser.add_argument("--client-go", action="store_true", help="Run Go client smoke test only")
+    parser.add_argument(
+        "--driver", action="store_true", help="Run driver-focused tests only"
+    )
+    parser.add_argument(
+        "--client-py", action="store_true", help="Run Python client smoke test only"
+    )
+    parser.add_argument(
+        "--client-js", action="store_true", help="Run JS client smoke test only"
+    )
+    parser.add_argument(
+        "--client-go", action="store_true", help="Run Go client smoke test only"
+    )
     args = parser.parse_args()
 
     # If no specific subset requested, run everything

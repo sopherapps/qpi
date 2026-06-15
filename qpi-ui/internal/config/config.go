@@ -13,12 +13,21 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
 
-const appStoreConfigKey = "custom_config"
+const (
+	appStoreConfigKey                = "custom_config"
+	defaultQpusCollection            = "qpus"
+	defaultTimeSlotsCollection       = "time_slots"
+	defaultQuantumJobsCollection     = "quantum_jobs"
+	defaultAPITokensCollection       = "api_tokens"
+	defaultQPUTimeRequestsCollection = "qpu_time_requests"
+	defaultNotificationsCollection   = "notifications"
+)
 
 // AppConfig stores application-wide configuration parameters for the QPI orchestrator.
 type AppConfig struct {
@@ -36,6 +45,27 @@ type AppConfig struct {
 	PortRangeEnd              int
 	DisableEmailPasswordAuth  bool
 	OAuth2Providers           []core.OAuth2ProviderConfig
+	Validator                 *validator.Validate
+}
+
+// GetCollectionName returns the collection name for a given default collection name.
+func (c *AppConfig) GetCollectionName(name string) string {
+	switch name {
+	case defaultQpusCollection:
+		return c.CollectionQPUs
+	case defaultTimeSlotsCollection:
+		return c.CollectionTimeSlots
+	case defaultQuantumJobsCollection:
+		return c.CollectionQuantumJobs
+	case defaultAPITokensCollection:
+		return c.CollectionAPITokens
+	case defaultQPUTimeRequestsCollection:
+		return c.CollectionQPUTimeRequests
+	case defaultNotificationsCollection:
+		return c.CollectionNotifications
+	default:
+		return name
+	}
 }
 
 // SaveConfigOnApp saves the config on the app instance store.
@@ -61,6 +91,7 @@ var (
 	flagCollectionQuantumJobs    string
 	flagCollectionAPITokens      string
 	flagCollectionNotifications  string
+	flagCollectionTimeRequests   string
 	flagIdleThreshold            time.Duration
 	flagRecoveryInterval         time.Duration
 	flagJobTimeout               time.Duration
@@ -74,11 +105,12 @@ var (
 // BindFlags registers custom flags on the Cobra command.
 func BindFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().StringVar(&flagConfigFile, "config-file", getEnvString("QPI_CONFIG_FILE", ""), "Path to QPI JSON configuration file")
-	cmd.PersistentFlags().StringVar(&flagCollectionQPUs, "qpus-collection", "qpus", "Collection name for QPUs")
-	cmd.PersistentFlags().StringVar(&flagCollectionTimeSlots, "timeslots-collection", "time_slots", "Collection name for Time Slots")
-	cmd.PersistentFlags().StringVar(&flagCollectionQuantumJobs, "jobs-collection", "quantum_jobs", "Collection name for Quantum Jobs")
-	cmd.PersistentFlags().StringVar(&flagCollectionAPITokens, "api-tokens-collection", "api_tokens", "Collection name for API Tokens")
-	cmd.PersistentFlags().StringVar(&flagCollectionNotifications, "notifications-collection", "notifications", "Collection name for Notifications")
+	cmd.PersistentFlags().StringVar(&flagCollectionQPUs, "qpus-collection", defaultQpusCollection, "Collection name for QPUs")
+	cmd.PersistentFlags().StringVar(&flagCollectionTimeSlots, "timeslots-collection", defaultTimeSlotsCollection, "Collection name for Time Slots")
+	cmd.PersistentFlags().StringVar(&flagCollectionQuantumJobs, "jobs-collection", defaultQuantumJobsCollection, "Collection name for Quantum Jobs")
+	cmd.PersistentFlags().StringVar(&flagCollectionAPITokens, "api-tokens-collection", defaultAPITokensCollection, "Collection name for API Tokens")
+	cmd.PersistentFlags().StringVar(&flagCollectionNotifications, "notifications-collection", defaultNotificationsCollection, "Collection name for Notifications")
+	cmd.PersistentFlags().StringVar(&flagCollectionTimeRequests, "qpu-time-requests-collection", defaultQPUTimeRequestsCollection, "Collection name for QPU Time Requests")
 	cmd.PersistentFlags().DurationVar(&flagIdleThreshold, "idle-threshold", 5*time.Second, "Idle fallback threshold")
 	cmd.PersistentFlags().DurationVar(&flagRecoveryInterval, "recovery-interval", 10*time.Second, "Stale job recovery check interval")
 	cmd.PersistentFlags().DurationVar(&flagJobTimeout, "job-timeout", 20*time.Second, "Stale job execution timeout")
@@ -95,12 +127,12 @@ func NewFromFlags(cmd *cobra.Command) *AppConfig {
 	cfg := &AppConfig{}
 
 	// 1. Set hardcoded defaults
-	cfg.CollectionQPUs = "qpus"
-	cfg.CollectionTimeSlots = "time_slots"
-	cfg.CollectionQuantumJobs = "quantum_jobs"
-	cfg.CollectionAPITokens = "api_tokens"
-	cfg.CollectionQPUTimeRequests = "qpu_time_requests"
-	cfg.CollectionNotifications = "notifications"
+	cfg.CollectionQPUs = defaultQpusCollection
+	cfg.CollectionTimeSlots = defaultTimeSlotsCollection
+	cfg.CollectionQuantumJobs = defaultQuantumJobsCollection
+	cfg.CollectionAPITokens = defaultAPITokensCollection
+	cfg.CollectionQPUTimeRequests = defaultQPUTimeRequestsCollection
+	cfg.CollectionNotifications = defaultNotificationsCollection
 	cfg.IdleThreshold = 5 * time.Second
 	cfg.RecoveryInterval = 10 * time.Second
 	cfg.JobTimeout = 20 * time.Second
@@ -108,6 +140,7 @@ func NewFromFlags(cmd *cobra.Command) *AppConfig {
 	cfg.PortRangeStart = 6000
 	cfg.PortRangeEnd = 7000
 	cfg.DisableEmailPasswordAuth = false
+	cfg.Validator = validator.New(validator.WithRequiredStructEnabled())
 
 	// 2. Overlay Config File (if specified via env or flag)
 	configFile := flagConfigFile
@@ -277,6 +310,7 @@ func NewFromFlags(cmd *cobra.Command) *AppConfig {
 	cfg.CollectionQuantumJobs = resolveString("jobs-collection", "QPI_JOBS_COLLECTION", cfg.CollectionQuantumJobs)
 	cfg.CollectionAPITokens = resolveString("api-tokens-collection", "QPI_API_TOKENS_COLLECTION", cfg.CollectionAPITokens)
 	cfg.CollectionNotifications = resolveString("notifications-collection", "QPI_NOTIFICATIONS_COLLECTION", cfg.CollectionNotifications)
+	cfg.CollectionQPUTimeRequests = resolveString("qpu-time-requests-collection", "QPI_QPU_TIME_REQUESTS_COLLECTION", cfg.CollectionQPUTimeRequests)
 	cfg.IdleThreshold = resolveDuration("idle-threshold", "QPI_IDLE_THRESHOLD", cfg.IdleThreshold)
 	cfg.RecoveryInterval = resolveDuration("recovery-interval", "QPI_RECOVERY_INTERVAL", cfg.RecoveryInterval)
 	cfg.JobTimeout = resolveDuration("job-timeout", "QPI_JOB_TIMEOUT", cfg.JobTimeout)
