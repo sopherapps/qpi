@@ -7,6 +7,9 @@
 
 pb_data/
 
+# executors
+data/
+
 
 .python-version
 

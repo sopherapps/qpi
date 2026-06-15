@@ -504,11 +504,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/b1/8b/88f16936a8e8070a83d36239555227ecd91728f9ef222c5382cda07e0fd6/h5netcdf-1.8.1-py3-none-any.whl", hash = "sha256:a76ed7cfc9b8a8908ea7057c4e57e27307acff1049b7f5ed52db6c2247636879", size = 62915 },
 ]
 
-[package.optional-dependencies]
-h5py = [
-    { name = "h5py" },
-]
-
 [[package]]
 name = "h5py"
 version = "3.16.0"
@@ -974,21 +969,20 @@ wheels = [
 
 [[package]]
 name = "netcdf4"
-version = "1.7.4"
+version = "1.7.1.post2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "certifi" },
     { name = "cftime" },
     { name = "numpy" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/34/b6/0370bb3af66a12098da06dc5843f3b349b7c83ccbdf7306e7afa6248b533/netcdf4-1.7.4.tar.gz", hash = "sha256:cdbfdc92d6f4d7192ca8506c9b3d4c1d9892969ff28d8e8e1fc97ca08bf12164", size = 838352 }
+sdist = { url = "https://files.pythonhosted.org/packages/51/9a/69022e4985b1994e463b5aefa4416c1061a1212fbcada84da35631c37813/netcdf4-1.7.1.post2.tar.gz", hash = "sha256:37d557e36654889d7020192bfb56f9d5f93894cb32997eb837ae586c538fd7b6", size = 827773 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/38/de/38ed7e1956943d28e8ea74161e97c3a00fb98d6d08943b4fd21bae32c240/netcdf4-1.7.4-cp311-abi3-macosx_13_0_x86_64.whl", hash = "sha256:dec70e809cc65b04ebe95113ee9c85ba46a51c3a37c058d2b2b0cadc4d3052d8", size = 23427499 },
-    { url = "https://files.pythonhosted.org/packages/e5/70/2f73c133b71709c412bc81d8b721e28dc6237ba9d7dad861b7bfbb70408a/netcdf4-1.7.4-cp311-abi3-macosx_14_0_arm64.whl", hash = "sha256:75cf59100f0775bc4d6b9d4aca7cbabd12e2b8cf3b9a4fb16d810b92743a315a", size = 22847667 },
-    { url = "https://files.pythonhosted.org/packages/77/ce/43a3c0c41a6e2e940d87feea79d29aa88302211ac122604838f8a5a48de6/netcdf4-1.7.4-cp311-abi3-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:ddfc7e9d261125c74708119440c85ea288b5fee41db676d2ba1ce9be11f96932", size = 10274769 },
-    { url = "https://files.pythonhosted.org/packages/7b/7a/a8d32501bb95ecff342004a674720164f95ad616f269450b3bc13dc88ae3/netcdf4-1.7.4-cp311-abi3-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:a72c9f58767779ec14cb7451c3b56bdd8fdc027a792fac2062b14e090c5617f3", size = 10123122 },
-    { url = "https://files.pythonhosted.org/packages/18/68/e89b4fa9242e59326c849c39ce0f49eb68499603c639405a8449900a4f15/netcdf4-1.7.4-cp311-abi3-win_amd64.whl", hash = "sha256:9476e1f23161ae5159cd1548c50c8a37922e77d76583e247133f256ef7b825fc", size = 21299637 },
-    { url = "https://files.pythonhosted.org/packages/6c/fc/edd41a3607241027aa4533e7f18e0cd647e74dde10a63274c65350f59967/netcdf4-1.7.4-cp311-abi3-win_arm64.whl", hash = "sha256:876ad9d58f09c98741c066c726164c45a098a58fb90e5fac9e74de4bb8a793fd", size = 2386377 },
+    { url = "https://files.pythonhosted.org/packages/7f/c0/76d5ae14cb9c279e5129573b1b73bc5612c400495604371563e06eca0d1e/netCDF4-1.7.1.post2-cp312-cp312-macosx_12_0_x86_64.whl", hash = "sha256:658f38ceb74bb127e293a47fa36f949babba0c872cf3091e2fdafa73caacc7e4", size = 2934644 },
+    { url = "https://files.pythonhosted.org/packages/da/34/091dc272e473d67bd86c557d72257371fa06672046a101fa6407204873ce/netCDF4-1.7.1.post2-cp312-cp312-macosx_14_0_arm64.whl", hash = "sha256:5f396f150f97831229e47f449fe6acbca8ff9d08b2166560c46790aa6f11b56b", size = 2437794 },
+    { url = "https://files.pythonhosted.org/packages/c1/ef/8c771348591c1973d4f4b0485df181540b73ea78e90b20856dec3a6cacf8/netCDF4-1.7.1.post2-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:0d5216369a0a4a868dadb5c4137d854810a309b9f9ef1d16786269fbeb244101", size = 9325624 },
+    { url = "https://files.pythonhosted.org/packages/ad/b5/1cb245f31778b2df2aff47a393382b488c2daeb033fbbaa16af33d23780f/netCDF4-1.7.1.post2-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:12f8ab560320e879763b7837d6f8f5eb285195271f47fc5c18362e5b097ee67c", size = 9204902 },
+    { url = "https://files.pythonhosted.org/packages/75/eb/2eed8334a56b31a6a811a168c8a8365b8edbb3e8cec16d19a74d26894e2e/netCDF4-1.7.1.post2-cp312-cp312-win_amd64.whl", hash = "sha256:2cbca7dcd92075aebe7c242e16f51f20bc5073b6f0f1449394dadc3c17e44b29", size = 6962853 },
 ]
 
 [[package]]
@@ -1557,6 +1551,41 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/d0/fe/806a35d3588c629022f067c160b0a59ebc772780298e65c117588a8e81ea/qblox_instruments-1.2.2.tar.gz", hash = "sha256:f7d19a6caa20ca9f35fc4e82e949dec263d5d63eb778d68f30c2ac45b0b2ff2a", size = 3389015 }
 
 [[package]]
+name = "qblox-scheduler"
+version = "1.0.0b4"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "columnar" },
+    { name = "dataclasses-json" },
+    { name = "fastjsonschema" },
+    { name = "h5netcdf" },
+    { name = "jinja2" },
+    { name = "matplotlib" },
+    { name = "netcdf4" },
+    { name = "networkx" },
+    { name = "numpy" },
+    { name = "pandas", extra = ["output-formatting"] },
+    { name = "pathvalidate" },
+    { name = "plotly" },
+    { name = "pydantic" },
+    { name = "pydantic-core" },
+    { name = "pyqt5-qt5" },
+    { name = "qblox-instruments" },
+    { name = "qcodes" },
+    { name = "quantify-core" },
+    { name = "rich", extra = ["jupyter"] },
+    { name = "ruamel-yaml" },
+    { name = "scipy" },
+    { name = "tqdm" },
+    { name = "xarray", extra = ["io"] },
+    { name = "xxhash" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/b0/42/cb385f6b1661cd50203c3d98c27c9f35bc143edb5096ec964a1fcf5e2553/qblox_scheduler-1.0.0b4.tar.gz", hash = "sha256:7f6abc94cd8559feca5c44561d12371d0d825d749c4fb32d47cacb74e72a5003", size = 3230483 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b7/56/856566af151c42e317bd0b2e65016fe43df7ad8152d2a77e66f1d21e6b5b/qblox_scheduler-1.0.0b4-py3-none-any.whl", hash = "sha256:e0495d610469b556d2f999235968f40de726602a66748b7407384d3fb031eef4", size = 523133 },
+]
+
+[[package]]
 name = "qcodes"
 version = "0.56.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1694,6 +1723,10 @@ aer = [
 cli = [
     { name = "typer" },
 ]
+qblox = [
+    { name = "qblox-instruments" },
+    { name = "qblox-scheduler" },
+]
 quantify = [
     { name = "qblox-instruments" },
     { name = "quantify-scheduler" },
@@ -1710,7 +1743,9 @@ requires-dist = [
     { name = "numpy", specifier = ">=2.0.0" },
     { name = "pynng", specifier = ">=0.8.0" },
     { name = "pyyaml", specifier = ">=6.0" },
+    { name = "qblox-instruments", marker = "extra == 'qblox'" },
     { name = "qblox-instruments", marker = "extra == 'quantify'" },
+    { name = "qblox-scheduler", marker = "extra == 'qblox'", specifier = ">=1.0.0b1" },
     { name = "qiskit", specifier = ">=1.0.0" },
     { name = "qiskit-aer", marker = "extra == 'aer'", specifier = ">=0.14.0" },
     { name = "qiskit-qasm3-import" },
@@ -1729,7 +1764,7 @@ dev = [
 
 [[package]]
 name = "quantify-core"
-version = "0.9.1"
+version = "0.8.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "adaptive" },
@@ -1754,9 +1789,9 @@ dependencies = [
     { name = "uncertainties" },
     { name = "xarray", extra = ["io"] },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/6e/b3/33232239a59e65d67d158ca6306c4c9131234157d10fb7b39165dafee131/quantify_core-0.9.1.tar.gz", hash = "sha256:7f3dc9677a8ff59cdcfd6311626d10983ea1f585e2adb7ba73e87e636a7fb365", size = 6125832 }
+sdist = { url = "https://files.pythonhosted.org/packages/0d/90/ff25aa0a5fbb4c1fe2d11a43669e3c77e4f46b255ca97394729974987491/quantify_core-0.8.3.tar.gz", hash = "sha256:aa7bb765b636492e0bf2dd669791a9b829b48397cc6bace3868b26e22093e630", size = 6125173 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/36/aa/9041e063dce98a73234841623ed190d927b05ac10a599cab78e503f39a09/quantify_core-0.9.1-py3-none-any.whl", hash = "sha256:fad2dd2e8158b351419135e87ca1301b037944f0f101c86957e20866ec70d58c", size = 142244 },
+    { url = "https://files.pythonhosted.org/packages/f1/35/bea8c7f3979ba65fa0ca4f5981a6f2f2befd51c32afa8351827c258f82b3/quantify_core-0.8.3-py3-none-any.whl", hash = "sha256:03872f4c7defd4ab4ae3af8cb4e98f7a77aa489837f576fc71aebaf9f149c3a8", size = 141862 },
 ]
 
 [[package]]
@@ -2309,23 +2344,23 @@ wheels = [
 
 [[package]]
 name = "xarray"
-version = "2026.4.0"
+version = "2025.9.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "numpy" },
     { name = "packaging" },
     { name = "pandas" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/4b/a6/6fe936a798a3a38a79c7422d1a31afd2e9a14690fcb0ccff96bc01f04bf2/xarray-2026.4.0.tar.gz", hash = "sha256:c4ac9a01a945d90d5b1628e2af045099a9d4943536d4f2ee3ae963c3b222d15b", size = 3132311 }
+sdist = { url = "https://files.pythonhosted.org/packages/4e/0b/bbb76e05c8e2099baf90e259c29cafe6a525524b1d1da8bfbc39577c043e/xarray-2025.9.0.tar.gz", hash = "sha256:7dd6816fe0062c49c5e9370dd483843bc13e5ed80a47a9ff10baff2b51e070fb", size = 3040318 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/dc/83/6d810a8a9ebc9c307989b418840c20e46907c74d707beb67ab566773e6fc/xarray-2026.4.0-py3-none-any.whl", hash = "sha256:d43751d9fb4a90f9249c30431684f00c41bc874f1edccd862631a40cbc0edf08", size = 1414326 },
+    { url = "https://files.pythonhosted.org/packages/8d/f0/73c24457c941b8b08f7d090853e40f4b2cdde88b5da721f3f28e98df77c9/xarray-2025.9.0-py3-none-any.whl", hash = "sha256:79f0e25fb39571f612526ee998ee5404d8725a1db3951aabffdb287388885df0", size = 1349595 },
 ]
 
 [package.optional-dependencies]
 io = [
     { name = "cftime" },
     { name = "fsspec" },
-    { name = "h5netcdf", extra = ["h5py"] },
+    { name = "h5netcdf" },
     { name = "netcdf4" },
     { name = "pooch" },
     { name = "pydap" },

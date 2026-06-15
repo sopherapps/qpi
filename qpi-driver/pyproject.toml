@@ -30,6 +30,10 @@ quantify = [
     "quantify-scheduler",
     "qblox-instruments"
 ]
+qblox = [
+    "qblox-scheduler>=1.0.0b1",
+    "qblox-instruments"
+]
 
 [dependency-groups]
 dev = [

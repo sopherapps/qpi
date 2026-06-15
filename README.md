@@ -149,7 +149,8 @@ Built-in executors include:
 * `MockExecutor` (`mock`): Simulates quantum circuits using Qiskit's `BasicSimulator`.
 * `QiskitAerExecutor` (`qiskit_aer`): Runs quantum circuit simulations using `qiskit-aer`.
 * `QuantifyExecutor` (`quantify`): Executes quantum circuits using `quantify-scheduler` and a Qblox cluster compiler.
-* Placeholder executors: `QbloxExecutor` (`qblox`) and `PrestoExecutor` (`presto`).
+* `QbloxExecutor` (`qblox`): Executes quantum circuits using `qblox-scheduler` and a Qblox cluster compiler.
+* Placeholder executors: `PrestoExecutor` (`presto`).
 
 ### Running the Driver for Each Executor
 
@@ -189,6 +190,22 @@ Compiles and runs circuits using `quantify-scheduler`.
   ```bash
   # Start driver with a hardware config file
   qpi-driver start --token "my-super-secret-token-12345" --executor "quantify" --quantify-hardware-config quantify.hardware.example.json --quantify-deivce-config quantify.deivde.example.json
+  ```
+
+#### 4. Qblox Executor (Qblox Cluster)
+Compiles and runs circuits using `qblox-scheduler`.
+* **Dummy/Simulation Mode**: Compiles the schedule and executes it against a dummy local Qblox instrument cluster.
+  ```bash
+  # Install the package with qblox extra
+  pip install ./qpi-driver[cli,qblox]
+
+  # Start driver in dummy mode
+  qpi-driver start --token "my-super-secret-token-12345" --executor "qblox" --is-dummy --quantify-hardware-config quantify.hardware.example.json --quantify-device-config quantify.device.example.json
+  ```
+* **Real Hardware Mode**: Compiles and deploys to actual physical Qblox hardware.
+  ```bash
+  # Start driver with a hardware config file
+  qpi-driver start --token "my-super-secret-token-12345" --executor "qblox" --quantify-hardware-config quantify.hardware.example.json --quantify-device-config quantify.device.example.json
   ```
 
 ### CLI Usage
@@ -241,7 +258,6 @@ make clean
 
 ## TODOs
 
-- [ ] Add support for the Qblox Scheduler (`qblox-scheduler`) package once a stable release is available on PyPI.
 - [ ] Add support for presto control instruments
 
 ## License

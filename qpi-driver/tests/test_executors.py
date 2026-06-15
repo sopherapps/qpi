@@ -82,7 +82,7 @@ def test_placeholder_executors_raise_not_implemented():
     from qpi_driver.executors.base import JobPayload
 
     payload = JobPayload(circuits=[CircuitPayload(circuit="OPENQASM 2.0;")])
-    for name in ["qblox", "presto"]:
+    for name in ["presto"]:
         executor = resolve_executor(name)
         with pytest.raises(NotImplementedError):
             executor.execute(payload)

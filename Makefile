@@ -39,7 +39,7 @@ test-go: build-dashboard
 	@echo "Running Go unit tests (orchestrator)..."
 	(cd qpi-ui && go test -v ./...)
 
-test-py: test-py-base test-py-cli test-py-aer test-py-quantify
+test-py: test-py-base test-py-cli test-py-aer test-py-quantify test-py-qblox
 
 test-py-base:
 	@echo "Running Python driver tests with base deps only (mock executor)..."
@@ -59,6 +59,15 @@ test-py-aer:
 test-py-quantify:
 	@echo "Running Python driver tests with [quantify] extra..."
 	$(UV) sync --project qpi-driver --extra quantify --dev
+	@if [ "$$(uname)" = "Darwin" ]; then \
+		echo "Fixing macOS codesign for q1asm_macos..."; \
+		codesign --force --deep --sign - qpi-driver/.venv/lib/python3.12/site-packages/qblox_instruments/assemblers/q1asm_macos 2>/dev/null || true; \
+	fi
+	$(UV) run --project qpi-driver pytest qpi-driver/tests/ -v
+
+test-py-qblox:
+	@echo "Running Python driver tests with [qblox] extra..."
+	$(UV) sync --project qpi-driver --extra qblox --dev
 	@if [ "$$(uname)" = "Darwin" ]; then \
 		echo "Fixing macOS codesign for q1asm_macos..."; \
 		codesign --force --deep --sign - qpi-driver/.venv/lib/python3.12/site-packages/qblox_instruments/assemblers/q1asm_macos 2>/dev/null || true; \
