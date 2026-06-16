@@ -209,6 +209,9 @@ jobs:
     needs: lint-and-test-orchestrator-and-driver
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && vars.PUBLISH_TO_PYPI == 'true'
+    environment:
+      name: pypi
+      url: https://pypi.org/p/qpi-driver
     permissions:
       id-token: write
       contents: read
@@ -224,8 +227,11 @@ jobs:
     - name: Build Package
       run: make package-driver
 
-    - name: Upload to pypi
-      run: twine upload --skip-existing -u __token__ -p ${{ secrets.TINI_PYPI_TOKEN }} qpi-driver/dist/*
+    - name: Publish package distributions to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        packages-dir: qpi-driver/dist/
+        print-hash: true
 
   # -------------------------------------------------------------------------
   # Publish qpi-client/py to PyPI
@@ -237,6 +243,9 @@ jobs:
     permissions:
       id-token: write
       contents: read
+    environment:
+      name: pypi
+      url: https://pypi.org/p/qpi-client
     steps:
     - name: Checkout Code
       uses: actions/checkout@v4
@@ -249,8 +258,11 @@ jobs:
     - name: Build Package
       run: make package-py
 
-    - name: Upload to pypi
-      run: twine upload --skip-existing -u __token__ -p ${{ secrets.TINI_PYPI_TOKEN }} qpi-client/py/dist/*
+    - name: Publish package distributions to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        packages-dir: qpi-client/py/dist/
+        print-hash: true
 
   # -------------------------------------------------------------------------
   # Publish qpi-client/js to npm
