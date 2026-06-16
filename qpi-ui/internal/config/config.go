@@ -21,12 +21,12 @@ import (
 
 const (
 	appStoreConfigKey                = "custom_config"
-	defaultQpusCollection            = "qpus"
-	defaultTimeSlotsCollection       = "time_slots"
-	defaultQuantumJobsCollection     = "quantum_jobs"
-	defaultAPITokensCollection       = "api_tokens"
-	defaultQPUTimeRequestsCollection = "qpu_time_requests"
-	defaultNotificationsCollection   = "notifications"
+	DefaultQpusCollection            = "qpus"
+	DefaultTimeSlotsCollection       = "time_slots"
+	DefaultQuantumJobsCollection     = "quantum_jobs"
+	DefaultAPITokensCollection       = "api_tokens"
+	DefaultQPUTimeRequestsCollection = "qpu_time_requests"
+	DefaultNotificationsCollection   = "notifications"
 )
 
 // AppConfig stores application-wide configuration parameters for the QPI orchestrator.
@@ -51,18 +51,38 @@ type AppConfig struct {
 // GetCollectionName returns the collection name for a given default collection name.
 func (c *AppConfig) GetCollectionName(name string) string {
 	switch name {
-	case defaultQpusCollection:
+	case DefaultQpusCollection:
 		return c.CollectionQPUs
-	case defaultTimeSlotsCollection:
+	case DefaultTimeSlotsCollection:
 		return c.CollectionTimeSlots
-	case defaultQuantumJobsCollection:
+	case DefaultQuantumJobsCollection:
 		return c.CollectionQuantumJobs
-	case defaultAPITokensCollection:
+	case DefaultAPITokensCollection:
 		return c.CollectionAPITokens
-	case defaultQPUTimeRequestsCollection:
+	case DefaultQPUTimeRequestsCollection:
 		return c.CollectionQPUTimeRequests
-	case defaultNotificationsCollection:
+	case DefaultNotificationsCollection:
 		return c.CollectionNotifications
+	default:
+		return name
+	}
+}
+
+// GetDefaultCollectionName returns the default collection name for a given default collection name.
+func (c *AppConfig) GetDefaultCollectionName(name string) string {
+	switch name {
+	case c.CollectionQPUs:
+		return DefaultQpusCollection
+	case c.CollectionTimeSlots:
+		return DefaultTimeSlotsCollection
+	case c.CollectionQuantumJobs:
+		return DefaultQuantumJobsCollection
+	case c.CollectionAPITokens:
+		return DefaultAPITokensCollection
+	case c.CollectionQPUTimeRequests:
+		return DefaultQPUTimeRequestsCollection
+	case c.CollectionNotifications:
+		return DefaultNotificationsCollection
 	default:
 		return name
 	}
@@ -81,6 +101,15 @@ func GetConfigFromApp(app core.App) (*AppConfig, error) {
 		return nil, fmt.Errorf("failed to retrieve AppConfig from app store")
 	}
 	return config, nil
+}
+
+// MustGetConfigFromApp retrieves the config from the app instance store, panicking if it fails.
+func MustGetConfigFromApp(app core.App) *AppConfig {
+	cfg, err := GetConfigFromApp(app)
+	if err != nil {
+		panic(err)
+	}
+	return cfg
 }
 
 // Package local flags populated by Cobra flag bindings.
@@ -105,12 +134,12 @@ var (
 // BindFlags registers custom flags on the Cobra command.
 func BindFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().StringVar(&flagConfigFile, "config-file", getEnvString("QPI_CONFIG_FILE", ""), "Path to QPI JSON configuration file")
-	cmd.PersistentFlags().StringVar(&flagCollectionQPUs, "qpus-collection", defaultQpusCollection, "Collection name for QPUs")
-	cmd.PersistentFlags().StringVar(&flagCollectionTimeSlots, "timeslots-collection", defaultTimeSlotsCollection, "Collection name for Time Slots")
-	cmd.PersistentFlags().StringVar(&flagCollectionQuantumJobs, "jobs-collection", defaultQuantumJobsCollection, "Collection name for Quantum Jobs")
-	cmd.PersistentFlags().StringVar(&flagCollectionAPITokens, "api-tokens-collection", defaultAPITokensCollection, "Collection name for API Tokens")
-	cmd.PersistentFlags().StringVar(&flagCollectionNotifications, "notifications-collection", defaultNotificationsCollection, "Collection name for Notifications")
-	cmd.PersistentFlags().StringVar(&flagCollectionTimeRequests, "qpu-time-requests-collection", defaultQPUTimeRequestsCollection, "Collection name for QPU Time Requests")
+	cmd.PersistentFlags().StringVar(&flagCollectionQPUs, "qpus-collection", DefaultQpusCollection, "Collection name for QPUs")
+	cmd.PersistentFlags().StringVar(&flagCollectionTimeSlots, "timeslots-collection", DefaultTimeSlotsCollection, "Collection name for Time Slots")
+	cmd.PersistentFlags().StringVar(&flagCollectionQuantumJobs, "jobs-collection", DefaultQuantumJobsCollection, "Collection name for Quantum Jobs")
+	cmd.PersistentFlags().StringVar(&flagCollectionAPITokens, "api-tokens-collection", DefaultAPITokensCollection, "Collection name for API Tokens")
+	cmd.PersistentFlags().StringVar(&flagCollectionNotifications, "notifications-collection", DefaultNotificationsCollection, "Collection name for Notifications")
+	cmd.PersistentFlags().StringVar(&flagCollectionTimeRequests, "qpu-time-requests-collection", DefaultQPUTimeRequestsCollection, "Collection name for QPU Time Requests")
 	cmd.PersistentFlags().DurationVar(&flagIdleThreshold, "idle-threshold", 5*time.Second, "Idle fallback threshold")
 	cmd.PersistentFlags().DurationVar(&flagRecoveryInterval, "recovery-interval", 10*time.Second, "Stale job recovery check interval")
 	cmd.PersistentFlags().DurationVar(&flagJobTimeout, "job-timeout", 20*time.Second, "Stale job execution timeout")
@@ -127,12 +156,12 @@ func NewFromFlags(cmd *cobra.Command) *AppConfig {
 	cfg := &AppConfig{}
 
 	// 1. Set hardcoded defaults
-	cfg.CollectionQPUs = defaultQpusCollection
-	cfg.CollectionTimeSlots = defaultTimeSlotsCollection
-	cfg.CollectionQuantumJobs = defaultQuantumJobsCollection
-	cfg.CollectionAPITokens = defaultAPITokensCollection
-	cfg.CollectionQPUTimeRequests = defaultQPUTimeRequestsCollection
-	cfg.CollectionNotifications = defaultNotificationsCollection
+	cfg.CollectionQPUs = DefaultQpusCollection
+	cfg.CollectionTimeSlots = DefaultTimeSlotsCollection
+	cfg.CollectionQuantumJobs = DefaultQuantumJobsCollection
+	cfg.CollectionAPITokens = DefaultAPITokensCollection
+	cfg.CollectionQPUTimeRequests = DefaultQPUTimeRequestsCollection
+	cfg.CollectionNotifications = DefaultNotificationsCollection
 	cfg.IdleThreshold = 5 * time.Second
 	cfg.RecoveryInterval = 10 * time.Second
 	cfg.JobTimeout = 20 * time.Second

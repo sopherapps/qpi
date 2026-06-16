@@ -7,6 +7,11 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 
 ## [Unreleased]
 
+### Changed
+
+- `qpi-ui`: Refactored the hooks.go files to make them easier to read
+  
+
 ## [0.0.2] - 2026-06-16
 
 ### Added

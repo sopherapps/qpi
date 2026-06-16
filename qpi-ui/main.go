@@ -47,9 +47,9 @@ func main() {
 	// Register custom HTTP routes & background tasks
 	app.OnServe().Bind(&hook.Handler[*core.ServeEvent]{
 		Func: func(e *core.ServeEvent) error {
-			// Populate and save AppConfig to the App store to ensure it is always available
-			cfg := config.NewFromFlags(app.RootCmd)
-			config.SaveConfigOnApp(e.App, cfg)
+			// // Populate and save AppConfig to the App store to ensure it is always available
+			// cfg := config.NewFromFlags(app.RootCmd)
+			// config.SaveConfigOnApp(e.App, cfg)
 
 			// Register api register handler routes
 			api.RegisterRoutes(e, dashboardFS)
@@ -61,9 +61,42 @@ func main() {
 		},
 	})
 
-	// Register database-level and request-level hooks
-	db.RegisterHooks(app)
-	api.RegisterHooks(app)
+	// for database
+	app.OnRecordCreate().Bind(&hook.Handler[*core.RecordEvent]{
+		Func: db.RegisterCollectionHooks(app, db.CollectionHookMap{
+			config.DefaultTimeSlotsCollection: db.OnTimeSlotUpsert,
+			config.DefaultQpusCollection:      db.OnQpuCreate,
+		}),
+	})
+
+	app.OnRecordUpdate().Bind(&hook.Handler[*core.RecordEvent]{
+		Func: db.RegisterCollectionHooks(app, db.CollectionHookMap{
+			config.DefaultTimeSlotsCollection: db.OnTimeSlotUpsert,
+			config.DefaultQpusCollection:      db.OnQpuUpdate,
+		}),
+	})
+
+	// For requests
+	app.OnRecordCreateRequest().Bind(&hook.Handler[*core.RecordRequestEvent]{
+		Func: api.RegisterRequestHooks(app, api.RequestHookMap{
+			config.DefaultTimeSlotsCollection:       api.OnTimeSlotCreateRequest,
+			config.DefaultQPUTimeRequestsCollection: api.OnQPUTimeRequestCreateRequest,
+		}),
+	})
+
+	app.OnRecordUpdateRequest().Bind(&hook.Handler[*core.RecordRequestEvent]{
+		Func: api.RegisterRequestHooks(app, api.RequestHookMap{
+			config.DefaultTimeSlotsCollection:       api.OnTimeSlotUpdateRequest,
+			config.DefaultQPUTimeRequestsCollection: api.OnQPUTimeRequestUpdateRequest,
+			config.DefaultQpusCollection:            api.OnQpuUpdateRequest,
+		}),
+	})
+
+	app.OnRecordDeleteRequest().Bind(&hook.Handler[*core.RecordRequestEvent]{
+		Func: api.RegisterRequestHooks(app, api.RequestHookMap{
+			config.DefaultTimeSlotsCollection: api.OnTimeSlotDeleteRequest,
+		}),
+	})
 
 	if err := app.Start(); err != nil {
 		log.Fatal(err)
