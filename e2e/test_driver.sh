@@ -1,9 +1,9 @@
 #!/bin/bash
-# test_driver.sh — E2E tests for the qpi-driver (mock and qiskit_aer executors).
+# test_driver.sh — E2E tests for the qpi-driver (mock, qiskit_aer, qblox, quantify executors).
 #
 # Usage:
-#   ./test_driver.sh [mock|qiskit_aer]
-#   ./test_driver.sh          # runs both mock and qiskit_aer
+#   ./test_driver.sh [mock|qiskit_aer|qblox|quantify]
+#   ./test_driver.sh          # runs all mock, qiskit_aer, qblox, and quantify
 
 set -e
 
@@ -12,7 +12,6 @@ source "${DIR}/lib.sh"
 
 # Build once
 build_orchestrator
-install_driver
 
 run_driver_e2e() {
     local executor=$1
@@ -21,6 +20,8 @@ run_driver_e2e() {
     echo "[e2e] Running driver E2E for executor: $executor"
     echo "========================================================================"
     echo ""
+
+    install_driver "$executor"
 
     start_pocketbase
     seed_database
@@ -47,14 +48,12 @@ if [ -n "$1" ]; then
     if [ "$EXECUTOR" = "aer" ]; then
         EXECUTOR="qiskit_aer"
     fi
-    if [ "$EXECUTOR" = "quantify" ]; then
-        echo "[e2e] Live E2E tests are not supported for quantify (requires physical hardware config). Skipping..."
-        exit 0
-    fi
     run_driver_e2e "$EXECUTOR"
 else
     run_driver_e2e "mock"
     run_driver_e2e "qiskit_aer"
+    run_driver_e2e "qblox"
+    run_driver_e2e "quantify"
 fi
 
 echo ""

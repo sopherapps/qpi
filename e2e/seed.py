@@ -48,7 +48,7 @@ def create_qpu():
     resp = s.post(
         f"{BASE}/api/collections/qpus/records",
         json={
-            "name": "QPU-Sim-01",
+            "name": "qpu_sim_01",
             "access_token": ACCESS_TOKEN,
             "status": "offline",
             "nng_command_port": 0,

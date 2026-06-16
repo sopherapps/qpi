@@ -215,7 +215,7 @@ The package exposes a command-line interface via `typer`. Options can be passed 
 Common options:
 * `-a`, `--qpi-addr`: Full URL of the QPI orchestrator (env: `QPI_ADDR`, default: `http://127.0.0.1:8090`).
 * `-t`, `--token`: Access token for the QPU (env: `QPI_ACCESS_TOKEN`, required).
-* `-n`, `--name`: Human-readable name for this QPU (env: `QPU_NAME`, default: `QPU-Sim-01`).
+* `-n`, `--name`: Human-readable name for this QPU (env: `QPU_NAME`, default: `qpu_sim_01`).
 * `-e`, `--executor`: Which executor backend to use (env: `DRIVER_BACKEND`, default: `mock`).
 * `-d`, `--data-dir`: Directory for intermediate NetCDF datasets (env: `QPI_DATA_DIR`, default: `bin/data`).
 * `--is-dummy`: Enable/disable dummy/simulation mode (default: `false`).

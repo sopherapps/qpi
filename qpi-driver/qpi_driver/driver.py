@@ -239,7 +239,7 @@ def send_results(
 def run_driver(
     qpi_addr: str = "http://127.0.0.1:8090",
     token: str = "",
-    name: str = "QPU-Sim-01",
+    name: str = "qpu_sim_01",
     executor: str | type[Executor] | Executor = "mock",
     custom_executors: dict[str, type[Executor]] | None = None,
     data_dir: Path = Path("bin/data"),

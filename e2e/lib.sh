@@ -68,13 +68,34 @@ detect_python() {
 # Install packages
 # ---------------------------------------------------------------------------
 install_driver() {
-    echo "[e2e] Syncing Python qpi-driver package dependencies..."
+    local executor="${1:-mock}"
+    echo "[e2e] Syncing Python qpi-driver package dependencies (executor=$executor)..."
+
+    local uv_extras="--extra cli"
+    local pip_extras="cli"
+
+    case "$executor" in
+        qiskit_aer)
+            uv_extras="$uv_extras --extra aer"
+            pip_extras="$pip_extras,aer"
+            ;;
+        quantify)
+            uv_extras="$uv_extras --extra quantify"
+            pip_extras="$pip_extras,quantify"
+            ;;
+        qblox)
+            uv_extras="$uv_extras --extra qblox"
+            pip_extras="$pip_extras,qblox"
+            ;;
+        # mock and any other executor: cli only
+    esac
+
     if command -v uv >/dev/null 2>&1; then
-        uv sync --project "${PROJECT_ROOT}/qpi-driver" --extra cli --extra aer --extra quantify
+        uv sync --project "${PROJECT_ROOT}/qpi-driver" $uv_extras
     else
         local py
         py="$(detect_python)"
-        "$py" -m pip install -e "${PROJECT_ROOT}/qpi-driver[cli,aer,quantify]"
+        "$py" -m pip install -e "${PROJECT_ROOT}/qpi-driver[$pip_extras]"
     fi
 }
 
@@ -142,10 +163,17 @@ seed_database() {
 # ---------------------------------------------------------------------------
 start_driver() {
     local executor="${1:-mock}"
+
     echo "[e2e] Starting Python driver with executor: $executor..."
     local py
     py="$(detect_python)"
-    QPI_ACCESS_TOKEN=my-super-secret-token-12345 "$py" -m qpi_driver.cli start --executor "$executor" --data-dir "${PROJECT_ROOT}/bin/data" &
+
+    local extra_flags=""
+    if [ "$executor" = "quantify" ] || [ "$executor" = "qblox" ]; then
+        extra_flags="--quantify-hardware-config ${PROJECT_ROOT}/qpi-driver/tests/fixtures/quantify.hardware.json --quantify-device-config ${PROJECT_ROOT}/qpi-driver/tests/fixtures/quantify.device.yml"
+    fi
+
+    QPI_ACCESS_TOKEN=my-super-secret-token-12345 "$py" -m qpi_driver.cli start --executor "$executor" --data-dir "${PROJECT_ROOT}/bin/data" --is-dummy $extra_flags &
     DRIVER_PID=$!
 }
 

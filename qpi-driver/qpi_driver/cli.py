@@ -37,7 +37,7 @@ if typer.IS_TYPER_INSTALLED:
                 envvar="QPU_NAME",
                 help="Human-readable name for this QPU",
             ),
-        ] = "QPU-Sim-01",
+        ] = "qpu_sim_01",
         executor: Annotated[
             str,
             typer.Option(
