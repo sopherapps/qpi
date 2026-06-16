@@ -9,6 +9,25 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 
 ### Changed
 
+- `qpi-driver`: [BREAKING] Changed the format of the `element_type` in quantify.device.yml to include
+  `path (str)`, `args (tuple)` and `kwargs (dict)`
+- `qpi-driver`: Unskipped the e2e errors for 'quantify' executor
+- `qpi-driver`: Added a log file for the driver at `data/{executor}-driver.log` during e2e tests 
+
+### Fixed
+
+- `qpi-driver`: Failing e2e errors for 'qblox' executor. Specifically:
+  - Fixed 4ns grid rounding misalignment on custom durations for `Delay` operations.
+  - Added support for OpenQASM `Delay` instructions by mapping them to `IdlePulse`.
+  - Added concurrent anchoring (`ref_pt="start"`) for parallel multi-qubit Qiskit instructions (e.g., `Measure`, `Delay`, `Barrier`).
+  - Handled invalid `-1` hardware acquisition dummy data thresholds during Qblox and Quantify dummy measurements.
+- `qpi`: Resolved Apple Silicon macOS codesign binary integrity crashes during the E2E suite due to dynamically installed `q1asm_macos`.
+
+
+## [0.0.3] - 2026-06-16
+
+### Changed
+
 - `qpi-ui`: Refactored the hooks.go files to make them easier to read
   
 

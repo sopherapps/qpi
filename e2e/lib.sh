@@ -15,6 +15,7 @@ set -e
 # ---------------------------------------------------------------------------
 E2E_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 PROJECT_ROOT="$(dirname "$E2E_DIR")"
+DATA_DIR="${PROJECT_ROOT}/data"
 
 # ---------------------------------------------------------------------------
 # State
@@ -93,9 +94,12 @@ install_driver() {
     if command -v uv >/dev/null 2>&1; then
         uv sync --project "${PROJECT_ROOT}/qpi-driver" $uv_extras
     else
-        local py
-        py="$(detect_python)"
-        "$py" -m pip install -e "${PROJECT_ROOT}/qpi-driver[$pip_extras]"
+        echo "[e2e] uv not found, falling back to pip..."
+        pip install -e "${PROJECT_ROOT}/qpi-driver[$pip_extras]"
+    fi
+
+    if [ "$(uname)" = "Darwin" ]; then
+        codesign --force --deep --sign - "${PROJECT_ROOT}/qpi-driver/.venv/lib/python3.12/site-packages/qblox_instruments/assemblers/q1asm_macos" 2>/dev/null || true
     fi
 }
 
@@ -163,6 +167,7 @@ seed_database() {
 # ---------------------------------------------------------------------------
 start_driver() {
     local executor="${1:-mock}"
+    DRIVER_LOG="${DATA_DIR}/${executor}-driver.log"
 
     echo "[e2e] Starting Python driver with executor: $executor..."
     local py
@@ -173,7 +178,7 @@ start_driver() {
         extra_flags="--quantify-hardware-config ${PROJECT_ROOT}/qpi-driver/tests/fixtures/quantify.hardware.json --quantify-device-config ${PROJECT_ROOT}/qpi-driver/tests/fixtures/quantify.device.yml"
     fi
 
-    QPI_ACCESS_TOKEN=my-super-secret-token-12345 "$py" -m qpi_driver.cli start --executor "$executor" --data-dir "${PROJECT_ROOT}/bin/data" --is-dummy $extra_flags &
+    QPI_ACCESS_TOKEN=my-super-secret-token-12345 "$py" -m qpi_driver.cli start --executor "$executor" --data-dir "${PROJECT_ROOT}/bin/data" --is-dummy $extra_flags >"$DRIVER_LOG" 2>&1 &
     DRIVER_PID=$!
 }
 

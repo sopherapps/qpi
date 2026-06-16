@@ -1,11 +1,13 @@
 """Module containing compatibility imports for quantify-related libraries"""
 
+import logging
 from enum import Enum
 from typing import Any, TypeAlias
 
 from qpi_driver.compat.shared import BasicCompatClass
 
 try:
+    from pydantic import BaseModel, ImportString, field_validator
     from qblox_instruments import Cluster, ClusterType, InstrumentType
     from qcodes.instrument import InstrumentModule
     from qcodes.instrument.base import Instrument
@@ -18,6 +20,8 @@ try:
     )
     from quantify_scheduler.backends.types.qblox import ClusterDescription
     from quantify_scheduler.device_under_test.quantum_device import (
+        DeviceElement,
+        Edge,
         QuantumDevice,
     )
     from quantify_scheduler.device_under_test.transmon_element import (
@@ -40,15 +44,24 @@ try:
         Y,
         Z,
     )
+    from quantify_scheduler.operations.pulse_library import IdlePulse
     from quantify_scheduler.qblox import ClusterComponent
+    from quantify_scheduler.schedules import Schedulable
 
     IS_QUANTIFY_INSTALLED: bool = True
 
-except ImportError:
+except ImportError as exp:
+    logging.debug(f"failed importing from quantify.compat {exp}")
     IS_QUANTIFY_INSTALLED: bool = False
 
     def set_datadir(*args, **kwargs):
         pass
+
+    def field_validator(*args, **kwargs):
+        def decor(*args, **kwargs):
+            return args
+
+        return decor
 
     QbloxHardwareCompilationConfig: TypeAlias = Any
     ClusterComponent: TypeAlias = Any
@@ -57,6 +70,14 @@ except ImportError:
     QuantumDevice: TypeAlias = Any
     SerialCompiler: TypeAlias = Any
     Cluster: TypeAlias = Any
+    ImportString: TypeAlias = Any
+    Schedulable: TypeAlias = Any
+
+    class DeviceElement(BasicCompatClass): ...
+
+    class Edge(BasicCompatClass): ...
+
+    class BaseModel(BasicCompatClass): ...
 
     class CNOT(BasicCompatClass): ...
 
@@ -85,6 +106,8 @@ except ImportError:
     class SDagger(BasicCompatClass): ...
 
     class TDagger(BasicCompatClass): ...
+
+    class IdlePulse(BasicCompatClass): ...
 
     class InstrumentModule(BasicCompatClass): ...
 

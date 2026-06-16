@@ -1,6 +1,9 @@
 # file containing the calibration data for the device
 q0:
-  element_type: "quantify_scheduler.device_under_test.transmon_element.BasicTransmonElement"
+  element_type:
+    path: "quantify_scheduler.device_under_test.transmon_element.BasicTransmonElement"
+    args:
+      - q0
   rxy:
     amp180: 0.1
     motzoi: 0
@@ -15,7 +18,10 @@ q0:
     integration_time: 1e-6
 
 q1:
-  element_type: "quantify_scheduler.device_under_test.transmon_element.BasicTransmonElement"
+  element_type:
+    path: "quantify_scheduler.device_under_test.transmon_element.BasicTransmonElement"
+    kwargs:
+      name: q1
   rxy:
     amp180: 0.1
     motzoi: 0
@@ -28,3 +34,14 @@ q1:
     pulse_duration: 300e-9
     acq_delay: 100e-9
     integration_time: 1e-6
+
+q0_q1:
+  element_type: 
+    path: "quantify_scheduler.device_under_test.composite_square_edge.CompositeSquareEdge"
+    args:
+    kwargs:
+      parent_element_name: q0
+      child_element_name: q1
+  cz:
+    square_amp: 0.5
+    square_duration: 20e-9

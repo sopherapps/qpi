@@ -1,5 +1,4 @@
 import copy
-import importlib
 from contextlib import suppress
 from pathlib import Path
 from typing import Any
@@ -12,14 +11,18 @@ from qiskit import QuantumCircuit
 from qiskit.circuit import library as qiskit_library
 
 from qpi_driver.compat.quantify import (
-    CNOT,
     CZ,
     IS_QUANTIFY_INSTALLED,
+    BaseModel,
     Cluster,
     ClusterComponent,
     ClusterDescription,
     ClusterType,
+    DeviceElement,
+    Edge,
     H,
+    IdlePulse,
+    ImportString,
     Instrument,
     InstrumentCoordinator,
     InstrumentModule,
@@ -41,6 +44,7 @@ from qpi_driver.compat.quantify import (
     X,
     Y,
     Z,
+    field_validator,
     set_datadir,
 )
 from qpi_driver.executors.base import Executor, JobPayload
@@ -143,8 +147,20 @@ class QuantifyExecutor(Executor):
                 acq_protocol=acq_protocol,
                 acq_kwargs=acq_kwargs,
             )
-            for op in parsed_ops:
-                schedule.add(op)
+            import qiskit
+
+            is_parallel_op = isinstance(
+                instruction.operation,
+                (qiskit_library.Measure, qiskit.circuit.Delay, qiskit_library.Barrier),
+            )
+
+            if is_parallel_op and parsed_ops:
+                first_op = schedule.add(parsed_ops[0])
+                for op in parsed_ops[1:]:
+                    schedule.add(op, ref_op=first_op, ref_pt="start")
+            else:
+                for op in parsed_ops:
+                    schedule.add(op)
 
         compiled_sched = self._compiler.compile(schedule=schedule)
 
@@ -335,7 +351,8 @@ class QuantifyExecutor(Executor):
                 for q_idx in reversed(qubit_vars):
                     var_key = q_idx if q_idx in dataset else str(q_idx)
                     val = dataset[var_key].values[s]
-                    state_chars.append(str(int(val.real)))
+                    r = val.real if val is not None and not np.isnan(val.real) else 0.0
+                    state_chars.append(str(1 if r >= 1 else 0))
                 state_str = "".join(state_chars)
                 counts_dict[state_str] = counts_dict.get(state_str, 0) + 1
         else:
@@ -387,6 +404,42 @@ class QuantifyExecutor(Executor):
 
         with suppress(Exception):
             self._instrument_coordinator.close()
+
+
+class _ElementType(BaseModel):
+    """The config for each element defined in the device-layer config"""
+
+    path: ImportString
+    args: tuple = ()
+    kwargs: dict = {}
+
+    @field_validator("args", mode="before")
+    @classmethod
+    def conv_none_to_empty_tuple(cls, value: Any):
+        """Ensures None values become empty tuple"""
+        if value is None:
+            return ()
+        return value
+
+    @field_validator("kwargs", mode="before")
+    @classmethod
+    def conv_none_to_empty_dict(cls, value: Any):
+        """Ensures None values become empty tuple"""
+        if value is None:
+            return {}
+        return value
+
+    @field_validator("path", mode="before")
+    @classmethod
+    def ensure_quantify(cls, value: Any):
+        """Ensures that the import paths are for quantify-scheduler not qblox-scheduler"""
+        if isinstance(value, str):
+            return value.replace("qblox_scheduler.", "quantify_scheduler.")
+        return value
+
+    def instantiate(self) -> Any:
+        """Instantiates the class"""
+        return self.path(*self.args, **self.kwargs)
 
 
 def _to_quantify_gates(
@@ -450,18 +503,62 @@ def _to_quantify_gates(
         return [Rxy(theta=-90.0, phi=0.0, qubit=q) for q in qubits]
 
     if isinstance(gate, qiskit_library.CXGate):
-        return [CNOT(qC=c, qT=t) for c, t in zip(qubits[0::2], qubits[1::2])]
+        # CNOT: is not natively supported by quantify
+        ops = []
+        for c, t in zip(qubits[0::2], qubits[1::2]):
+            ops.extend(
+                [
+                    H(t),
+                    CZ(qC=c, qT=t),
+                    H(t),
+                ]
+            )
+        return ops
 
     if isinstance(gate, qiskit_library.CZGate):
         return [CZ(qC=c, qT=t) for c, t in zip(qubits[0::2], qubits[1::2])]
 
+    if isinstance(gate, qiskit_library.CCXGate):
+        # the Toffoli gate. Do note that CX is not natively supported so we use other combinations
+        ops = []
+        for c1, c2, t in zip(qubits[0::3], qubits[1::3], qubits[2::3]):
+            ops.extend(
+                [
+                    H(t),
+                    CZ(qC=c2, qT=t),
+                    TDagger(t),
+                    CZ(qC=c1, qT=t),
+                    T(t),
+                    CZ(qC=c2, qT=t),
+                    TDagger(t),
+                    H(t),
+                    # final entangling phase cleanup between controls
+                    CZ(qC=c1, qT=c2),
+                    TDagger(c2),
+                    CZ(qC=c1, qT=c2),
+                ]
+            )
+        return ops
+
     if isinstance(gate, qiskit_library.SwapGate):
         # Expands each control/target pair into 3 CNOT operations sequentially
-        return [
-            gate
-            for c, t in zip(qubits[0::2], qubits[1::2])
-            for gate in [CNOT(qC=c, qT=t), CNOT(qC=t, qT=c), CNOT(qC=c, qT=t)]
-        ]
+        # but since CNOT is not natively supported, we decompose it to H, CZ, H
+        ops = []
+        for c, t in zip(qubits[0::2], qubits[1::2]):
+            ops.extend(
+                [
+                    H(t),
+                    CZ(qC=c, qT=t),
+                    H(t),
+                    H(c),
+                    CZ(qC=c, qT=t),
+                    H(c),
+                    H(t),
+                    CZ(qC=c, qT=t),
+                    H(t),
+                ]
+            )
+        return ops
 
     if isinstance(gate, qiskit_library.RXGate):
         theta_deg = float(np.degrees(params[0]))
@@ -509,6 +606,23 @@ def _to_quantify_gates(
             # update the measurement count for that qubit to allow for multiple measurements on a qubit
             acq_indices[idx] = acq_idx + 1
         return result
+
+    if isinstance(gate, qiskit.circuit.Delay):
+        duration = gate.duration
+        unit = gate.unit
+        if unit == "s":
+            time_ns = duration * 1e9
+        elif unit == "ms":
+            time_ns = duration * 1e6
+        elif unit == "us":
+            time_ns = duration * 1e3
+        elif unit == "ns":
+            time_ns = duration
+        else:
+            raise ValueError(f"Delay unit '{unit}' is not supported without a backend.")
+
+        duration_s = _to_multiple_of_4(time_ns) * 1e-9
+        return [IdlePulse(duration=duration_s)]
 
     if isinstance(gate, qiskit_library.Barrier):
         return []
@@ -570,20 +684,23 @@ def _load_quantum_device(name: str, config: Path | dict) -> QuantumDevice:
                 f"Element '{element_name}' is missing a '{_DEVICE_ELEMENT_TYPE_PROP}' specification."
             )
 
+        element_type_conf = _ElementType.model_validate(element_type)
+
         try:
-            module_path, element_cls_name = element_type.rsplit(".", 1)
-        except ValueError:
+            element_instance = element_type_conf.instantiate()
+            _apply_parameters(element_instance, element_data)
+            if isinstance(element_instance, DeviceElement):
+                quantum_device.add_element(element_instance)
+            elif isinstance(element_instance, Edge):
+                quantum_device.add_edge(element_instance)
+            else:
+                raise TypeError(
+                    f"Element '{element_name}' is has an unsupported type {type(element_instance)}."
+                )
+        except Exception as exp:
             raise ValueError(
-                f"Element type '{element_type}' is not a valid full import path for element class."
-            )
-
-        module = importlib.import_module(module_path)
-        element_class = getattr(module, element_cls_name)
-
-        element_instance = element_class(element_name)
-        _apply_parameters(element_instance, element_data)
-
-        quantum_device.add_element(element_instance)
+                f"Failed to add element '{element_name}' from <{element_type_conf}> to quantum device, {exp}"
+            ) from exp
 
     return quantum_device
 
@@ -599,7 +716,7 @@ def _to_num(value: Any) -> Any:
     return value
 
 
-def _apply_parameters(obj: InstrumentModule | ParameterBase, data: dict):
+def _apply_parameters(obj: InstrumentModule | ParameterBase, data: dict | Any):
     """Helper to recursively map dictionaries onto QCoDeS submodules/parameters
 
     Args:
@@ -672,3 +789,8 @@ def _to_cluster_type(value: InstrumentType) -> ClusterType:
         the corresponding ClusterType
     """
     return getattr(ClusterType, f"CLUSTER_{value}")
+
+
+def _to_multiple_of_4(time_ns: float) -> int:
+    """Converts the given time_ns to a multiple of 4"""
+    return int(round(time_ns / 4.0) * 4)
