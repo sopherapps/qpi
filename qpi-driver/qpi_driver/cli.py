@@ -130,7 +130,7 @@ if typer.IS_TYPER_INSTALLED:
         try:
             ver = importlib.metadata.version("qpi-driver")
         except importlib.metadata.PackageNotFoundError:
-            ver = "0.0.2"
+            ver = "0.0.3"
 
         typer.echo(ver)
 
