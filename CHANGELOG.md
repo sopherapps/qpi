@@ -7,6 +7,8 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 
 ## [Unreleased]
 
+## [0.0.7] - 2026-06-17
+
 ### Added
 
 - Added logo to CLI and README

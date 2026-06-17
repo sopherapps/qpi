@@ -130,21 +130,16 @@ if typer.IS_TYPER_INSTALLED:
         """
         Show the version of the QPI driver.
         """
+        typer.echo(_get_version())
 
+    def _get_version() -> str:
         try:
-            ver = importlib.metadata.version("qpi-driver")
+            return importlib.metadata.version("qpi-driver")
         except importlib.metadata.PackageNotFoundError:
-            ver = "0.0.6"
-
-        typer.echo(ver)
+            return "0.0.7"
 
     def _banner():
-        """Renders the banner at the top of the CLI"""
-        try:
-            ver = importlib.metadata.version("qpi-driver")
-        except importlib.metadata.PackageNotFoundError:
-            ver = "0.0.6"
-            
+        """Renders the banner at the top of the CLI""" 
         text = (
             "[bold bright_cyan]  ██████╗ ██████╗ ██╗  [/bold bright_cyan]\n"
             "[bold bright_cyan] ██╔═══██╗██╔══██╗██║  [/bold bright_cyan]\n"
@@ -154,7 +149,7 @@ if typer.IS_TYPER_INSTALLED:
             "[bold bright_cyan]  ╚══▀▀═╝ ╚═╝     ╚═╝  [/bold bright_cyan]\n"
             "\n"
             "  [dim]Quantum Processing Interface[/dim]\n"
-            f"  [dim]Hardware Driver[/dim]  [bold]{ver}[/bold]\n"
+            f"  [dim]Hardware Driver[/dim]  [bold]{_get_version()}[/bold]\n"
             "\n"
             "  [link=https://github.com/sopherapps/qpi]github.com/sopherapps/qpi[/link]"
         )
