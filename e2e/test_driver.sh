@@ -38,9 +38,13 @@ run_driver_e2e() {
 
     if [ "$status" -ne 0 ]; then
         echo "[e2e] Driver E2E FAILED for executor: $executor"
+        echo "=== Driver Logs ==="
+        cat "${PROJECT_ROOT}/data/${executor}-driver.log" || true
         exit 1
     fi
     echo "[e2e] Driver E2E PASSED for executor: $executor"
+    echo "=== Driver Logs ==="
+    cat "${PROJECT_ROOT}/data/${executor}-driver.log" || true
 }
 
 if [ -n "$1" ]; then

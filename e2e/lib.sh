@@ -123,7 +123,8 @@ start_pocketbase() {
     "${PROJECT_ROOT}/bin/qpi" superuser upsert admin@example.com supersecretpassword1234 --dir "${PROJECT_ROOT}/bin/pb_data"
 
     echo "[e2e] Starting PocketBase server..."
-    "${PROJECT_ROOT}/bin/qpi" serve --dir "${PROJECT_ROOT}/bin/pb_data" --dev &
+    mkdir -p "${DATA_DIR}"
+    "${PROJECT_ROOT}/bin/qpi" serve --dir "${PROJECT_ROOT}/bin/pb_data" --dev > "${DATA_DIR}/pocketbase.log" 2>&1 &
     PB_PID=$!
 
     echo "[e2e] Waiting for PocketBase to be ready..."
@@ -178,7 +179,7 @@ start_driver() {
         extra_flags="--quantify-hardware-config ${PROJECT_ROOT}/qpi-driver/tests/fixtures/quantify.hardware.json --quantify-device-config ${PROJECT_ROOT}/qpi-driver/tests/fixtures/quantify.device.yml"
     fi
 
-    QPI_ACCESS_TOKEN=my-super-secret-token-12345 "$py" -m qpi_driver.cli start --executor "$executor" --data-dir "${PROJECT_ROOT}/bin/data" --is-dummy $extra_flags >"$DRIVER_LOG" 2>&1 &
+    QPI_ACCESS_TOKEN=my-super-secret-token-12345 "$py" -u -m qpi_driver.cli start --executor "$executor" --data-dir "${PROJECT_ROOT}/bin/data" --is-dummy $extra_flags >"$DRIVER_LOG" 2>&1 &
     DRIVER_PID=$!
 }
 

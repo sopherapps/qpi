@@ -19,6 +19,7 @@ from qpi_driver.executors import Executor, JobPayload
 logging.basicConfig(
     level=logging.INFO,
     format="[MainProcess] %(levelname)s %(message)s",
+    force=True,
 )
 log = logging.getLogger(__name__)
 
@@ -130,6 +131,7 @@ def execute_job(
     logging.basicConfig(
         level=logging.INFO,
         format="[WorkerProcess] %(levelname)s %(message)s",
+        force=True,
     )
     w_log = logging.getLogger("worker")
     w_log.info("Worker process started")
@@ -200,6 +202,7 @@ def send_results(
     logging.basicConfig(
         level=logging.INFO,
         format="[ResultSender] %(levelname)s %(message)s",
+        force=True,
     )
     rs_log = logging.getLogger("result_sender")
     rs_log.info("Result sender process started")
