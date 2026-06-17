@@ -303,6 +303,8 @@ jobs:
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && vars.PUBLISH_GO_APP == 'true'
     permissions:
       contents: write
+    env:
+      RAW_VERSION: ${{ github.ref_name }}
     steps:
     - name: Checkout Code
       uses: actions/checkout@v4
@@ -317,14 +319,12 @@ jobs:
 
     - name: Generate Changelog
       run: |
-        TAG_NAME=${{ github.ref_name }}
-        VERSION=${TAG_NAME#v}
+        VERSION=${RAW_VERSION#v}
         awk -v ver="$VERSION" '/^## \[/ { if ($0 ~ "^## \\[" ver "\\]") { flag=1; next } else { flag=0 } } flag' CHANGELOG.md > ${{ github.workspace }}-CHANGELOG.txt
 
     - name: Build Packages
       run: |
-        VERSION=${{ github.ref_name }}
-        make package VERSION=$${VERSION#v}
+        make package VERSION=${RAW_VERSION#v}
 
     - name: Upload Binaries to Release
       uses: softprops/action-gh-release@v3
