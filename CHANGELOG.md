@@ -7,11 +7,17 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 
 ## [Unreleased]
 
+## [0.0.6] - 2026-06-17
+
+### Fixed
+
+- Fixed failing tests on GitHub CI and reduced pocketbase's verbosity.
+
 ## [0.0.5] - 2026-06-17
 
 ### Changed
 
-- Fix GitHub Actions matrix for tests sleeping.
+- Fixed GitHub Actions matrix for tests sleeping.
 
 ## [0.0.4] - 2026-06-17
 
