@@ -5,6 +5,8 @@ from typing import Annotated
 from qpi_driver.compat import typer
 from qpi_driver.driver import run_driver
 
+
+
 app = None
 if typer.IS_TYPER_INSTALLED:
     app = typer.Typer(help="Quantum Processing Interface (QPI) Hardware Driver CLI")
@@ -109,6 +111,8 @@ if typer.IS_TYPER_INSTALLED:
             )
             raise typer.Exit(code=1)
 
+        typer.rich_print(_banner())
+
         run_driver(
             qpi_addr=qpi_addr,
             token=token,
@@ -133,6 +137,33 @@ if typer.IS_TYPER_INSTALLED:
             ver = "0.0.6"
 
         typer.echo(ver)
+
+    def _banner():
+        """Renders the banner at the top of the CLI"""
+        try:
+            ver = importlib.metadata.version("qpi-driver")
+        except importlib.metadata.PackageNotFoundError:
+            ver = "0.0.6"
+            
+        text = (
+            "[bold bright_cyan]  ██████╗ ██████╗ ██╗  [/bold bright_cyan]\n"
+            "[bold bright_cyan] ██╔═══██╗██╔══██╗██║  [/bold bright_cyan]\n"
+            "[bold bright_cyan] ██║   ██║██████╔╝██║  [/bold bright_cyan]\n"
+            "[bold bright_cyan] ██║▄▄ ██║██╔═══╝ ██║  [/bold bright_cyan]\n"
+            "[bold bright_cyan] ╚██████╔╝██║     ██║  [/bold bright_cyan]\n"
+            "[bold bright_cyan]  ╚══▀▀═╝ ╚═╝     ╚═╝  [/bold bright_cyan]\n"
+            "\n"
+            "  [dim]Quantum Processing Interface[/dim]\n"
+            f"  [dim]Hardware Driver[/dim]  [bold]{ver}[/bold]\n"
+            "\n"
+            "  [link=https://github.com/sopherapps/qpi]github.com/sopherapps/qpi[/link]"
+        )
+        return typer.Panel(
+            text,
+            border_style="bright_cyan",
+            padding=(1, 2),
+        )
+
 
     if __name__ == "__main__":
         app()

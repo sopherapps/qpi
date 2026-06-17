@@ -7,6 +7,14 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 
 ## [Unreleased]
 
+### Added
+
+- Added logo to CLI and README
+
+### Fixed
+
+- Fixed error with 'make package' failing due to missing dashboard built files
+
 ## [0.0.6] - 2026-06-17
 
 ### Fixed

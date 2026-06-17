@@ -1,12 +1,26 @@
-# QPI: Quantum Processing Interface
+<pre align="center">
+ ██████╗ ██████╗ ██╗
+██╔═══██╗██╔══██╗██║
+██║   ██║██████╔╝██║
+██║▄▄ ██║██╔═══╝ ██║
+╚██████╔╝██║     ██║
+ ╚══▀▀═╝ ╚═╝     ╚═╝
+</pre>
 
-[![CI/CD Workflow](https://github.com/sopherapps/qpi/actions/workflows/ci.yml/badge.svg)](https://github.com/sopherapps/qpi/actions/workflows/ci.yml)
-[![PyPI version](https://badge.fury.io/py/qpi-driver.svg)](https://badge.fury.io/py/qpi-driver)
-[![PyPI version](https://badge.fury.io/py/qpi-client.svg)](https://badge.fury.io/py/qpi-client)
-![GitHub Tag](https://img.shields.io/github/v/tag/sopherapps/qpi)
+<h1 align="center">QPI: Quantum Processing Interface</h1>
+
+<p align="center">
+  <a href="https://github.com/sopherapps/qpi/actions/workflows/ci.yml"><img src="https://github.com/sopherapps/qpi/actions/workflows/ci.yml/badge.svg" alt="CI/CD Workflow"></a>
+  <a href="https://badge.fury.io/py/qpi-driver"><img src="https://badge.fury.io/py/qpi-driver.svg" alt="PyPI qpi-driver"></a>
+  <a href="https://badge.fury.io/py/qpi-client"><img src="https://badge.fury.io/py/qpi-client.svg" alt="PyPI qpi-client"></a>
+  <img src="https://img.shields.io/github/v/tag/sopherapps/qpi" alt="GitHub Tag">
+</p>
+
+<p align="center">
+  QPI is a distributed quantum control stack architecture designed to control multiple Quantum Processing Units (QPUs).
+</p>
 
 
-QPI is a distributed quantum control stack architecture designed to control multiple Quantum Processing Units (QPUs).
 
 ## Prerequisites
 
