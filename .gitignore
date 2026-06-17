@@ -19,6 +19,7 @@ bin
 
 # AI
 INSTRUCTIONS.md
+.github/skills/
 
 # QPI config file
 qpi.config.yml
