@@ -177,7 +177,7 @@ format-py-client:
 # Package / Publish targets
 # ---------------------------------------------------------------------------
 
-package:
+package: build-dashboard
 	@echo "Packaging Go application..."
 	./scripts/package.sh $(VERSION)
 
