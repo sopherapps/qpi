@@ -2,6 +2,9 @@
 
 [![CI/CD Workflow](https://github.com/sopherapps/qpi/actions/workflows/ci.yml/badge.svg)](https://github.com/sopherapps/qpi/actions/workflows/ci.yml)
 [![PyPI version](https://badge.fury.io/py/qpi-driver.svg)](https://badge.fury.io/py/qpi-driver)
+[![PyPI version](https://badge.fury.io/py/qpi-client.svg)](https://badge.fury.io/py/qpi-client)
+![GitHub Tag](https://img.shields.io/github/v/tag/sopherapps/qpi)
+
 
 QPI is a distributed quantum control stack architecture designed to control multiple Quantum Processing Units (QPUs).
 
