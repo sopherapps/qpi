@@ -7,6 +7,12 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 
 ## [Unreleased]
 
+## [0.0.5] - 2026-06-17
+
+### Changed
+
+- Fix GitHub Actions matrix for tests sleeping.
+
 ## [0.0.4] - 2026-06-17
 
 ### Changed
