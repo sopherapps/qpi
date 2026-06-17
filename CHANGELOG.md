@@ -7,6 +7,8 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 
 ## [Unreleased]
 
+## [0.0.4] - 2026-06-17
+
 ### Changed
 
 - `qpi-driver`: [BREAKING] Changed the format of the `element_type` in quantify.device.yml to include
