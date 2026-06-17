@@ -7,6 +7,12 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 
 ## [Unreleased]
 
+## [0.0.8] - 2026-06-17
+
+### Added
+
+- Added READMEs for all client packages (Go, JS, Python) and the hardware driver
+
 ## [0.0.7] - 2026-06-17
 
 ### Added

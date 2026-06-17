@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "qpi-client"
-version = "0.0.7"
+version = "0.0.8"
 description = "Python client SDK for the QPI quantum computing platform"
 readme = "README.md"
 license = {text = "MIT"}
