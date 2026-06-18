@@ -3,7 +3,6 @@ import json
 import logging
 import multiprocessing
 import os
-import socket
 import ssl
 import time
 from dataclasses import dataclass

@@ -2,9 +2,6 @@ import importlib.metadata
 from pathlib import Path
 from typing import Annotated
 
-from pygments.lexer import default
-from pynng import tls
-
 from qpi_driver.compat import typer
 from qpi_driver.driver import get_tls_config, run_driver
 

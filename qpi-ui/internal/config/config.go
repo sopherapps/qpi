@@ -491,8 +491,8 @@ func NewFromFlags(cmd *cobra.Command) (*AppConfig, error) {
 
 	// Helper resolution functions to check precedence: CLI Changed > Env Set > Config File / Default
 	resolveString := func(flagName, envName, current string) string {
-		if cmd != nil && cmd.Flags().Changed(flagName) {
-			val, _ := cmd.Flags().GetString(flagName)
+		if cmd != nil && cmd.PersistentFlags().Changed(flagName) {
+			val, _ := cmd.PersistentFlags().GetString(flagName)
 			return val
 		}
 		if envVal := os.Getenv(envName); envVal != "" {
@@ -502,8 +502,8 @@ func NewFromFlags(cmd *cobra.Command) (*AppConfig, error) {
 	}
 
 	resolveDuration := func(flagName, envName string, current time.Duration) time.Duration {
-		if cmd != nil && cmd.Flags().Changed(flagName) {
-			val, _ := cmd.Flags().GetDuration(flagName)
+		if cmd != nil && cmd.PersistentFlags().Changed(flagName) {
+			val, _ := cmd.PersistentFlags().GetDuration(flagName)
 			return val
 		}
 		if envVal := os.Getenv(envName); envVal != "" {
@@ -515,8 +515,8 @@ func NewFromFlags(cmd *cobra.Command) (*AppConfig, error) {
 	}
 
 	resolveInt := func(flagName, envName string, current int) int {
-		if cmd != nil && cmd.Flags().Changed(flagName) {
-			val, _ := cmd.Flags().GetInt(flagName)
+		if cmd != nil && cmd.PersistentFlags().Changed(flagName) {
+			val, _ := cmd.PersistentFlags().GetInt(flagName)
 			return val
 		}
 		if envVal := os.Getenv(envName); envVal != "" {
@@ -528,8 +528,8 @@ func NewFromFlags(cmd *cobra.Command) (*AppConfig, error) {
 	}
 
 	resolveBool := func(flagName, envName string, current bool) bool {
-		if cmd != nil && cmd.Flags().Changed(flagName) {
-			val, _ := cmd.Flags().GetBool(flagName)
+		if cmd != nil && cmd.PersistentFlags().Changed(flagName) {
+			val, _ := cmd.PersistentFlags().GetBool(flagName)
 			return val
 		}
 		if envVal := os.Getenv(envName); envVal != "" {
@@ -543,8 +543,8 @@ func NewFromFlags(cmd *cobra.Command) (*AppConfig, error) {
 	// Overlay Env and CLI precedence
 	cfg.TlsCertFile = resolveString("tls-cert-file", "QPI_TLS_CERT_FILE", cfg.TlsCertFile)
 	cfg.TlsKeyFile = resolveString("tls-key-file", "QPI_TLS_KEY_FILE", cfg.TlsKeyFile)
-	cfg.TlsCertFile = resolveString("tls-ca-cert-file", "QPI_TLS_CA_CERT_FILE", cfg.TlsCaCertFile)
-	cfg.TlsKeyFile = resolveString("tls-ca-key-file", "QPI_TLS_CA_KEY_FILE", cfg.TlsCaKeyFile)
+	cfg.TlsCaCertFile = resolveString("tls-ca-cert-file", "QPI_TLS_CA_CERT_FILE", cfg.TlsCaCertFile)
+	cfg.TlsCaKeyFile = resolveString("tls-ca-key-file", "QPI_TLS_CA_KEY_FILE", cfg.TlsCaKeyFile)
 	cfg.ServerPort = resolveInt("server-port", "QPI_SERVER_PORT", cfg.ServerPort)
 	cfg.CollectionQPUs = resolveString("qpus-collection", "QPI_QPUS_COLLECTION", cfg.CollectionQPUs)
 	cfg.CollectionTimeSlots = resolveString("timeslots-collection", "QPI_TIMESLOTS_COLLECTION", cfg.CollectionTimeSlots)
