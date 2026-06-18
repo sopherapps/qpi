@@ -1,6 +1,8 @@
 package api
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"net"
 	"net/http"
@@ -8,6 +10,7 @@ import (
 	"qpi/internal/db"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/pocketbase/pocketbase/core"
 )
@@ -168,4 +171,17 @@ func findFreePorts(app core.App, count int) ([]int, error) {
 		}
 	}
 	return nil, fmt.Errorf("could not find %d free ports in range %d-%d", count, cfg.PortRangeStart, cfg.PortRangeEnd)
+}
+
+// generateAPIToken creates a new random API token string.
+func generateAPIToken() string {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		// Fallback to timestamp-based entropy if crypto/rand fails
+		for i := range b {
+			b[i] = byte(time.Now().UnixNano() % 256)
+			time.Sleep(1 * time.Nanosecond)
+		}
+	}
+	return "qpi_" + hex.EncodeToString(b)
 }

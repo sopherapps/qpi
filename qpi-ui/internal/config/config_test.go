@@ -44,7 +44,10 @@ oauth2Providers:
 	}
 
 	// Load configuration
-	cfg := NewFromFlags(cmd)
+	cfg, err := NewFromFlags(cmd)
+	if err != nil {
+		t.Fatalf("failed to load config from flags: %v", err)
+	}
 
 	// Verify loaded values
 	if cfg.CollectionQuantumJobs != "yaml_quantum_jobs" {
@@ -118,7 +121,10 @@ func TestNewFromFlags_Json(t *testing.T) {
 	}
 
 	// Load configuration
-	cfg := NewFromFlags(cmd)
+	cfg, err := NewFromFlags(cmd)
+	if err != nil {
+		t.Fatalf("failed to load config from flags: %v", err)
+	}
 
 	// Verify loaded values
 	if cfg.CollectionQuantumJobs != "json_quantum_jobs" {

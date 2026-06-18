@@ -30,8 +30,23 @@ portRangeStart: 6000
 # NNG Port Range: end port for allocating connection channels to executors
 portRangeEnd: 7000
 
+# The port on which the server is to run
+serverPort: 8090
+
 # Disable email/password authentication on the users collection (forcing OAuth2 usage only)
 disableEmailPasswordAuth: false
+
+# Path to the TLS certificate to use to secure the socket connections to the driver
+tlsCertFile: ".qpi.cert.pem"
+
+# Path to the TLS key to use to secure the socket connections to the driver
+tlsKeyFile: ".qpi.key"
+
+# Path to the TLS root CA certificate to use to secure the socket connections to the driver
+tlsCaCertFile: ".qpi.ca.pem"
+
+# Path to the TLS root CA key to use to secure the socket connections to the driver
+tlsCaKeyFile: ".qpi.ca.key"
 
 # List of OAuth2 Identity Providers to configure for authentication
 oauth2Providers:

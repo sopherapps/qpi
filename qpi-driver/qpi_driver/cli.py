@@ -2,10 +2,11 @@ import importlib.metadata
 from pathlib import Path
 from typing import Annotated
 
+from pygments.lexer import default
+from pynng import tls
+
 from qpi_driver.compat import typer
-from qpi_driver.driver import run_driver
-
-
+from qpi_driver.driver import get_tls_config, run_driver
 
 app = None
 if typer.IS_TYPER_INSTALLED:
@@ -99,6 +100,23 @@ if typer.IS_TYPER_INSTALLED:
                 help="The number of seconds to wait for a job to complete.",
             ),
         ] = 10,
+        ca_file: Annotated[
+            Path,
+            typer.Option(
+                envvar="QPI_CA_FILE",
+                help="The path to the downloaded CA certificate of the server.",
+                writable=True,
+                readable=True,
+                dir_okay=False,
+                file_okay=True,
+                resolve_path=True,
+            ),
+        ] = Path("./bin/qpi.ca.pem"),
+        ca_fingerprint: str = typer.Option(
+            default=...,
+            envvar="QPI_CA_FINGERPRINT",
+            help="The fingerprint to identify the right TLS server certificates.",
+        ),
     ):
         """
         Start the QPI driver.
@@ -113,12 +131,17 @@ if typer.IS_TYPER_INSTALLED:
 
         typer.rich_print(_banner())
 
+        tls_config = get_tls_config(
+            qpi_addr, tls_hash=ca_fingerprint, ca_file_path=ca_file
+        )
+
         run_driver(
             qpi_addr=qpi_addr,
             token=token,
             name=name,
             executor=executor,
             data_dir=data_dir,
+            tls_config=tls_config,
             is_dummy=is_dummy,
             quantify_hardware_config=quantify_hardware_config,
             quantify_device_config=quantify_device_config,
@@ -139,7 +162,7 @@ if typer.IS_TYPER_INSTALLED:
             return "0.0.8"
 
     def _banner():
-        """Renders the banner at the top of the CLI""" 
+        """Renders the banner at the top of the CLI"""
         text = (
             "[bold bright_cyan]  ██████╗ ██████╗ ██╗  [/bold bright_cyan]\n"
             "[bold bright_cyan] ██╔═══██╗██╔══██╗██║  [/bold bright_cyan]\n"
@@ -158,7 +181,6 @@ if typer.IS_TYPER_INSTALLED:
             border_style="bright_cyan",
             padding=(1, 2),
         )
-
 
     if __name__ == "__main__":
         app()

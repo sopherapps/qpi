@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,16 +11,17 @@ import (
 
 	"github.com/pocketbase/pocketbase/core"
 	"go.nanomsg.org/mangos/v3"
+	"go.nanomsg.org/mangos/v3/protocol"
 	"go.nanomsg.org/mangos/v3/protocol/pull"
 	"go.nanomsg.org/mangos/v3/protocol/push"
-	_ "go.nanomsg.org/mangos/v3/transport/tcp"
+	_ "go.nanomsg.org/mangos/v3/transport/tlstcp"
 
 	"qpi/internal/config"
 	"qpi/internal/db"
 	"qpi/internal/scheduler"
 )
 
-// runDispatcher starts an NNG PUSH socket on the cmdPort, polling for pending quantum jobs
+// runDispatcher starts an NNG PUSH socket on the cmdPort (secured with TLS certFile and keyFile), polling for pending quantum jobs
 // from the scheduler and pushing them to the registered python driver node.
 func runDispatcher(ctx context.Context, app core.App, qpuID string, cmdPort int) {
 	cfg, err := config.GetConfigFromApp(app)
@@ -28,7 +30,6 @@ func runDispatcher(ctx context.Context, app core.App, qpuID string, cmdPort int)
 		return
 	}
 
-	addr := fmt.Sprintf("tcp://0.0.0.0:%d", cmdPort)
 	sock, err := push.NewSocket()
 	if err != nil {
 		log.Printf("[Dispatcher %s] socket error: %v", qpuID, err)
@@ -36,7 +37,15 @@ func runDispatcher(ctx context.Context, app core.App, qpuID string, cmdPort int)
 	}
 	defer sock.Close()
 
-	if err := sock.Listen(addr); err != nil {
+	tlsConfig := cfg.GetTlsConfig()
+	l, err := getListener(sock, cmdPort, tlsConfig)
+	if err != nil {
+		log.Printf("[Dispatcher %s] %v", qpuID, err)
+		return
+	}
+
+	addr := l.Address()
+	if err := l.Listen(); err != nil {
 		log.Printf("[Dispatcher %s] listen error on %s: %v", qpuID, addr, err)
 		return
 	}
@@ -101,7 +110,7 @@ func runDispatcher(ctx context.Context, app core.App, qpuID string, cmdPort int)
 	}
 }
 
-// runResultListener starts an NNG PULL socket on the resPort, waiting for job execution
+// runResultListener starts an NNG PULL socket on the resPort (secured with TLS cert and key), waiting for job execution
 // results sent back by the hardware driver node and saving them to the database.
 func runResultListener(ctx context.Context, app core.App, qpuID string, resPort int) {
 	cfg, err := config.GetConfigFromApp(app)
@@ -110,7 +119,6 @@ func runResultListener(ctx context.Context, app core.App, qpuID string, resPort 
 		return
 	}
 
-	addr := fmt.Sprintf("tcp://0.0.0.0:%d", resPort)
 	sock, err := pull.NewSocket()
 	if err != nil {
 		log.Printf("[Listener %s] socket error: %v", qpuID, err)
@@ -118,7 +126,15 @@ func runResultListener(ctx context.Context, app core.App, qpuID string, resPort 
 	}
 	defer sock.Close()
 
-	if err := sock.Listen(addr); err != nil {
+	tlsConfig := cfg.GetTlsConfig()
+	l, err := getListener(sock, resPort, tlsConfig)
+	if err != nil {
+		log.Printf("[Listener %s] %v", qpuID, err)
+		return
+	}
+
+	addr := l.Address()
+	if err := l.Listen(); err != nil {
 		log.Printf("[Listener %s] listen error on %s: %v", qpuID, addr, err)
 		return
 	}
@@ -207,4 +223,15 @@ func runResultListener(ctx context.Context, app core.App, qpuID string, resPort 
 			log.Printf("[Listener %s] job %s %s", qpuID, result.JobID, finalStatus)
 		}
 	}
+}
+
+// getListener gets a TLS Listener at the given port
+func getListener(sock protocol.Socket, port int, tlsConfig *tls.Config) (mangos.Listener, error) {
+	addr := fmt.Sprintf("tls+tcp://0.0.0.0:%d", port)
+	l, err := sock.NewListener(addr, map[string]any{mangos.OptionTLSConfig: tlsConfig})
+	if err != nil {
+		return nil, fmt.Errorf("Listerner error: %w", err)
+	}
+
+	return l, nil
 }

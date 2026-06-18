@@ -173,7 +173,12 @@ func OnQpuUpdateRequest(e *core.RecordRequestEvent) error {
 			}
 
 			if cmdPort > 0 && resPort > 0 {
-				StartQPUDistribution(e.App, qpuId, cmdPort, resPort)
+				cfg, err := config.GetConfigFromApp(e.App)
+				if err != nil {
+					return err
+				}
+
+				StartQPUDistribution(e.App, cfg, qpuId, cmdPort, resPort)
 			}
 		}
 	}

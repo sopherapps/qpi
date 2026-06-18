@@ -60,3 +60,9 @@ cover/
 .ruff_cache/
 
 **/qpi
+
+# TLS
+**.pem
+**.key
+!**/fixtures/**.key
+!**/fixtures/**.pem

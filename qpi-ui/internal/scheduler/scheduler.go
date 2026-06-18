@@ -6,10 +6,11 @@ import (
 	"log"
 	"time"
 
-	"github.com/pocketbase/dbx"
-	"github.com/pocketbase/pocketbase/core"
 	"qpi/internal/config"
 	"qpi/internal/db"
+
+	"github.com/pocketbase/dbx"
+	"github.com/pocketbase/pocketbase/core"
 )
 
 // FetchNextJob implements the session-based booking + opportunistic FIFO algorithm.

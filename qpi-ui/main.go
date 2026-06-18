@@ -3,6 +3,7 @@
 package main
 
 import (
+	"context"
 	"embed"
 	"log"
 
@@ -30,11 +31,20 @@ func main() {
 	// set the current version of the application
 	app.RootCmd.Version = Version
 
+	appCtx, cancelAppCtx := context.WithCancel(context.Background())
+	defer cancelAppCtx()
+
 	// Bootstrap: create collections on first boot
 	app.OnBootstrap().Bind(&hook.Handler[*core.BootstrapEvent]{
 		Func: func(e *core.BootstrapEvent) error {
 			// Populate and save AppConfig to the App store
-			cfg := config.NewFromFlags(app.RootCmd)
+			cfg, err := config.NewFromFlags(app.RootCmd)
+			if err != nil {
+				return err
+			}
+
+			cfg.StartTlsRenewalWorker(appCtx)
+
 			config.SaveConfigOnApp(e.App, cfg)
 
 			if err := e.Next(); err != nil {
@@ -47,9 +57,11 @@ func main() {
 	// Register custom HTTP routes & background tasks
 	app.OnServe().Bind(&hook.Handler[*core.ServeEvent]{
 		Func: func(e *core.ServeEvent) error {
-			// // Populate and save AppConfig to the App store to ensure it is always available
-			// cfg := config.NewFromFlags(app.RootCmd)
-			// config.SaveConfigOnApp(e.App, cfg)
+			// Initialize the TLS
+			err := api.SetupServer(e)
+			if err != nil {
+				return err
+			}
 
 			// Register api register handler routes
 			api.RegisterRoutes(e, dashboardFS)

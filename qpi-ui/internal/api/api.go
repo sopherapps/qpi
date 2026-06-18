@@ -4,14 +4,14 @@ package api
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
+	"crypto/tls"
 	"errors"
+	"fmt"
 	"io/fs"
 	"log"
 	"net/http"
+	"os"
 	"sync"
-	"time"
 
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/apis"
@@ -27,83 +27,67 @@ var (
 	activeQPUsMu sync.Mutex
 )
 
-// generateAPIToken creates a new random API token string.
-func generateAPIToken() string {
-	b := make([]byte, 32)
-	if _, err := rand.Read(b); err != nil {
-		// Fallback to timestamp-based entropy if crypto/rand fails
-		for i := range b {
-			b[i] = byte(time.Now().UnixNano() % 256)
-			time.Sleep(1 * time.Nanosecond)
-		}
+// SetupServer initializes the server with a few important configs
+func SetupServer(e *core.ServeEvent) error {
+	cfg, err := config.GetConfigFromApp(e.App)
+	if err != nil {
+		return err
 	}
-	return "qpi_" + hex.EncodeToString(b)
+
+	if e.Server.TLSConfig == nil {
+		e.Server.TLSConfig = &tls.Config{}
+	}
+
+	// Inject our manager's thread-safe handshake callback
+	e.Server.TLSConfig.GetCertificate = cfg.GetCertificate
+	e.Server.TLSConfig.MinVersion = tls.VersionTLS12
+
+	// set the port
+	e.Server.Addr = fmt.Sprintf(":%d", cfg.ServerPort)
+
+	return nil
 }
 
 // RegisterRoutes sets up custom HTTP routes for QPU interactions.
 func RegisterRoutes(e *core.ServeEvent, dashboardFS fs.FS) {
+	// Dashboard
 	if dashboardFS != nil {
-		subFS, err := fs.Sub(dashboardFS, "internal/dashboard/dist")
-		if err == nil {
-			e.Router.GET("/dashboard/{path...}", apis.Static(subFS, true))
-		} else {
-			log.Printf("[RegisterRoutes] failed to sub dashboardFS: %v", err)
-		}
+		log.Panic("[RegisterRoutes] failed to load the dashboard file system")
 	}
 
-	e.Router.POST("/api/op/qpus/connect", func(re *core.RequestEvent) error {
-		return handleQPUConnect(re)
-	})
-	e.Router.POST("/api/op/qpus/create", func(re *core.RequestEvent) error {
-		return handleQPUCreate(re)
-	})
-	e.Router.POST("/api/op/qpu/toggle", func(re *core.RequestEvent) error {
-		return handleQPUToggle(re)
-	})
+	subFS, err := fs.Sub(dashboardFS, "internal/dashboard/dist")
+	if err != nil {
+		log.Panicf("[RegisterRoutes] failed to sub dashboardFS: %v", err)
+	}
+	e.Router.GET("/dashboard/{path...}", apis.Static(subFS, true))
+
+	// general public data
+	e.Router.GET("/api/pub/root-ca.pem", handleRootCaDownload)
+
+	// ops routes
+	e.Router.POST("/api/op/qpus/connect", handleQPUConnect)
+	e.Router.POST("/api/op/qpus/create", handleQPUCreate)
+	e.Router.POST("/api/op/qpu/toggle", handleQPUToggle)
 
 	// Job CRUD routes
-	e.Router.POST("/api/jobs", func(re *core.RequestEvent) error {
-		return handleJobSubmit(re)
-	})
-	e.Router.GET("/api/jobs", func(re *core.RequestEvent) error {
-		return handleJobList(re)
-	})
-	e.Router.GET("/api/jobs/{id}", func(re *core.RequestEvent) error {
-		return handleJobGet(re)
-	})
-	e.Router.POST("/api/jobs/{id}/cancel", func(re *core.RequestEvent) error {
-		return handleJobCancel(re)
-	})
+	e.Router.POST("/api/jobs", handleJobSubmit)
+	e.Router.GET("/api/jobs", handleJobList)
+	e.Router.GET("/api/jobs/{id}", handleJobGet)
+	e.Router.POST("/api/jobs/{id}/cancel", handleJobCancel)
 
 	// QPU discovery routes (public — no auth required)
-	e.Router.GET("/api/qpus", func(re *core.RequestEvent) error {
-		return handleQPUList(re)
-	})
-	e.Router.GET("/api/qpus/{name}", func(re *core.RequestEvent) error {
-		return handleQPUGet(re)
-	})
+	e.Router.GET("/api/qpus", handleQPUList)
+	e.Router.GET("/api/qpus/{name}", handleQPUGet)
 
 	// API token CRUD routes (owner-only)
-	e.Router.POST("/api/tokens", func(re *core.RequestEvent) error {
-		return handleTokenCreate(re)
-	})
-	e.Router.GET("/api/tokens", func(re *core.RequestEvent) error {
-		return handleTokenList(re)
-	})
-	e.Router.GET("/api/tokens/{id}", func(re *core.RequestEvent) error {
-		return handleTokenGet(re)
-	})
-	e.Router.PATCH("/api/tokens/{id}", func(re *core.RequestEvent) error {
-		return handleTokenUpdate(re)
-	})
-	e.Router.DELETE("/api/tokens/{id}", func(re *core.RequestEvent) error {
-		return handleTokenDelete(re)
-	})
+	e.Router.POST("/api/tokens", handleTokenCreate)
+	e.Router.GET("/api/tokens", handleTokenList)
+	e.Router.GET("/api/tokens/{id}", handleTokenGet)
+	e.Router.PATCH("/api/tokens/{id}", handleTokenUpdate)
+	e.Router.DELETE("/api/tokens/{id}", handleTokenDelete)
 
 	// Notification dismiss route (authenticated users only)
-	e.Router.POST("/api/notifications/{id}/dismiss", func(re *core.RequestEvent) error {
-		return handleNotificationDismiss(re)
-	})
+	e.Router.POST("/api/notifications/{id}/dismiss", handleNotificationDismiss)
 }
 
 // handleJobSubmit handles POST /api/jobs — creates a new quantum job.
@@ -502,6 +486,21 @@ func handleQPUCreate(re *core.RequestEvent) error {
 	return re.JSON(http.StatusCreated, resp)
 }
 
+// handleRootCaDownload handles requests to download the root CA of the server
+func handleRootCaDownload(re *core.RequestEvent) error {
+	cfg, err := config.GetConfigFromApp(re.App)
+	if err != nil {
+		return re.InternalServerError("failed to retrieve configuration", err)
+	}
+
+	data, err := os.ReadFile(cfg.TlsCaCertFile)
+	if err != nil {
+		return re.NotFoundError("Root CA certificate file not found on server", err)
+	}
+
+	return re.Blob(200, "application/x-pem-file", data)
+}
+
 // handleQPUConnect connects a hardware driver node, allocating dynamic command/result ports
 // and starting parallel dispatcher and result listener routines.
 // POST /api/op/qpus/connect
@@ -557,7 +556,7 @@ func handleQPUConnect(re *core.RequestEvent) error {
 	}
 
 	// Spin up orchestration goroutines if not already running
-	StartQPUDistribution(re.App, qpu.ID, qpu.NNGCommandPort, qpu.NNGResultPort)
+	StartQPUDistribution(re.App, cfg, qpu.ID, qpu.NNGCommandPort, qpu.NNGResultPort)
 
 	// Generate auth token for the QPU record
 	record, err := qpu.ToRecord(re.App)
@@ -574,6 +573,7 @@ func handleQPUConnect(re *core.RequestEvent) error {
 		Status:         "success",
 		NNGCommandPort: qpu.NNGCommandPort,
 		NNGResultPort:  qpu.NNGResultPort,
+		TLSHash:        cfg.GetTlsCaHash(),
 		AuthToken:      token,
 	}
 	return re.JSON(http.StatusOK, resp)
@@ -648,7 +648,7 @@ func handleQPUGet(re *core.RequestEvent) error {
 }
 
 // StartQPUDistribution starts the goroutines for a specific QPU if not already running.
-func StartQPUDistribution(app core.App, qpuID string, cmdPort, resPort int) {
+func StartQPUDistribution(app core.App, cfg *config.AppConfig, qpuID string, cmdPort, resPort int) {
 	activeQPUsMu.Lock()
 	defer activeQPUsMu.Unlock()
 	if _, running := activeQPUs[qpuID]; !running {

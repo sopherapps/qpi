@@ -41,6 +41,7 @@ type ConnectResponse struct {
 	Status         string `json:"status"`
 	NNGCommandPort int    `json:"nng_command_port"`
 	NNGResultPort  int    `json:"nng_result_port"`
+	TLSHash        string `json:"tls_hash"`
 	AuthToken      string `json:"auth_token"`
 }
 

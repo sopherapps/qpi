@@ -5,12 +5,16 @@
 package config
 
 import (
+	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"log"
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-playground/validator/v10"
@@ -27,6 +31,35 @@ const (
 	DefaultAPITokensCollection       = "api_tokens"
 	DefaultQPUTimeRequestsCollection = "qpu_time_requests"
 	DefaultNotificationsCollection   = "notifications"
+	DefaultTLSCertFile               = ".qpi.cert.pem"
+	DefaultTLSKeyFile                = ".qpi.key"
+	DefaultTLSCaCertFile             = ".qpi.ca.pem"
+	DefaultTLSCaKeyFile              = ".qpi.ca.key"
+)
+
+// Package local flags populated by Cobra flag bindings.
+var (
+	flagConfigFile               string
+	flagCollectionQPUs           string
+	flagCollectionTimeSlots      string
+	flagCollectionQuantumJobs    string
+	flagCollectionAPITokens      string
+	flagCollectionNotifications  string
+	flagCollectionTimeRequests   string
+	flagIdleThreshold            time.Duration
+	flagRecoveryInterval         time.Duration
+	flagJobTimeout               time.Duration
+	flagDispatchPollInterval     time.Duration
+	flagPortRangeStart           int
+	flagPortRangeEnd             int
+	flagDisableEmailPasswordAuth bool
+	flagOAuth2Providers          string // JSON array string
+	flagTLSCertFile              string
+	flagTLSKeyFile               string
+	flagTLSCaCertFile            string
+	flagTLSCaKeyFile             string
+	flagDomainName               string
+	flagServerPort               int
 )
 
 // AppConfig stores application-wide configuration parameters for the QPI orchestrator.
@@ -46,6 +79,18 @@ type AppConfig struct {
 	DisableEmailPasswordAuth  bool
 	OAuth2Providers           []core.OAuth2ProviderConfig
 	Validator                 *validator.Validate
+	TlsCertFile               string
+	TlsKeyFile                string
+	TlsCaCertFile             string
+	TlsCaKeyFile              string
+	DomainName                string
+	ServerPort                int
+	tlsConfig                 *certKeyPair
+	parsedTlsConfig           *tls.Config
+	tlsCaConfig               *certKeyPair
+	tlsCaHash                 string
+	activeCert                *tls.Certificate
+	mu                        sync.RWMutex
 }
 
 // GetCollectionName returns the collection name for a given default collection name.
@@ -88,6 +133,155 @@ func (c *AppConfig) GetDefaultCollectionName(name string) string {
 	}
 }
 
+// GetTlsConfig gets this apps TLS configuration
+func (c *AppConfig) GetTlsConfig() *tls.Config {
+	return c.parsedTlsConfig
+}
+
+// GetTlsCaConfig gets this apps TLS CA configuration
+func (c *AppConfig) GetTlsCaConfig() *certKeyPair {
+	return c.tlsCaConfig
+}
+
+// GetTlsCaHash gets the hash of the TLS CA to be used by clients to verify
+// the root CA TLS certificates from this server
+func (c *AppConfig) GetTlsCaHash() string {
+	return c.tlsCaHash
+}
+
+// GetCertificate the active for the server to use
+func (cfg *AppConfig) GetCertificate(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error) {
+	cfg.mu.RLock()
+	defer cfg.mu.RUnlock()
+
+	if cfg.activeCert == nil {
+		return nil, fmt.Errorf("no active leaf certificate loaded")
+	}
+
+	return cfg.activeCert, nil
+}
+
+// StartTlsRenewalWorker runs in the background and checks the certificate every 24 hours,
+// renewing it if it is about to expire
+func (cfg *AppConfig) StartTlsRenewalWorker(ctx context.Context) {
+	go func() {
+		interval := 24 * time.Hour       // 1 day
+		certBuffer := 2 * 24 * time.Hour // 2 days
+		caBuffer := 30 * 24 * time.Hour  // 30 days
+
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+
+		for range ticker.C {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+
+			// Check if CA is up for renewal
+			if isCertUpForRenewal(cfg.tlsCaConfig, caBuffer) {
+				log.Println("[Config] CA (certificate authority) regenerating...")
+
+				var err error
+				cfg.tlsCaConfig, err = generateCA(cfg.TlsCaCertFile, cfg.TlsCaKeyFile)
+				if err != nil {
+					log.Printf("[Config] Error regenerating root CA: %v\n", err)
+					continue
+				}
+
+				// regenerate certificate with new CA
+				err = generateCertAndKeyFiles(cfg.DomainName, cfg.TlsCertFile, cfg.TlsKeyFile, cfg.tlsCaConfig)
+				if err != nil {
+					log.Printf("[Config] Error regenerating TLS cert and key: %v\n", err)
+					continue
+				}
+
+				cfg.tlsConfig, err = getTlsCertKeyPair(cfg.TlsCertFile, cfg.TlsKeyFile, cfg.DomainName, cfg.tlsCaConfig)
+				if err != nil {
+					log.Printf("[Config] Error getting TLS config: %v\n", err)
+					continue
+				}
+
+				// Refresh active TLS certicate
+				err = cfg.refreshActiveTls()
+				if err != nil {
+					log.Printf("[Config] Error refreshing active certificate: %v\n", err)
+					continue
+				}
+
+				// Save the hash
+				cfg.tlsCaHash, err = getCaCertHash(cfg.tlsCaConfig)
+				if err != nil {
+					log.Printf("[Config] Error hashing the CA certificate: %v\n", err)
+					continue
+				}
+
+				log.Println("Root CA successfully renewed!")
+			}
+
+			// Check if certificate is up for renewal
+			if isCertUpForRenewal(cfg.tlsConfig, certBuffer) {
+				log.Println("[Config] TLS certificate regenerating...")
+
+				err := generateCertAndKeyFiles(cfg.DomainName, cfg.TlsCertFile, cfg.TlsKeyFile, cfg.tlsCaConfig)
+				if err != nil {
+					log.Printf("[Config] Error regenerating TLS cert and key: %v\n", err)
+					continue
+				}
+
+				cfg.tlsCaConfig, err = getCA(cfg.TlsCaCertFile, cfg.TlsCaKeyFile)
+				if err != nil {
+					log.Printf("[Config] Error loading TLS config: %v\n", err)
+					continue
+				}
+
+				cfg.tlsConfig, err = getTlsCertKeyPair(cfg.TlsCertFile, cfg.TlsKeyFile, cfg.DomainName, cfg.tlsCaConfig)
+				if err != nil {
+					log.Printf("[Config] Error loading TLS config: %v\n", err)
+					continue
+				}
+
+				// Refresh active TLS certicate
+				err = cfg.refreshActiveTls()
+				if err != nil {
+					log.Printf("[Config] Error refreshing active certificate: %v\n", err)
+					continue
+				}
+
+				log.Println("Certificate successfully renewed!")
+			}
+		}
+	}()
+}
+
+// refreshActiveTls refreshes the active certificate from the current values
+// of the certificate and key
+func (cfg *AppConfig) refreshActiveTls() error {
+	tlsConf, err := loadTLS(cfg.TlsCertFile, cfg.TlsKeyFile)
+	if err != nil {
+		return fmt.Errorf("error loading TLS config: %w\n", err)
+	}
+
+	// update the parsedTlsConfig
+	cfg.parsedTlsConfig = tlsConf
+
+	tlsCert := tlsConf.Certificates[0]
+
+	// Pre-populate the parsed Leaf structure to save CPU cycles during client handshakes
+	tlsCert.Leaf, err = x509.ParseCertificate(tlsCert.Certificate[0])
+	if err != nil {
+		return fmt.Errorf("error parsing certificate: %v\n", err)
+	}
+
+	// Safely update the active certificate without interrupting connections
+	cfg.mu.Lock()
+	cfg.activeCert = &tlsCert
+	cfg.mu.Unlock()
+
+	return nil
+}
+
 // SaveConfigOnApp saves the config on the app instance store.
 func SaveConfigOnApp(app core.App, config *AppConfig) {
 	app.Store().Set(appStoreConfigKey, config)
@@ -112,28 +306,15 @@ func MustGetConfigFromApp(app core.App) *AppConfig {
 	return cfg
 }
 
-// Package local flags populated by Cobra flag bindings.
-var (
-	flagConfigFile               string
-	flagCollectionQPUs           string
-	flagCollectionTimeSlots      string
-	flagCollectionQuantumJobs    string
-	flagCollectionAPITokens      string
-	flagCollectionNotifications  string
-	flagCollectionTimeRequests   string
-	flagIdleThreshold            time.Duration
-	flagRecoveryInterval         time.Duration
-	flagJobTimeout               time.Duration
-	flagDispatchPollInterval     time.Duration
-	flagPortRangeStart           int
-	flagPortRangeEnd             int
-	flagDisableEmailPasswordAuth bool
-	flagOAuth2Providers          string // JSON array string
-)
-
 // BindFlags registers custom flags on the Cobra command.
 func BindFlags(cmd *cobra.Command) {
-	cmd.PersistentFlags().StringVar(&flagConfigFile, "config-file", getEnvString("QPI_CONFIG_FILE", ""), "Path to QPI JSON configuration file")
+	cmd.PersistentFlags().StringVar(&flagConfigFile, "config-file", getEnvString("QPI_CONFIG_FILE", "qpi.config.yml"), "Path to QPI JSON configuration file")
+	cmd.PersistentFlags().StringVar(&flagTLSCertFile, "tls-cert-file", DefaultTLSCertFile, "Path to QPI TLS certificate file")
+	cmd.PersistentFlags().StringVar(&flagTLSKeyFile, "tls-key-file", DefaultTLSKeyFile, "Path to QPI TLS key file")
+	cmd.PersistentFlags().StringVar(&flagTLSCaCertFile, "tls-ca-cert-file", DefaultTLSCaCertFile, "Path to QPI TLS certificate authority CA cert file")
+	cmd.PersistentFlags().StringVar(&flagTLSCaKeyFile, "tls-ca-key-file", DefaultTLSCaKeyFile, "Path to QPI TLS certificate authority CA key file")
+	cmd.PersistentFlags().StringVar(&flagDomainName, "domain", "", "The domain name this server is running on")
+	cmd.PersistentFlags().IntVar(&flagServerPort, "server-port", 8090, "The port this server should run on")
 	cmd.PersistentFlags().StringVar(&flagCollectionQPUs, "qpus-collection", DefaultQpusCollection, "Collection name for QPUs")
 	cmd.PersistentFlags().StringVar(&flagCollectionTimeSlots, "timeslots-collection", DefaultTimeSlotsCollection, "Collection name for Time Slots")
 	cmd.PersistentFlags().StringVar(&flagCollectionQuantumJobs, "jobs-collection", DefaultQuantumJobsCollection, "Collection name for Quantum Jobs")
@@ -152,10 +333,10 @@ func BindFlags(cmd *cobra.Command) {
 
 // NewFromFlags builds an AppConfig from the parsed CLI flags, optional config file, and environment variables.
 // It enforces the precedence: CLI Flag (explicit) > Env Var > Config File > Default.
-func NewFromFlags(cmd *cobra.Command) *AppConfig {
+func NewFromFlags(cmd *cobra.Command) (*AppConfig, error) {
 	cfg := &AppConfig{}
 
-	// 1. Set hardcoded defaults
+	// Set hardcoded defaults
 	cfg.CollectionQPUs = DefaultQpusCollection
 	cfg.CollectionTimeSlots = DefaultTimeSlotsCollection
 	cfg.CollectionQuantumJobs = DefaultQuantumJobsCollection
@@ -168,118 +349,144 @@ func NewFromFlags(cmd *cobra.Command) *AppConfig {
 	cfg.DispatchPollInterval = 1 * time.Second
 	cfg.PortRangeStart = 6000
 	cfg.PortRangeEnd = 7000
+	cfg.ServerPort = 8090
 	cfg.DisableEmailPasswordAuth = false
 	cfg.Validator = validator.New(validator.WithRequiredStructEnabled())
+	cfg.TlsCertFile = DefaultTLSCertFile
+	cfg.TlsKeyFile = DefaultTLSKeyFile
+	cfg.TlsCaCertFile = DefaultTLSCaCertFile
+	cfg.TlsCaKeyFile = DefaultTLSCaKeyFile
 
-	// 2. Overlay Config File (if specified via env or flag)
+	// Overlay Config File (if specified via env or flag)
 	configFile := flagConfigFile
 	if envVal := os.Getenv("QPI_CONFIG_FILE"); envVal != "" {
 		configFile = envVal
 	}
 	if configFile != "" {
-		if data, err := os.ReadFile(configFile); err == nil {
-			type oauth2ProviderConfigLocal struct {
-				Name         string         `json:"name" yaml:"name"`
-				ClientId     string         `json:"clientId" yaml:"clientId"`
-				ClientSecret string         `json:"clientSecret" yaml:"clientSecret"`
-				AuthURL      string         `json:"authURL" yaml:"authURL"`
-				TokenURL     string         `json:"tokenURL" yaml:"tokenURL"`
-				UserInfoURL  string         `json:"userInfoURL" yaml:"userInfoURL"`
-				DisplayName  string         `json:"displayName" yaml:"displayName"`
-				PKCE         *bool          `json:"pkce" yaml:"pkce"`
-				Extra        map[string]any `json:"extra" yaml:"extra"`
-			}
-			var fileCfg struct {
-				CollectionQPUs           *string                     `json:"qpusCollection" yaml:"qpusCollection"`
-				CollectionTimeSlots      *string                     `json:"timeslotsCollection" yaml:"timeslotsCollection"`
-				CollectionQuantumJobs    *string                     `json:"jobsCollection" yaml:"jobsCollection"`
-				CollectionAPITokens      *string                     `json:"apiTokensCollection" yaml:"apiTokensCollection"`
-				CollectionNotifications  *string                     `json:"notificationsCollection" yaml:"notificationsCollection"`
-				IdleThreshold            *string                     `json:"idleThreshold" yaml:"idleThreshold"`
-				RecoveryInterval         *string                     `json:"recoveryInterval" yaml:"recoveryInterval"`
-				JobTimeout               *string                     `json:"jobTimeout" yaml:"jobTimeout"`
-				DispatchPollInterval     *string                     `json:"dispatchPollInterval" yaml:"dispatchPollInterval"`
-				PortRangeStart           *int                        `json:"portRangeStart" yaml:"portRangeStart"`
-				PortRangeEnd             *int                        `json:"portRangeEnd" yaml:"portRangeEnd"`
-				DisableEmailPasswordAuth *bool                       `json:"disableEmailPasswordAuth" yaml:"disableEmailPasswordAuth"`
-				OAuth2Providers          []oauth2ProviderConfigLocal `json:"oauth2Providers" yaml:"oauth2Providers"`
-			}
-
-			var parseErr error
-			isYaml := strings.HasSuffix(configFile, ".yaml") || strings.HasSuffix(configFile, ".yml")
-			if isYaml {
-				parseErr = yaml.Unmarshal(data, &fileCfg)
-			} else {
-				parseErr = json.Unmarshal(data, &fileCfg)
-			}
-
-			if parseErr == nil {
-				if fileCfg.CollectionQPUs != nil {
-					cfg.CollectionQPUs = *fileCfg.CollectionQPUs
-				}
-				if fileCfg.CollectionTimeSlots != nil {
-					cfg.CollectionTimeSlots = *fileCfg.CollectionTimeSlots
-				}
-				if fileCfg.CollectionQuantumJobs != nil {
-					cfg.CollectionQuantumJobs = *fileCfg.CollectionQuantumJobs
-				}
-				if fileCfg.CollectionAPITokens != nil {
-					cfg.CollectionAPITokens = *fileCfg.CollectionAPITokens
-				}
-				if fileCfg.CollectionNotifications != nil {
-					cfg.CollectionNotifications = *fileCfg.CollectionNotifications
-				}
-				if fileCfg.IdleThreshold != nil {
-					if d, err := time.ParseDuration(*fileCfg.IdleThreshold); err == nil {
-						cfg.IdleThreshold = d
-					}
-				}
-				if fileCfg.RecoveryInterval != nil {
-					if d, err := time.ParseDuration(*fileCfg.RecoveryInterval); err == nil {
-						cfg.RecoveryInterval = d
-					}
-				}
-				if fileCfg.JobTimeout != nil {
-					if d, err := time.ParseDuration(*fileCfg.JobTimeout); err == nil {
-						cfg.JobTimeout = d
-					}
-				}
-				if fileCfg.DispatchPollInterval != nil {
-					if d, err := time.ParseDuration(*fileCfg.DispatchPollInterval); err == nil {
-						cfg.DispatchPollInterval = d
-					}
-				}
-				if fileCfg.PortRangeStart != nil {
-					cfg.PortRangeStart = *fileCfg.PortRangeStart
-				}
-				if fileCfg.PortRangeEnd != nil {
-					cfg.PortRangeEnd = *fileCfg.PortRangeEnd
-				}
-				if fileCfg.DisableEmailPasswordAuth != nil {
-					cfg.DisableEmailPasswordAuth = *fileCfg.DisableEmailPasswordAuth
-				}
-				if len(fileCfg.OAuth2Providers) > 0 {
-					cfg.OAuth2Providers = make([]core.OAuth2ProviderConfig, len(fileCfg.OAuth2Providers))
-					for i, p := range fileCfg.OAuth2Providers {
-						cfg.OAuth2Providers[i] = core.OAuth2ProviderConfig{
-							Name:         p.Name,
-							ClientId:     p.ClientId,
-							ClientSecret: p.ClientSecret,
-							AuthURL:      p.AuthURL,
-							TokenURL:     p.TokenURL,
-							UserInfoURL:  p.UserInfoURL,
-							DisplayName:  p.DisplayName,
-							PKCE:         p.PKCE,
-							Extra:        p.Extra,
-						}
-					}
-				}
-			} else {
-				log.Printf("Warning: failed to parse config file: %v", parseErr)
-			}
-		} else {
-			log.Printf("Warning: failed to read config file %s", configFile)
+		data, err := os.ReadFile(configFile)
+		if err != nil {
+			return nil, fmt.Errorf("error reading config file %s: %w", configFile, err)
 		}
+		type oauth2ProviderConfigLocal struct {
+			Name         string         `json:"name" yaml:"name"`
+			ClientId     string         `json:"clientId" yaml:"clientId"`
+			ClientSecret string         `json:"clientSecret" yaml:"clientSecret"`
+			AuthURL      string         `json:"authURL" yaml:"authURL"`
+			TokenURL     string         `json:"tokenURL" yaml:"tokenURL"`
+			UserInfoURL  string         `json:"userInfoURL" yaml:"userInfoURL"`
+			DisplayName  string         `json:"displayName" yaml:"displayName"`
+			PKCE         *bool          `json:"pkce" yaml:"pkce"`
+			Extra        map[string]any `json:"extra" yaml:"extra"`
+		}
+		var fileCfg struct {
+			CollectionQPUs           *string                     `json:"qpusCollection" yaml:"qpusCollection"`
+			TlsCertFile              *string                     `json:"tlsCertFile" yaml:"tlsCertFile"`
+			TlsKeyFile               *string                     `json:"tlsKeyFile" yaml:"tlsKeyFile"`
+			TlsCaCertFile            *string                     `json:"tlsCaCertFile" yaml:"tlsCaCertFile"`
+			TlsCaKeyFile             *string                     `json:"tlsCaKeyFile" yaml:"tlsCaKeyFile"`
+			ServerPort               *int                        `json:"serverPort" yaml:"serverPort"`
+			CollectionTimeSlots      *string                     `json:"timeslotsCollection" yaml:"timeslotsCollection"`
+			CollectionQuantumJobs    *string                     `json:"jobsCollection" yaml:"jobsCollection"`
+			CollectionAPITokens      *string                     `json:"apiTokensCollection" yaml:"apiTokensCollection"`
+			CollectionNotifications  *string                     `json:"notificationsCollection" yaml:"notificationsCollection"`
+			IdleThreshold            *string                     `json:"idleThreshold" yaml:"idleThreshold"`
+			RecoveryInterval         *string                     `json:"recoveryInterval" yaml:"recoveryInterval"`
+			JobTimeout               *string                     `json:"jobTimeout" yaml:"jobTimeout"`
+			DispatchPollInterval     *string                     `json:"dispatchPollInterval" yaml:"dispatchPollInterval"`
+			PortRangeStart           *int                        `json:"portRangeStart" yaml:"portRangeStart"`
+			PortRangeEnd             *int                        `json:"portRangeEnd" yaml:"portRangeEnd"`
+			DisableEmailPasswordAuth *bool                       `json:"disableEmailPasswordAuth" yaml:"disableEmailPasswordAuth"`
+			OAuth2Providers          []oauth2ProviderConfigLocal `json:"oauth2Providers" yaml:"oauth2Providers"`
+		}
+
+		var parseErr error
+		isYaml := strings.HasSuffix(configFile, ".yaml") || strings.HasSuffix(configFile, ".yml")
+		if isYaml {
+			parseErr = yaml.Unmarshal(data, &fileCfg)
+		} else {
+			parseErr = json.Unmarshal(data, &fileCfg)
+		}
+
+		if parseErr != nil {
+			return nil, fmt.Errorf("error parsing file %s: %w", configFile, parseErr)
+		}
+
+		if fileCfg.TlsCertFile != nil {
+			cfg.TlsCertFile = *fileCfg.TlsCertFile
+		}
+		if fileCfg.TlsKeyFile != nil {
+			cfg.TlsKeyFile = *fileCfg.TlsKeyFile
+		}
+		if fileCfg.TlsCaCertFile != nil {
+			cfg.TlsCaCertFile = *fileCfg.TlsCaCertFile
+		}
+		if fileCfg.TlsCaKeyFile != nil {
+			cfg.TlsCaKeyFile = *fileCfg.TlsCaKeyFile
+		}
+		if fileCfg.ServerPort != nil {
+			cfg.ServerPort = *fileCfg.ServerPort
+		}
+		if fileCfg.CollectionQPUs != nil {
+			cfg.CollectionQPUs = *fileCfg.CollectionQPUs
+		}
+		if fileCfg.CollectionTimeSlots != nil {
+			cfg.CollectionTimeSlots = *fileCfg.CollectionTimeSlots
+		}
+		if fileCfg.CollectionQuantumJobs != nil {
+			cfg.CollectionQuantumJobs = *fileCfg.CollectionQuantumJobs
+		}
+		if fileCfg.CollectionAPITokens != nil {
+			cfg.CollectionAPITokens = *fileCfg.CollectionAPITokens
+		}
+		if fileCfg.CollectionNotifications != nil {
+			cfg.CollectionNotifications = *fileCfg.CollectionNotifications
+		}
+		if fileCfg.IdleThreshold != nil {
+			if d, err := time.ParseDuration(*fileCfg.IdleThreshold); err == nil {
+				cfg.IdleThreshold = d
+			}
+		}
+		if fileCfg.RecoveryInterval != nil {
+			if d, err := time.ParseDuration(*fileCfg.RecoveryInterval); err == nil {
+				cfg.RecoveryInterval = d
+			}
+		}
+		if fileCfg.JobTimeout != nil {
+			if d, err := time.ParseDuration(*fileCfg.JobTimeout); err == nil {
+				cfg.JobTimeout = d
+			}
+		}
+		if fileCfg.DispatchPollInterval != nil {
+			if d, err := time.ParseDuration(*fileCfg.DispatchPollInterval); err == nil {
+				cfg.DispatchPollInterval = d
+			}
+		}
+		if fileCfg.PortRangeStart != nil {
+			cfg.PortRangeStart = *fileCfg.PortRangeStart
+		}
+		if fileCfg.PortRangeEnd != nil {
+			cfg.PortRangeEnd = *fileCfg.PortRangeEnd
+		}
+		if fileCfg.DisableEmailPasswordAuth != nil {
+			cfg.DisableEmailPasswordAuth = *fileCfg.DisableEmailPasswordAuth
+		}
+		if len(fileCfg.OAuth2Providers) > 0 {
+			cfg.OAuth2Providers = make([]core.OAuth2ProviderConfig, len(fileCfg.OAuth2Providers))
+			for i, p := range fileCfg.OAuth2Providers {
+				cfg.OAuth2Providers[i] = core.OAuth2ProviderConfig{
+					Name:         p.Name,
+					ClientId:     p.ClientId,
+					ClientSecret: p.ClientSecret,
+					AuthURL:      p.AuthURL,
+					TokenURL:     p.TokenURL,
+					UserInfoURL:  p.UserInfoURL,
+					DisplayName:  p.DisplayName,
+					PKCE:         p.PKCE,
+					Extra:        p.Extra,
+				}
+			}
+		}
+
 	}
 
 	// Helper resolution functions to check precedence: CLI Changed > Env Set > Config File / Default
@@ -333,7 +540,12 @@ func NewFromFlags(cmd *cobra.Command) *AppConfig {
 		return current
 	}
 
-	// 3 & 4. Overlay Env and CLI precedence
+	// Overlay Env and CLI precedence
+	cfg.TlsCertFile = resolveString("tls-cert-file", "QPI_TLS_CERT_FILE", cfg.TlsCertFile)
+	cfg.TlsKeyFile = resolveString("tls-key-file", "QPI_TLS_KEY_FILE", cfg.TlsKeyFile)
+	cfg.TlsCertFile = resolveString("tls-ca-cert-file", "QPI_TLS_CA_CERT_FILE", cfg.TlsCaCertFile)
+	cfg.TlsKeyFile = resolveString("tls-ca-key-file", "QPI_TLS_CA_KEY_FILE", cfg.TlsCaKeyFile)
+	cfg.ServerPort = resolveInt("server-port", "QPI_SERVER_PORT", cfg.ServerPort)
 	cfg.CollectionQPUs = resolveString("qpus-collection", "QPI_QPUS_COLLECTION", cfg.CollectionQPUs)
 	cfg.CollectionTimeSlots = resolveString("timeslots-collection", "QPI_TIMESLOTS_COLLECTION", cfg.CollectionTimeSlots)
 	cfg.CollectionQuantumJobs = resolveString("jobs-collection", "QPI_JOBS_COLLECTION", cfg.CollectionQuantumJobs)
@@ -357,28 +569,56 @@ func NewFromFlags(cmd *cobra.Command) *AppConfig {
 	}
 	if oauth2ProvidersRaw != "" {
 		var providers []core.OAuth2ProviderConfig
-		if err := json.Unmarshal([]byte(oauth2ProvidersRaw), &providers); err == nil {
-			for _, p := range providers {
-				found := false
-				for i, existing := range cfg.OAuth2Providers {
-					if existing.Name == p.Name {
-						cfg.OAuth2Providers[i] = p
-						found = true
-						break
-					}
-				}
-				if !found {
-					cfg.OAuth2Providers = append(cfg.OAuth2Providers, p)
+		err := json.Unmarshal([]byte(oauth2ProvidersRaw), &providers)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse OAuth2 providers: %w", err)
+		}
+
+		for _, p := range providers {
+			found := false
+			for i, existing := range cfg.OAuth2Providers {
+				if existing.Name == p.Name {
+					cfg.OAuth2Providers[i] = p
+					found = true
+					break
 				}
 			}
-		} else {
-			log.Printf("Warning: failed to parse OAuth2 providers: %v", err)
+			if !found {
+				cfg.OAuth2Providers = append(cfg.OAuth2Providers, p)
+			}
 		}
+
 	}
 
-	return cfg
+	// Load the TLS CA
+	var err error
+	cfg.tlsCaConfig, err = getCA(cfg.TlsCaCertFile, cfg.TlsCaKeyFile)
+	if err != nil {
+		return nil, fmt.Errorf("error loading CA config: %w", err)
+	}
+
+	// Load the TLS
+	cfg.tlsConfig, err = getTlsCertKeyPair(cfg.TlsCertFile, cfg.TlsKeyFile, cfg.DomainName, cfg.tlsCaConfig)
+	if err != nil {
+		return nil, fmt.Errorf("[Config] NewFromFlags error: %w", err)
+	}
+
+	// Refresh active TLS certificate
+	err = cfg.refreshActiveTls()
+	if err != nil {
+		return nil, fmt.Errorf("[Config] NewFromFlags error: %w", err)
+	}
+
+	// Save the hash
+	cfg.tlsCaHash, err = getCaCertHash(cfg.tlsCaConfig)
+	if err != nil {
+		return nil, fmt.Errorf("[Config] NewFromFlags error: %w", err)
+	}
+
+	return cfg, nil
 }
 
+// getEnvString reads the given env var or returns the fallback
 func getEnvString(key, fallback string) string {
 	if v := os.Getenv(key); v != "" {
 		return v

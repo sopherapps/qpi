@@ -1,7 +1,10 @@
+import hashlib
 import json
 import logging
 import multiprocessing
 import os
+import socket
+import ssl
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -10,6 +13,7 @@ from urllib.parse import urlparse
 
 import pynng
 import requests
+from pynng import TLSConfig, tls
 
 from qpi_driver.executors import Executor, JobPayload
 
@@ -189,7 +193,10 @@ def execute_job(
 
 
 def send_results(
-    result_queue: multiprocessing.Queue, res_port: int, nng_host: str
+    result_queue: multiprocessing.Queue,
+    res_port: int,
+    nng_host: str,
+    tls_config: TLSConfig,
 ) -> None:
     """Result sender process: reads Qiskit-format result dicts from result_queue
     and pushes them to the Go orchestrator via NNG PUSH.
@@ -198,6 +205,7 @@ def send_results(
         result_queue: Queue used to receive result dicts from the worker.
         res_port: Port allocated for the NNG PUSH socket to return results.
         nng_host: Hostname or IP of the Go PocketBase server (for NNG TCP connections).
+        tls_config: TLSConfig instance used to connect to the server.
     """
     logging.basicConfig(
         level=logging.INFO,
@@ -210,7 +218,7 @@ def send_results(
     addr = f"tcp://{nng_host}:{res_port}"
     rs_log.info("Connecting NNG PUSH → %s", addr)
 
-    with pynng.Push0() as sock:
+    with pynng.Push0(tls_config=tls_config) as sock:
         sock.dial(addr, block=True)
         rs_log.info("NNG PUSH connected to %s", addr)
 
@@ -246,6 +254,7 @@ def run_driver(
     executor: str | type[Executor] | Executor = "mock",
     custom_executors: dict[str, type[Executor]] | None = None,
     data_dir: Path = Path("bin/data"),
+    tls_config: TLSConfig | None = None,
     **executor_options: Any,
 ) -> None:
     """Run the QPI Python hardware driver.
@@ -258,6 +267,7 @@ def run_driver(
         executor: Executor specification (string key, class, or instance).
         custom_executors: Optional dict of custom executors for resolving string keys.
         data_dir: Directory for executor working data.
+        tls_config: The TLS configuration to use to connect to the QPI server.
         executor_options: other options to pass to the executor.
     """
     qpi_addr = _normalize_qpi_addr(qpi_addr)
@@ -305,7 +315,7 @@ def run_driver(
     # add extra args to be passed to the executor
     executor_options.update(dict(name=name))
 
-    # 2. Start Worker Process
+    # Start Worker Process
     worker = multiprocessing.Process(
         target=execute_job,
         args=(job_queue, result_queue, executor, custom_executors, data_dir),
@@ -315,21 +325,21 @@ def run_driver(
     )
     worker.start()
 
-    # 3. Start Result Sender Process
+    # Start Result Sender Process
     result_sender = multiprocessing.Process(
         target=send_results,
-        args=(result_queue, res_port, nng_host),
+        args=(result_queue, res_port, nng_host, tls_config),
         name="QPI-ResultSender",
         daemon=True,
     )
     result_sender.start()
 
     # 4. Start NNG PULL (commands) in Main Process
-    addr = f"tcp://{nng_host}:{cmd_port}"
+    addr = f"tls+tcp://{nng_host}:{cmd_port}"
     log.info("Connecting NNG PULL → %s", addr)
 
     try:
-        with pynng.Pull0() as sock:
+        with pynng.Pull0(tls_config=tls_config) as sock:
             sock.dial(addr, block=True)
             log.info("NNG PULL connected to %s", addr)
             while True:
@@ -371,3 +381,66 @@ def run_driver(
             result_sender.join()
 
         log.info("Shutdown complete.")
+
+
+def get_tls_config(addr: str, tls_hash: str, ca_file_path: Path) -> tls.TLSConfig:
+    """Gets the proper TLS config from the given address.
+
+    Args:
+        addr: IP address of the server.
+        tls_hash: the expected hash fingerprint of the TLS certificate of the server
+        ca_file_path: Path where the CA certificate is stored.
+
+    Returns:
+        TLSConfig: The TLS config from the given address.
+
+    Raises:
+        ValueError: If the given address is not a valid URL.
+        RuntimeError: if the tls_hash does not match with the downloaded one
+    """
+    parsed_url = urlparse(addr)
+    hostname = parsed_url.hostname
+
+    if not hostname:
+        raise ValueError(f"Invalid URL: Could not extract hostname from {addr}.")
+
+    ca_file_path_str = ca_file_path.as_posix()
+    _download_root_ca_cert(addr, tls_hash, ca_file_path_str)
+    return TLSConfig(
+        TLSConfig.MODE_CLIENT,
+        server_name=hostname,
+        ca_files=ca_file_path_str,
+    )
+
+
+def _download_root_ca_cert(
+    qpi_addr: str, expected_hash: str, dst: str, timeout: float = 10
+):
+    """Downloads the TLS certificate from the server.
+
+    Args:
+        qpi_addr: The address where QPI server is running.
+        expected_hash: Expected hash of the certificate.
+        dst: Destination path where the certificate will be stored.
+        timeout: Timeout in seconds for the download.
+    """
+    url = f"{qpi_addr}/api/pub/root-ca.pem"
+    response = requests.get(url, timeout=timeout)
+    response.raise_for_status()
+
+    pem_text = response.text
+
+    # Convert PEM to raw DER bytes to get an accurate cryptographic hash
+    der_cert = ssl.PEM_cert_to_DER_cert(pem_text)
+    current_hash = hashlib.sha256(der_cert).hexdigest()
+
+    # Verify finger prints
+    if current_hash != expected_hash:
+        raise RuntimeError(
+            f"CRITICAL SECURITY ERROR:\n"
+            f"Downloaded fingerprint ({current_hash}) does not match "
+            f"the expected configuration signature ({expected_hash}).\n"
+            f"The download channel may be compromised!"
+        )
+    with open(dst, "w") as f:
+        f.write(pem_text)

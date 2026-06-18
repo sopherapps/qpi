@@ -84,7 +84,11 @@ The Go orchestrator can be configured via CLI flags, environment variables, or a
 
 | CLI Option | Environment Variable | Default | Description |
 |---|---|---|---|
-| `--config-file` | `QPI_CONFIG_FILE` | | Path to JSON or YAML configuration file. |
+| `--config-file` | `QPI_CONFIG_FILE` | `qpi.config.yml` | Path to JSON or YAML configuration file. |
+| `--tls-ca-cert-file` | `QPI_TLS_CA_CERT_FILE` | `.qpi.ca.pem` | Path to TLS root CA certificate file. |
+| `--tls-ca-key-file` | `QPI_TLS_CA_KEY_FILE` | `.qpi.ca.key` | Path to TLS root CA key file. |
+| `--tls-cert-file` | `QPI_TLS_CERT_FILE` | `.qpi.cert.pem` | Path to TLS certificate file. |
+| `--tls-key-file` | `QPI_TLS_KEY_FILE` | `.qpi.key` | Path to TLS key file. |
 | `--qpus-collection` | `QPI_QPUS_COLLECTION` | `qpus` | Collection name for QPUs. |
 | `--timeslots-collection` | `QPI_TIMESLOTS_COLLECTION` | `time_slots` | Collection name for Reservation Time Slots. |
 | `--jobs-collection` | `QPI_JOBS_COLLECTION` | `quantum_jobs` | Collection name for Quantum Jobs. |
@@ -275,7 +279,10 @@ make clean
 
 ## TODOs
 
-- [ ] Add support for presto control instruments
+- [ ] Update the code snippet shown when registering/creating a qpu on the dashboard to also
+  add the --ca-fingerprint option
+- [ ] Update tests (for qpi-driver and qpi-ui) to test for TLS related features
+- [ ] Check that by default, users don't need to create certificates for this to work
 
 ## License
 
