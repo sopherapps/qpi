@@ -51,16 +51,14 @@ export function RegisterQpuModal({ onClose, onRegister }: Props) {
 
   const handleCopyCommand = () => {
     if (!createdQpu) return;
-    const qpiAddr = createdQpu.qpi_addr || window.location.origin;
-    const cmd = `QPI_ACCESS_TOKEN=${createdQpu.access_token} qpi-driver start --qpi-addr ${qpiAddr} --name "${createdQpu.name}" --executor "${createdQpu.executor_type}"`;
+    const cmd = getDriverStartCmd(createdQpu);
     navigator.clipboard.writeText(cmd);
     setCopiedCommand(true);
     setTimeout(() => setCopiedCommand(false), 2000);
   };
 
   if (createdQpu) {
-    const qpiAddr = createdQpu.qpi_addr || window.location.origin;
-    const commandText = `QPI_ACCESS_TOKEN=${createdQpu.access_token} qpi-driver start --qpi-addr ${qpiAddr} --name "${createdQpu.name}" --executor "${createdQpu.executor_type}"`;
+    const commandText = getDriverStartCmd(createdQpu);
 
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/80 backdrop-blur-sm animate-fade-in">
@@ -210,4 +208,19 @@ export function RegisterQpuModal({ onClose, onRegister }: Props) {
       </div>
     </div>
   );
+}
+
+/**
+ * Gets the command to use in the terminal to start the qpi-driver given a QPU creation response
+ *
+ * @param qpuCreationResp - the response on creation of the QPU
+ * @returns - the command to use to start the qpi-driver
+ */
+function getDriverStartCmd(qpuCreationResp: CreateQpuResponse) {
+  return `
+    QPI_ACCESS_TOKEN=${qpuCreationResp.access_token} qpi-driver start \\
+        --ca-fingerprint ${qpuCreationResp.ca_fingerprint} \\
+        --qpi-addr ${qpuCreationResp.qpi_addr} \\
+        --name "${qpuCreationResp.name}" \\
+        --executor "${qpuCreationResp.executor_type}"`;
 }

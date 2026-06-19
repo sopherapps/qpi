@@ -195,7 +195,9 @@ def send_results(
     result_queue: multiprocessing.Queue,
     res_port: int,
     nng_host: str,
-    ca_file_path: str,
+    qpi_addr: str,
+    ca_fingerprint: str,
+    ca_file_path: Path,
 ) -> None:
     """Result sender process: reads Qiskit-format result dicts from result_queue
     and pushes them to the Go orchestrator via NNG PUSH.
@@ -204,6 +206,8 @@ def send_results(
         result_queue: Queue used to receive result dicts from the worker.
         res_port: Port allocated for the NNG PUSH socket to return results.
         nng_host: Hostname or IP of the Go PocketBase server (for NNG TCP connections).
+        qpi_addr: The address of the QPI server to download the Certificate authority from
+        ca_fingerprint: The fingerprint of the CA file for verification of the download
         ca_file_path: Path to the CA certificate file for TLS connections.
     """
     logging.basicConfig(
@@ -217,10 +221,8 @@ def send_results(
     addr = f"tls+tcp://{nng_host}:{res_port}"
     rs_log.info("Connecting NNG PUSH → %s", addr)
 
-    tls_config = TLSConfig(
-        TLSConfig.MODE_CLIENT,
-        server_name=nng_host,
-        ca_files=ca_file_path,
+    tls_config = _get_tls_config(
+        qpi_addr, ca_fingerprint=ca_fingerprint, ca_file_path=ca_file_path
     )
 
     with pynng.Push0(tls_config=tls_config) as sock:
@@ -325,8 +327,14 @@ def run_driver(
     # Start Worker Process
     worker = multiprocessing.Process(
         target=execute_job,
-        args=(job_queue, result_queue, executor, custom_executors, data_dir),
-        kwargs=executor_options,
+        kwargs={
+            "job_queue": job_queue,
+            "result_queue": result_queue,
+            "executor": executor,
+            "custom_executors": custom_executors,
+            "data_dir": data_dir,
+            **executor_options,
+        },
         name="QPI-Worker",
         daemon=True,
     )
@@ -335,7 +343,14 @@ def run_driver(
     # Start Result Sender Process
     result_sender = multiprocessing.Process(
         target=send_results,
-        args=(result_queue, res_port, nng_host, ca_file_path.as_posix()),
+        kwargs={
+            "result_queue": result_queue,
+            "res_port": res_port,
+            "nng_host": nng_host,
+            "qpi_addr": qpi_addr,
+            "ca_fingerprint": ca_fingerprint,
+            "ca_file_path": ca_file_path,
+        },
         name="QPI-ResultSender",
         daemon=True,
     )
@@ -344,8 +359,8 @@ def run_driver(
     # 4. Start NNG PULL (commands) in Main Process
     addr = f"tls+tcp://{nng_host}:{cmd_port}"
     log.info("Connecting NNG PULL → %s", addr)
-    tls_config = get_tls_config(
-        qpi_addr, tls_hash=ca_fingerprint, ca_file_path=ca_file_path
+    tls_config = _get_tls_config(
+        qpi_addr, ca_fingerprint=ca_fingerprint, ca_file_path=ca_file_path
     )
 
     try:
@@ -393,12 +408,14 @@ def run_driver(
         log.info("Shutdown complete.")
 
 
-def get_tls_config(addr: str, tls_hash: str, ca_file_path: Path) -> tls.TLSConfig:
+def _get_tls_config(
+    qpi_addr: str, ca_fingerprint: str, ca_file_path: Path
+) -> tls.TLSConfig:
     """Gets the proper TLS config from the given address.
 
     Args:
-        addr: IP address of the server.
-        tls_hash: the expected hash fingerprint of the TLS certificate of the server
+        qpi_addr: IP address of the server.
+        ca_fingerprint: the expected hash fingerprint of the TLS certificate of the server
         ca_file_path: Path where the CA certificate is stored.
 
     Returns:
@@ -408,14 +425,14 @@ def get_tls_config(addr: str, tls_hash: str, ca_file_path: Path) -> tls.TLSConfi
         ValueError: If the given address is not a valid URL.
         RuntimeError: if the tls_hash does not match with the downloaded one
     """
-    parsed_url = urlparse(addr)
+    parsed_url = urlparse(qpi_addr)
     hostname = parsed_url.hostname
 
     if not hostname:
-        raise ValueError(f"Invalid URL: Could not extract hostname from {addr}.")
+        raise ValueError(f"Invalid URL: Could not extract hostname from {qpi_addr}.")
 
     ca_file_path_str = ca_file_path.as_posix()
-    _download_root_ca_cert(addr, tls_hash, ca_file_path_str)
+    _download_root_ca_cert(qpi_addr, ca_fingerprint, ca_file_path_str)
     return TLSConfig(
         TLSConfig.MODE_CLIENT,
         server_name=hostname,

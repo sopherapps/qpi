@@ -90,5 +90,6 @@ export interface CreateQpuResponse {
   executor_type: string;
   status: string;
   enabled: boolean;
-  qpi_addr?: string;
+  qpi_addr: string;
+  ca_fingerprint: string;
 }

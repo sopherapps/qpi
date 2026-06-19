@@ -478,7 +478,9 @@ func handleQPUCreate(re *core.RequestEvent) error {
 		return re.Error(http.StatusInternalServerError, "failed to create QPU", err)
 	}
 
-	var resp QPUCreateResponse
+	resp := QPUCreateResponse{
+		CaFingerprint: cfg.GetTlsCaHash(),
+	}
 	_ = resp.RefreshFromDbModel(&qpu)
 	resp.AccessToken = rawToken
 	resp.QpiAddr = getAddrFromReq(re)

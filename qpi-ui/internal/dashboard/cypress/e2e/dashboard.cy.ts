@@ -6,6 +6,8 @@ describe("QPI Dashboard E2E Tests", () => {
     cy.visit("/");
   });
 
+  // FIXME: Add more tests for the dashboard, especially testing functionality
+
   it("should block access until logged in and allow regular user flow", () => {
     // 1. Verify Login Modal is displayed
     cy.contains("h2", "Sign in to QPI").should("be.visible");

@@ -253,13 +253,14 @@ func (qcr *QPUCreateRequest) ToMap() map[string]any {
 
 // QPUCreateResponse represents the JSON payload returned by POST /api/op/qpus/create.
 type QPUCreateResponse struct {
-	ID           string `json:"id"`
-	Name         string `json:"name"`
-	AccessToken  string `json:"access_token"`
-	ExecutorType string `json:"executor_type"`
-	Status       string `json:"status"`
-	Enabled      bool   `json:"enabled"`
-	QpiAddr      string `json:"qpi_addr"`
+	ID            string `json:"id"`
+	Name          string `json:"name"`
+	AccessToken   string `json:"access_token"`
+	ExecutorType  string `json:"executor_type"`
+	Status        string `json:"status"`
+	Enabled       bool   `json:"enabled"`
+	QpiAddr       string `json:"qpi_addr"`
+	CaFingerprint string `json:"ca_fingerprint"`
 }
 
 // RefreshFromDbModel refreshes this DTO's field values from a database model
