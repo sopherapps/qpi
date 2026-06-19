@@ -72,8 +72,8 @@ def create_user(email="user@example.com", password="userpassword1234"):
             "passwordConfirm": password,
         },
     )
-    if resp.status_code == 400 and "already" in resp.text.lower():
-        # fetch existing
+    if resp.status_code == 400 and "validation_not_unique" in resp.text.lower() :
+       # fetch existing
         resp2 = s.get(
             f"{BASE}/api/collections/users/records",
             params={"filter": f'email="{email}"'},
@@ -82,6 +82,8 @@ def create_user(email="user@example.com", password="userpassword1234"):
         user = resp2.json()["items"][0]
         print(f"[seed] User already exists: {user['id']}")
         return user
+    if resp.status_code >= 400:
+        print(f"[seed] User creation failed: {resp.status_code} {resp.text}")
     resp.raise_for_status()
     user = resp.json()
     print(f"[seed] User created: {user['id']}")
@@ -145,8 +147,8 @@ def grant_user_qpu_time(user_id, qpu_seconds=1000.0, api_tokens=None):
 
 def create_time_slot(user_id):
     now = datetime.now(timezone.utc)
-    start = (now - timedelta(minutes=2)).strftime("%Y-%m-%d %H:%M:%S.000Z")
-    end = (now + timedelta(minutes=5)).strftime("%Y-%m-%d %H:%M:%S.000Z")
+    start = (now - timedelta(minutes=2)).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    end = (now + timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%S.000Z")
     resp = s.post(
         f"{BASE}/api/collections/time_slots/records",
         json={
@@ -155,6 +157,8 @@ def create_time_slot(user_id):
             "booked_by": user_id,
         },
     )
+    if resp.status_code >= 400:
+        print(f"[seed] Time slot creation failed: {resp.status_code} {resp.text}")
     resp.raise_for_status()
     slot = resp.json()
     print(f"[seed] Time slot created: {slot['id']}  ({start} → {end})")

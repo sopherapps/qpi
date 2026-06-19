@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Annotated
 
 from qpi_driver.compat import typer
-from qpi_driver.driver import get_tls_config, run_driver
+from qpi_driver.driver import run_driver
 
 app = None
 if typer.IS_TYPER_INSTALLED:
@@ -128,17 +128,14 @@ if typer.IS_TYPER_INSTALLED:
 
         typer.rich_print(_banner())
 
-        tls_config = get_tls_config(
-            qpi_addr, tls_hash=ca_fingerprint, ca_file_path=ca_file
-        )
-
         run_driver(
             qpi_addr=qpi_addr,
             token=token,
             name=name,
             executor=executor,
             data_dir=data_dir,
-            tls_config=tls_config,
+            ca_fingerprint=ca_fingerprint,
+            ca_file_path=ca_file,
             is_dummy=is_dummy,
             quantify_hardware_config=quantify_hardware_config,
             quantify_device_config=quantify_device_config,

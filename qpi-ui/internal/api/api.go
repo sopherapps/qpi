@@ -51,7 +51,7 @@ func SetupServer(e *core.ServeEvent) error {
 // RegisterRoutes sets up custom HTTP routes for QPU interactions.
 func RegisterRoutes(e *core.ServeEvent, dashboardFS fs.FS) {
 	// Dashboard
-	if dashboardFS != nil {
+	if dashboardFS == nil {
 		log.Panic("[RegisterRoutes] failed to load the dashboard file system")
 	}
 

@@ -362,10 +362,11 @@ func NewFromFlags(cmd *cobra.Command) (*AppConfig, error) {
 	if envVal := os.Getenv("QPI_CONFIG_FILE"); envVal != "" {
 		configFile = envVal
 	}
-	if configFile != "" {
+	if configFile != "" && fileExists(configFile) {
 		data, err := os.ReadFile(configFile)
 		if err != nil {
 			return nil, fmt.Errorf("error reading config file %s: %w", configFile, err)
+
 		}
 		type oauth2ProviderConfigLocal struct {
 			Name         string         `json:"name" yaml:"name"`
@@ -624,4 +625,18 @@ func getEnvString(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+// fileExists checks whether a file exists
+func fileExists(path string) bool {
+	if path == "" {
+		return false
+	}
+
+	_, err := os.Stat(path)
+	if err != nil {
+		return !os.IsNotExist(err)
+	}
+
+	return true
 }

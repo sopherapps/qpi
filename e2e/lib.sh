@@ -124,7 +124,18 @@ start_pocketbase() {
 
     echo "[e2e] Starting PocketBase server..."
     mkdir -p "${DATA_DIR}"
-    "${PROJECT_ROOT}/bin/qpi" serve --dir "${PROJECT_ROOT}/bin/pb_data" --dev > "${DATA_DIR}/pocketbase.log" 2>&1 &
+
+    # Kill any existing process on port 8090 to prevent connecting to stale servers
+    local existing_pid
+    existing_pid=$(lsof -ti:8090 2>/dev/null || true)
+    if [ -n "$existing_pid" ]; then
+        echo "[e2e] Killing existing process on port 8090 (PID $existing_pid)..."
+        kill "$existing_pid" 2>/dev/null || true
+        sleep 1
+    fi
+
+    # Run from a temp directory to avoid picking up qpi.config.yml from project root
+    (cd "$(mktemp -d)" && "${PROJECT_ROOT}/bin/qpi" serve --dir "${PROJECT_ROOT}/bin/pb_data" --dev > "${DATA_DIR}/pocketbase.log" 2>&1) &
     PB_PID=$!
 
     echo "[e2e] Waiting for PocketBase to be ready..."
@@ -179,7 +190,20 @@ start_driver() {
         extra_flags="--quantify-hardware-config ${PROJECT_ROOT}/qpi-driver/tests/fixtures/quantify.hardware.json --quantify-device-config ${PROJECT_ROOT}/qpi-driver/tests/fixtures/quantify.device.yml"
     fi
 
-    QPI_ACCESS_TOKEN=my-super-secret-token-12345 "$py" -u -m qpi_driver.cli start --executor "$executor" --data-dir "${PROJECT_ROOT}/bin/data" --is-dummy $extra_flags >"$DRIVER_LOG" 2>&1 &
+    # Fetch the CA fingerprint from the orchestrator for TLS verification
+    local ca_fingerprint
+    ca_fingerprint=$(curl -s http://127.0.0.1:8090/api/pub/root-ca.pem | openssl x509 -outform DER | sha256sum | cut -d' ' -f1)
+    if [ -z "$ca_fingerprint" ]; then
+        echo "[e2e] Failed to fetch CA fingerprint from orchestrator"
+        exit 1
+    fi
+    echo "[e2e] CA fingerprint: $ca_fingerprint"
+
+    QPI_ACCESS_TOKEN=my-super-secret-token-12345 "$py" -u -m qpi_driver.cli start \
+        --executor "$executor" \
+        --data-dir "${PROJECT_ROOT}/bin/data" \
+        --ca-fingerprint "$ca_fingerprint" \
+        --is-dummy $extra_flags >"$DRIVER_LOG" 2>&1 &
     DRIVER_PID=$!
 }
 

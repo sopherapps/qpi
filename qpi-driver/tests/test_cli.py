@@ -29,7 +29,7 @@ def test_cli_version():
 
 def test_cli_start_requires_token():
     """Verify that start command fails if token is not supplied."""
-    result = runner.invoke(app, ["start"])
+    result = runner.invoke(app, ["start", "--ca-fingerprint", "test-fingerprint"])
     assert result.exit_code == 1
     # Check stdout, stderr, or combined output
     output = result.stdout or ""
