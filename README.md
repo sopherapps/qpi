@@ -349,9 +349,9 @@ make clean
 
 ### Cypress E2E — Settings & Request Time
 
-- [ ] Test Profile Settings: displays the logged-in user's email, current quota in seconds, and correct role badge ("Administrator" or "User Account")
-- [ ] Test Request Time modal (regular user): open from sidebar, enter seconds + reason, submit, verify success alert
-- [ ] Test Request Time validation: empty reason or zero seconds is rejected
+- [x] Test Profile Settings: displays the logged-in user's email, current quota in seconds, and correct role badge ("Administrator" or "User Account") (`cypress/e2e/settings-request-time/profile-settings.cy.ts`)
+- [x] Test Request Time modal (regular user): open from sidebar, enter seconds + reason, submit, verify success alert (`cypress/e2e/settings-request-time/request-time-modal.cy.ts`)
+- [x] Test Request Time validation: empty reason or zero seconds is rejected (`cypress/e2e/settings-request-time/request-time-validation.cy.ts`)
 
 ### Cypress E2E — Error & Edge Cases
 
