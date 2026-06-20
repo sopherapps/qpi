@@ -279,10 +279,74 @@ make clean
 
 ## TODOs
 
+### Dashboard / UI
+
 - [ ] Update the code snippet shown when registering/creating a qpu on the dashboard to also
   add the --ca-fingerprint option
 - [ ] Update tests (for qpi-driver and qpi-ui) to test for TLS related features
 - [ ] Check that by default, users don't need to create certificates for this to work
+
+### Cypress E2E — Auth & Navigation
+
+- [ ] Test login error flow: wrong credentials show "Invalid credentials" and the form remains
+- [ ] Test role-based navigation: regular user sees Overview/QPUs/Jobs/Bookings/Settings; admin additionally sees Admin Panel
+- [ ] Test hash routing: visiting `/#jobs` directly lands on Jobs Console; `/#admin` as regular user shows "Access Denied"
+- [ ] Test browser back/forward navigation syncs with active tab
+- [ ] Test logout clears session and returns to login modal
+
+### Cypress E2E — QPU Registry
+
+- [ ] **Admin: Register QPU** — fill name + executor, submit, and verify the success screen shows:
+  - The exact QPU name and executor that were entered
+  - An access token that is a non-empty string
+  - A connection command containing `--ca-fingerprint`, `--qpi-addr`, `--name`, and `--executor` flags with values matching the response
+  - Copy buttons for both token and command (click and verify clipboard, or verify button state change)
+- [ ] **Admin: Toggle QPU** — click "Online (Enabled)" → becomes "Offline (Disabled)"; click again → reverts
+- [ ] **Regular user** — cannot see "Register QPU" button and cannot see toggle controls
+
+### Cypress E2E — Jobs Console
+
+- [ ] Test default job form state: QPU dropdown pre-selects first online QPU; QASM textarea contains the Bell state example; shots = 1000; meas level = "2 (Counts)"
+- [ ] Test job submission: execute job, wait for completion, verify results panel shows:
+  - Status "completed"
+  - A duration in seconds (non-empty)
+  - The correct target QPU name
+- [ ] Test QPU dropdown: if multiple QPUs are online, selecting a different one updates the submitted job's target
+- [ ] Test empty state: before any job is selected, results panel shows a helpful empty state
+
+### Cypress E2E — Bookings
+
+- [ ] Test booking a slot: open modal, pick valid start/end times, submit, verify the table shows the booking with the current user's email
+- [ ] Test booking validation: end time before start time shows an error message and does not create a slot
+- [ ] Test cancel booking: click cancel, confirm dialog, verify the slot disappears from the table
+- [ ] Test regular user only sees their own bookings; admin sees all bookings
+
+### Cypress E2E — Admin Panel
+
+- [ ] Test User Allocations subtab: enter seconds for a user, allocate, verify the user's displayed quota updates to the new value
+- [ ] Test Time Requests subtab: a pending request can be approved (status changes to approved) or rejected (status changes to rejected with a reason)
+- [ ] Test Broadcast Announcement: compose title + description, submit, verify success, then open the header bell dropdown and see the exact title displayed
+- [ ] Test notification badge: after a broadcast, the bell badge shows count > 0; after dismissing, count returns to 0
+
+### Cypress E2E — Overview & Header
+
+- [ ] Test metrics row: counts for QPUs, jobs, bookings, and quota seconds match the actual data loaded from the API
+- [ ] Test quick-action buttons: "Book Slot" navigates to Bookings; "Submit Job" navigates to Jobs Console
+- [ ] Test recent jobs table: shows actual job data (ID, status, QPU name) from the API
+- [ ] Test notifications panel: dismiss an individual notification → it disappears; "Clear All" → all disappear
+- [ ] Test header page title: changes to match the active tab (e.g. "Jobs Console" when on `#jobs`)
+
+### Cypress E2E — Settings & Request Time
+
+- [ ] Test Profile Settings: displays the logged-in user's email, current quota in seconds, and correct role badge ("Administrator" or "User Account")
+- [ ] Test Request Time modal (regular user): open from sidebar, enter seconds + reason, submit, verify success alert
+- [ ] Test Request Time validation: empty reason or zero seconds is rejected
+
+### Cypress E2E — Error & Edge Cases
+
+- [ ] Test empty states: when no QPUs exist, show appropriate empty state; when no jobs exist, show empty state
+- [ ] Test network failure handling: where the UI uses `alert()`, verify a user-friendly message is shown (or better, replace alerts with in-UI error states and test those)
+- [ ] Test unauthorized access: regular user navigating to `/#admin` sees "Access Denied" instead of admin controls
 
 ## License
 
