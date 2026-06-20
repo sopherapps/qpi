@@ -289,10 +289,10 @@ make clean
 
 ### Dashboard / UI
 
-- [ ] Update the code snippet shown when registering/creating a qpu on the dashboard to also
+- [x] Update the code snippet shown when registering/creating a qpu on the dashboard to also
   add the --ca-fingerprint option
-- [ ] Update tests (for qpi-driver and qpi-ui) to test for TLS related features
-- [ ] Check that by default, users don't need to create certificates for this to work
+- [x] Update tests (for qpi-driver and qpi-ui) to test for TLS related features
+- [x] Check that by default, users don't need to create certificates for this to work
 
 ### Cypress E2E — Auth & Navigation
 
@@ -355,9 +355,9 @@ make clean
 
 ### Cypress E2E — Error & Edge Cases
 
-- [ ] Test empty states: when no QPUs exist, show appropriate empty state; when no jobs exist, show empty state
-- [ ] Test network failure handling: where the UI uses `alert()`, verify a user-friendly message is shown (or better, replace alerts with in-UI error states and test those)
-- [ ] Test unauthorized access: regular user navigating to `/#admin` sees "Access Denied" instead of admin controls
+- [x] Test empty states: when no QPUs exist, show appropriate empty state; when no jobs exist, show empty state (`cypress/e2e/error-edge-cases/empty-states.cy.ts`)
+- [x] Test network failure handling: where the UI uses `alert()`, verify a user-friendly message is shown (`cypress/e2e/error-edge-cases/network-failure.cy.ts`)
+- [x] Test unauthorized access: regular user navigating to `/#admin` sees "Access Denied" instead of admin controls (`cypress/e2e/error-edge-cases/unauthorized-access.cy.ts`)
 
 ## License
 
