@@ -298,13 +298,13 @@ make clean
 
 ### Cypress E2E — QPU Registry
 
-- [ ] **Admin: Register QPU** — fill name + executor, submit, and verify the success screen shows:
-  - The exact QPU name and executor that were entered
-  - An access token that is a non-empty string
-  - A connection command containing `--ca-fingerprint`, `--qpi-addr`, `--name`, and `--executor` flags with values matching the response
-  - Copy buttons for both token and command (click and verify clipboard, or verify button state change)
-- [ ] **Admin: Toggle QPU** — click "Online (Enabled)" → becomes "Offline (Disabled)"; click again → reverts
-- [ ] **Regular user** — cannot see "Register QPU" button and cannot see toggle controls
+- [x] **Admin: Register QPU** — fill name + executor, submit, and verify the success screen shows:
+  - The exact QPU name and executor that were entered (`cypress/e2e/qpu-registry/admin-register.cy.ts`)
+  - An access token that is a non-empty string (`cypress/e2e/qpu-registry/admin-register.cy.ts`)
+  - A connection command containing `--ca-fingerprint`, `--qpi-addr`, `--name`, and `--executor` flags with values matching the response (`cypress/e2e/qpu-registry/admin-register.cy.ts`)
+  - Copy buttons for both token and command (click and verify button state change) (`cypress/e2e/qpu-registry/admin-register.cy.ts`)
+- [x] **Admin: Toggle QPU** — click "Online (Enabled)" → becomes "Offline (Disabled)"; click again → reverts (`cypress/e2e/qpu-registry/admin-toggle.cy.ts`)
+- [x] **Regular user** — cannot see "Register QPU" button and cannot see toggle controls (`cypress/e2e/qpu-registry/user-view.cy.ts`)
 
 ### Cypress E2E — Jobs Console
 
