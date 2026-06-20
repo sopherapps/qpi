@@ -281,8 +281,15 @@ make clean
 
 ## TODOs
 
+### Go Backend (qpi-ui)
+
+- [x] Test `OnQPUTimeRequestUpdateRequest`: approving a request adds the requested seconds to the user's `qpu_seconds`; rejecting leaves it unchanged (`qpi-ui/internal/api/hooks_test.go`)
+- [x] Test `OnQPUTimeRequestUpdateRequest`: non-superusers are forbidden from updating time requests (`qpi-ui/internal/api/hooks_test.go`)
+- [x] Test `OnQPUTimeRequestUpdateRequest`: cannot modify an already-processed (approved/rejected) request (`qpi-ui/internal/api/hooks_test.go`)
+
 ### Dashboard / UI
 
+- [ ] Add an announcements banner/section on the dashboard where users can see all unread announcements and dismiss individual ones. Only show announcements that are broadcast (no target users) or where the current user is among the target users.
 - [ ] Update the code snippet shown when registering/creating a qpu on the dashboard to also
   add the --ca-fingerprint option
 - [ ] Update tests (for qpi-driver and qpi-ui) to test for TLS related features
@@ -325,10 +332,11 @@ make clean
 
 ### Cypress E2E — Admin Panel
 
-- [ ] Test User Allocations subtab: enter seconds for a user, allocate, verify the user's displayed quota updates to the new value
-- [ ] Test Time Requests subtab: a pending request can be approved (status changes to approved) or rejected (status changes to rejected with a reason)
-- [ ] Test Broadcast Announcement: compose title + description, submit, verify success, then open the header bell dropdown and see the exact title displayed
-- [ ] Test notification badge: after a broadcast, the bell badge shows count > 0; after dismissing, count returns to 0
+- [x] Test User Allocations subtab: enter seconds for a user, allocate, verify the user's displayed quota updates to the new value (`cypress/e2e/admin-panel/user-allocations.cy.ts`)
+- [x] Test Time Requests subtab: a pending request can be approved (status changes to approved) or rejected (status changes to rejected with a reason) (`cypress/e2e/admin-panel/time-requests.cy.ts`)
+- [x] Test Broadcast Announcement: compose title + description, submit, verify success, then open the header bell dropdown and see the exact title displayed (`cypress/e2e/admin-panel/broadcast.cy.ts`)
+- [x] Test notification badge: after a broadcast, the bell badge shows count > 0; after dismissing, count returns to 0 (`cypress/e2e/admin-panel/notification-badge.cy.ts`)
+- [x] Test time request approval increases user quota; rejection leaves quota unchanged (`cypress/e2e/admin-panel/time-request-approval-seconds.cy.ts`)
 
 ### Cypress E2E — Overview & Header
 
