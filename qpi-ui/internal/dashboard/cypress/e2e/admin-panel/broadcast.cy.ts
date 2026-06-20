@@ -29,7 +29,7 @@ describe("Admin Panel — Broadcast Announcement", () => {
       .type(description);
 
     // Submit the form
-    cy.contains("button", "Broadcast Announcement").click();
+    cy.get("form").contains("button", "Broadcast Announcement").click();
 
     // Verify success message
     cy.contains("Announcement broadcasted successfully!").should("be.visible");

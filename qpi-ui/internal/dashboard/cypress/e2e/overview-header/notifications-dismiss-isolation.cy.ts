@@ -21,7 +21,7 @@ describe("Overview & Header — Notification Dismiss Isolation", () => {
       .type("Shared Announcement");
     cy.get('textarea[placeholder="Rigetti Aspen-9 will be offline for calibration tomorrow..."]')
       .type("This is a shared broadcast announcement.");
-    cy.contains("button", "Broadcast Announcement").click();
+    cy.get("form").contains("button", "Broadcast Announcement").click();
 
     cy.contains("Announcement broadcasted successfully!").should("be.visible");
 

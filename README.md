@@ -281,6 +281,70 @@ make clean
 
 ## TODOs
 
+### Failing Dashboard E2E Tests
+
+- [ ] **ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+--import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("file%3A///Users/martinahindura/Library/Caches/Cypress/13.17.0/Cypress.app/Contents/Resources/app/node_modules/ts-node/esm/transpile-only.mjs", pathToFileURL("./"));'
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:23982) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
+(Use `node --trace-deprecation ...` to show where the warning was created)** - `composes and broadcasts an announcement, then sees it in the bell dropdown`
+  - *Error*: AssertionError: Timed out retrying after 4000ms: Expected to find content: 'Announcement broadcasted successfully!' but never did.
+- [ ] **shows a badge count > 0 after broadcast and returns to 0 after dismissing** - `shows a badge count > 0 after broadcast and returns to 0 after dismissing`
+  - *Error*: AssertionError: Timed out retrying after 4000ms: Expected <span.absolute.-top-1.5.-right-1.5.bg-red-500.text-zinc-950.text-[10px].font-bold.h-4.w-4.rounded-full.flex.items-center.justify-center> no...
+- [ ] **increases the user's qpu_seconds when a time request is approved** - `increases the user's qpu_seconds when a time request is approved`
+  - *Error*: AssertionError: Timed out retrying after 4000ms: Expected to find content: 'QPU Quota' but never did.
+- [ ] **Admin Panel — Time Request Approval Affects User Quota** - `does not change the user's qpu_seconds when a time request is rejected`
+  - *Error*: AssertionError: Timed out retrying after 4000ms: Expected to find content: 'QPU Quota' but never did.
+- [ ] **approves a pending time request and status changes to approved** - `approves a pending time request and status changes to approved`
+  - *Error*: AssertionError: Timed out retrying after 4000ms: Expected to find element: `button svg.lucide-check`, but never found it.
+- [ ] **Admin Panel — Time Requests** - `rejects a pending time request and status changes to rejected`
+  - *Error*: AssertionError: Timed out retrying after 4000ms: Expected to find element: `button svg.lucide-x`, but never found it.
+- [ ] **books a slot with valid times and shows it in the table** - `books a slot with valid times and shows it in the table`
+  - *Error*: AssertionError: Timed out retrying after 4000ms: Expected not to find content: 'Book Time Slot' within the selector: 'h3' but continuously found it.
+- [ ] **cancels a booking after confirming the dialog** - `cancels a booking after confirming the dialog`
+  - *Error*: AssertionError: Timed out retrying after 4000ms: Expected not to find content: 'user@example.com' within the selector: 'td' but continuously found it.
+- [ ] **shows an error when end time is before start time** - `shows an error when end time is before start time`
+  - *Error*: AssertionError: Timed out retrying after 4000ms: expected '<div.text-xs.text-error.font-medium.bg-error/10.border.border-error/20.p-2.5.rounded>' to contain 'Booking failed'
+- [ ] **shows empty state in job results panel when no job is selected** - `shows empty state in job results panel when no job is selected`
+  - *Error*: AssertionError: Timed out retrying after 4000ms: expected '<h3.text-xl.font-bold.font-geist.text-white>' to be 'visible'
+- [ ] **shows an alert when dismissing a notification fails** - `shows an alert when dismissing a notification fails`
+  - *Error*: AssertionError: Timed out retrying after 4000ms: Expected to find element: `button[aria-label="Notifications"]`, but never found it.
+- [ ] **shows a helpful empty state before any job is selected** - `shows a helpful empty state before any job is selected`
+  - *Error*: AssertionError: Timed out retrying after 4000ms: expected '<h3.text-xl.font-bold.font-geist.text-white>' to be 'visible'
+- [ ] **Jobs Console — Empty State** - `does not show job metadata when no job is selected`
+  - *Error*: AssertionError: Timed out retrying after 4000ms: Expected not to find content: 'completed' within the selector: 'div' but continuously found it.
+- [ ] **Jobs Console — Empty State** - `shows the visualization placeholder when no job is selected`
+  - *Error*: AssertionError: Timed out retrying after 4000ms: expected '<div.text-zinc-500.text-sm>' to be 'visible'
+- [ ] **defaults shots to 1000** - `defaults shots to 1000`
+  - *Error*: AssertionError: Timed out retrying after 4000ms: expected '<input.w-full.bg-zinc-950.border.border-zinc-800.text-white.rounded.px-3.py-2.focus:outline-none.focus:border-indigo-500.transition-colors...
+- [ ] **Jobs Console — Default Form State** - `defaults meas level to 2 (Counts)`
+  - *Error*: AssertionError: Timed out retrying after 4000ms: expected '<span.text-indigo-400.font-medium>' to be 'visible'
+- [ ] **Jobs Console — Default Form State** - `shows the Execute Job button enabled when a QPU is selected`
+  - *Error*: AssertionError: Timed out retrying after 4000ms: expected '<button.w-full.bg-white.text-zinc-950.font-geist.font-semibold.py-3.rounded.hover:opacity-90.transition-opacity.flex.justify-center.items-...
+- [ ] **shows "QPU Registry" when on the QPUs tab** - `shows "QPU Registry" when on the QPUs tab`
+  - *Error*: AssertionError: Timed out retrying after 4000ms: Expected to find content: 'QPUs' within the selector: 'button' but never did.
+- [ ] **Overview & Header — Page Title** - `shows "Bookings Overview" when on the Bookings tab`
+  - *Error*: AssertionError: Timed out retrying after 4000ms: expected '<h2.font-geist.text-lg.font-bold.text-white.capitalize>' to contain 'Bookings Overview'
+- [ ] **Overview & Header — Page Title** - `shows "Settings Overview" when on the Settings tab`
+  - *Error*: AssertionError: Timed out retrying after 4000ms: expected '<h2.font-geist.text-lg.font-bold.text-white.capitalize>' to contain 'Settings Overview'
+- [ ] **displays metrics that match the actual API data** - `displays metrics that match the actual API data`
+  - *Error*: AssertionError: Timed out retrying after 4000ms: expected '<div.text-2xl.font-geist.font-bold.text-white.mb-1>' to contain '0/0'
+- [ ] **still shows a notification to another user after one user dismisses it** - `still shows a notification to another user after one user dismisses it`
+  - *Error*: AssertionError: Timed out retrying after 4000ms: Expected to find content: 'Announcement broadcasted successfully!' but never did.
+- [ ] **"before each" hook for "dismisses an individual notification and it disappears from the panel"** - `"before each" hook for "dismisses an individual notification and it disappears from the panel"`
+  - *Error*: AssertionError: Timed out retrying after 4000ms: Expected to find content: 'Announcement broadcasted successfully!' but never did.
+- [ ] **shows broadcast notifications to all users** - `shows broadcast notifications to all users`
+  - *Error*: AssertionError: Timed out retrying after 4000ms: Expected to find content: 'Announcement broadcasted successfully!' but never did.
+- [ ] **closes the success screen and shows the new QPU in the grid** - `closes the success screen and shows the new QPU in the grid`
+  - *Error*: AssertionError: Timed out retrying after 4000ms: expected '<h3.font-geist.font-bold.text-white.text-lg.leading-tight>' to be 'visible'
+- [ ] **shows QPU cards with status and executor info** - `shows QPU cards with status and executor info`
+  - *Error*: AssertionError: Timed out retrying after 4000ms: expected '<span.px-2.py-0.5.border.rounded-full.text-[10px].uppercase.font-semibold.flex.items-center.gap-1.bg-green-500/10.border-green-500/20.text...
+- [ ] **syncs browser back/forward with tab state** - `syncs browser back/forward with tab state`
+  - *Error*: AssertionError: Timed out retrying after 4000ms: Expected to find content: 'Overview' within the selector: 'h1' but never did.
+- [ ] **submits a time request and shows success alert** - `submits a time request and shows success alert`
+  - *Error*: AssertionError: Timed out retrying after 4000ms: Expected not to find content: 'Request QPU Time' within the selector: 'h3' but continuously found it.
+
+
 
 ## License
 

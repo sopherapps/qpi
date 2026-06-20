@@ -378,8 +378,8 @@ export const App: React.FC = () => {
     await pb.collection("notifications").create({
       title: title,
       description: desc,
-      start_time: start || null,
-      end_time: end || null,
+      start_time: start || "",
+      end_time: end || "",
     });
     loadNotifications();
   };

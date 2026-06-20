@@ -21,7 +21,7 @@ describe("Overview & Header — Notification Targeting", () => {
       .type("Broadcast Alert");
     cy.get('textarea[placeholder="Rigetti Aspen-9 will be offline for calibration tomorrow..."]')
       .type("This is a broadcast to all users.");
-    cy.contains("button", "Broadcast Announcement").click();
+    cy.get("form").contains("button", "Broadcast Announcement").click();
 
     cy.contains("Announcement broadcasted successfully!").should("be.visible");
 

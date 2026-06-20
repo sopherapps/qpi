@@ -19,7 +19,7 @@ describe("Overview & Header — Notifications Panel", () => {
       .type("Test Announcement");
     cy.get('textarea[placeholder="Rigetti Aspen-9 will be offline for calibration tomorrow..."]')
       .type("This is a test announcement for the notifications panel.");
-    cy.contains("button", "Broadcast Announcement").click();
+    cy.get("form").contains("button", "Broadcast Announcement").click();
 
     cy.contains("Announcement broadcasted successfully!").should("be.visible");
 

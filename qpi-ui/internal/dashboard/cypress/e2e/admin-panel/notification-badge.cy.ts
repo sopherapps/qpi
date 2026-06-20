@@ -30,7 +30,7 @@ describe("Admin Panel — Notification Badge", () => {
       .type("System Update");
     cy.get('textarea[placeholder="Rigetti Aspen-9 will be offline for calibration tomorrow..."]')
       .type("A brief system update is scheduled.");
-    cy.contains("button", "Broadcast Announcement").click();
+    cy.get("form").contains("button", "Broadcast Announcement").click();
 
     cy.contains("Announcement broadcasted successfully!").should("be.visible");
 
