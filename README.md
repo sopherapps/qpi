@@ -290,11 +290,11 @@ make clean
 
 ### Cypress E2E — Auth & Navigation
 
-- [ ] Test login error flow: wrong credentials show "Invalid credentials" and the form remains
-- [ ] Test role-based navigation: regular user sees Overview/QPUs/Jobs/Bookings/Settings; admin additionally sees Admin Panel
-- [ ] Test hash routing: visiting `/#jobs` directly lands on Jobs Console; `/#admin` as regular user shows "Access Denied"
-- [ ] Test browser back/forward navigation syncs with active tab
-- [ ] Test logout clears session and returns to login modal
+- [x] Test login error flow: wrong credentials show "Invalid credentials" and the form remains (`cypress/e2e/auth/login.cy.ts`)
+- [x] Test role-based navigation: regular user sees Overview/QPUs/Jobs/Bookings/Settings; admin additionally sees Admin Panel (`cypress/e2e/auth/role-based-nav.cy.ts`)
+- [x] Test hash routing: visiting `/#jobs` directly lands on Jobs Console; `/#admin` as regular user shows "Access Denied" (`cypress/e2e/routing/hash-router.cy.ts`)
+- [x] Test browser back/forward navigation syncs with active tab (`cypress/e2e/routing/hash-router.cy.ts`)
+- [x] Test logout clears session and returns to login modal (`cypress/e2e/auth/login.cy.ts`)
 
 ### Cypress E2E — QPU Registry
 
