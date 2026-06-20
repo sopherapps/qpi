@@ -65,7 +65,7 @@ describe("Bookings — Visibility by Role", () => {
       cy.get("table tbody tr").each(($row) => {
         const hasTrash = $row.find('svg.lucide-trash-2').length > 0;
         const hasReadOnly = $row.text().includes("Read-Only");
-        expect(hasTrash || hasReadOnly).to.be.true;
+        expect(hasTrash || hasReadOnly).to.equal(true);
       });
     });
   });

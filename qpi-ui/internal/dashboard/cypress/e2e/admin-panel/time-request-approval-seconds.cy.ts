@@ -1,5 +1,5 @@
 describe("Admin Panel — Time Request Approval Affects User Quota", () => {
-  const pad = (n: number) => n.toString().padStart(2, "0");
+  // const pad = (n: number) => n.toString().padStart(2, "0");
 
   beforeEach(() => {
     cy.clearCookies();

@@ -1,12 +1,12 @@
 package api
-package api
 
 import (
 	"testing"
 
+	"qpi/internal/config"
+
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
-	"github.com/sopherapps/qpi/qpi-ui/internal/config"
 )
 
 func TestOnQPUTimeRequestUpdateRequest_ApprovalAddsSeconds(t *testing.T) {
@@ -22,7 +22,8 @@ func TestOnQPUTimeRequestUpdateRequest_ApprovalAddsSeconds(t *testing.T) {
 	_ = cfg
 
 	// Create a regular user with initial qpu_seconds
-	userRec := core.NewRecord(app.FindCollectionByNameOrId("users"))
+	usersCol := getCollectionByName(t, app, "users")
+	userRec := core.NewRecord(usersCol)
 	userRec.Set("email", "test@example.com")
 	userRec.Set("password", "testpassword1234")
 	userRec.Set("qpu_seconds", 100.0)
@@ -31,7 +32,8 @@ func TestOnQPUTimeRequestUpdateRequest_ApprovalAddsSeconds(t *testing.T) {
 	}
 
 	// Create a superuser admin
-	adminRec := core.NewRecord(app.FindCollectionByNameOrId("_superusers"))
+	adminsCol := getCollectionByName(t, app, "_superusers")
+	adminRec := core.NewRecord(adminsCol)
 	adminRec.Set("email", "admin@example.com")
 	adminRec.Set("password", "adminpassword1234")
 	if err := app.Save(adminRec); err != nil {
@@ -39,7 +41,8 @@ func TestOnQPUTimeRequestUpdateRequest_ApprovalAddsSeconds(t *testing.T) {
 	}
 
 	// Create a pending time request
-	reqRec := core.NewRecord(app.FindCollectionByNameOrId("qpu_time_requests"))
+	requestsCol := getCollectionByName(t, app, "qpu_time_requests")
+	reqRec := core.NewRecord(requestsCol)
 	reqRec.Set("user", userRec.Id)
 	reqRec.Set("seconds", 250.0)
 	reqRec.Set("reason", "Need more time")
@@ -81,7 +84,8 @@ func TestOnQPUTimeRequestUpdateRequest_RejectionDoesNotChangeSeconds(t *testing.
 	defer app.Cleanup()
 
 	// Create a regular user with initial qpu_seconds
-	userRec := core.NewRecord(app.FindCollectionByNameOrId("users"))
+	usersCol := getCollectionByName(t, app, "users")
+	userRec := core.NewRecord(usersCol)
 	userRec.Set("email", "test@example.com")
 	userRec.Set("password", "testpassword1234")
 	userRec.Set("qpu_seconds", 500.0)
@@ -90,7 +94,8 @@ func TestOnQPUTimeRequestUpdateRequest_RejectionDoesNotChangeSeconds(t *testing.
 	}
 
 	// Create a superuser admin
-	adminRec := core.NewRecord(app.FindCollectionByNameOrId("_superusers"))
+	adminsCol := getCollectionByName(t, app, "_superusers")
+	adminRec := core.NewRecord(adminsCol)
 	adminRec.Set("email", "admin@example.com")
 	adminRec.Set("password", "adminpassword1234")
 	if err := app.Save(adminRec); err != nil {
@@ -98,7 +103,8 @@ func TestOnQPUTimeRequestUpdateRequest_RejectionDoesNotChangeSeconds(t *testing.
 	}
 
 	// Create a pending time request
-	reqRec := core.NewRecord(app.FindCollectionByNameOrId("qpu_time_requests"))
+	requestsCol := getCollectionByName(t, app, "qpu_time_requests")
+	reqRec := core.NewRecord(requestsCol)
 	reqRec.Set("user", userRec.Id)
 	reqRec.Set("seconds", 300.0)
 	reqRec.Set("reason", "Testing rejection")
@@ -141,7 +147,8 @@ func TestOnQPUTimeRequestUpdateRequest_NonSuperuserForbidden(t *testing.T) {
 	defer app.Cleanup()
 
 	// Create a regular user
-	userRec := core.NewRecord(app.FindCollectionByNameOrId("users"))
+	usersCol := getCollectionByName(t, app, "users")
+	userRec := core.NewRecord(usersCol)
 	userRec.Set("email", "regular@example.com")
 	userRec.Set("password", "regularpassword1234")
 	if err := app.Save(userRec); err != nil {
@@ -149,7 +156,7 @@ func TestOnQPUTimeRequestUpdateRequest_NonSuperuserForbidden(t *testing.T) {
 	}
 
 	// Create another regular user who will try to update
-	otherUser := core.NewRecord(app.FindCollectionByNameOrId("users"))
+	otherUser := core.NewRecord(usersCol)
 	otherUser.Set("email", "other@example.com")
 	otherUser.Set("password", "otherpassword1234")
 	if err := app.Save(otherUser); err != nil {
@@ -157,7 +164,8 @@ func TestOnQPUTimeRequestUpdateRequest_NonSuperuserForbidden(t *testing.T) {
 	}
 
 	// Create a pending time request
-	reqRec := core.NewRecord(app.FindCollectionByNameOrId("qpu_time_requests"))
+	reqsCol := getCollectionByName(t, app, "qpu_time_requests")
+	reqRec := core.NewRecord(reqsCol)
 	reqRec.Set("user", userRec.Id)
 	reqRec.Set("seconds", 100.0)
 	reqRec.Set("reason", "Test")
@@ -187,7 +195,8 @@ func TestOnQPUTimeRequestUpdateRequest_CannotModifyProcessedRequest(t *testing.T
 	defer app.Cleanup()
 
 	// Create a regular user
-	userRec := core.NewRecord(app.FindCollectionByNameOrId("users"))
+	usersCol := getCollectionByName(t, app, "users")
+	userRec := core.NewRecord(usersCol)
 	userRec.Set("email", "test@example.com")
 	userRec.Set("password", "testpassword1234")
 	if err := app.Save(userRec); err != nil {
@@ -195,7 +204,8 @@ func TestOnQPUTimeRequestUpdateRequest_CannotModifyProcessedRequest(t *testing.T
 	}
 
 	// Create a superuser admin
-	adminRec := core.NewRecord(app.FindCollectionByNameOrId("_superusers"))
+	adminsCol := getCollectionByName(t, app, "_superusers")
+	adminRec := core.NewRecord(adminsCol)
 	adminRec.Set("email", "admin@example.com")
 	adminRec.Set("password", "adminpassword1234")
 	if err := app.Save(adminRec); err != nil {
@@ -203,7 +213,8 @@ func TestOnQPUTimeRequestUpdateRequest_CannotModifyProcessedRequest(t *testing.T
 	}
 
 	// Create an already-approved time request
-	reqRec := core.NewRecord(app.FindCollectionByNameOrId("qpu_time_requests"))
+	reqsCol := getCollectionByName(t, app, "qpu_time_requests")
+	reqRec := core.NewRecord(reqsCol)
 	reqRec.Set("user", userRec.Id)
 	reqRec.Set("seconds", 100.0)
 	reqRec.Set("reason", "Test")
@@ -224,4 +235,13 @@ func TestOnQPUTimeRequestUpdateRequest_CannotModifyProcessedRequest(t *testing.T
 	if err == nil {
 		t.Fatal("expected error when modifying already-processed request, got nil")
 	}
+}
+
+// getCollectionByName gets the collection by name or errors out and fails the test
+func getCollectionByName(t *testing.T, app *tests.TestApp, name string) *core.Collection {
+	col, err := app.FindCollectionByNameOrId("qpu_time_requests")
+	if err != nil {
+		t.Errorf("error getting %s collection: %v", name, err)
+	}
+	return col
 }
