@@ -308,13 +308,13 @@ make clean
 
 ### Cypress E2E — Jobs Console
 
-- [ ] Test default job form state: QPU dropdown pre-selects first online QPU; QASM textarea contains the Bell state example; shots = 1000; meas level = "2 (Counts)"
-- [ ] Test job submission: execute job, wait for completion, verify results panel shows:
-  - Status "completed"
-  - A duration in seconds (non-empty)
-  - The correct target QPU name
-- [ ] Test QPU dropdown: if multiple QPUs are online, selecting a different one updates the submitted job's target
-- [ ] Test empty state: before any job is selected, results panel shows a helpful empty state
+- [x] Test default job form state: QPU dropdown pre-selects first online QPU; QASM textarea contains the Bell state example; shots = 1000; meas level = "2 (Counts)" (`cypress/e2e/jobs-console/form-state.cy.ts`)
+- [x] Test job submission: execute job, wait for completion, verify results panel shows:
+  - Status "completed" (`cypress/e2e/jobs-console/job-submission.cy.ts`)
+  - A duration in seconds (non-empty) (`cypress/e2e/jobs-console/job-submission.cy.ts`)
+  - The correct target QPU name (`cypress/e2e/jobs-console/job-submission.cy.ts`)
+- [x] Test QPU dropdown: only online QPUs shown, reflects selected QPU in submitted job (`cypress/e2e/jobs-console/qpu-dropdown.cy.ts`)
+- [x] Test empty state: before any job is selected, results panel shows a helpful empty state (`cypress/e2e/jobs-console/empty-state.cy.ts`)
 
 ### Cypress E2E — Bookings
 
