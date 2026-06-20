@@ -10,6 +10,8 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 ### Added
 
 - TLS connection between the server (qpi-ui) and the driver (qpi-driver)
+- `qpi-driver`: added the `--ca-file` and `--ca-fingerprint` params to the qpi-driver all
+- `qpi-ui (dashboard)`: updated the code snippet shown to the user on QPU creation to include `--ca-fingerprint`.
 
 ## [0.0.8] - 2026-06-17
 
