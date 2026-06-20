@@ -147,8 +147,8 @@ def grant_user_qpu_time(user_id, qpu_seconds=1000.0, api_tokens=None):
 
 def create_time_slot(user_id):
     now = datetime.now(timezone.utc)
-    start = (now - timedelta(minutes=2)).strftime("%Y-%m-%dT%H:%M:%S.000Z")
-    end = (now + timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    start = (now + timedelta(minutes=2)).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    end = (now + timedelta(minutes=10)).strftime("%Y-%m-%dT%H:%M:%S.000Z")
     resp = s.post(
         f"{BASE}/api/collections/time_slots/records",
         json={
@@ -205,6 +205,10 @@ if __name__ == "__main__":
     grant_user_qpu_time(user["id"], qpu_seconds=1000.0, api_tokens=[TEST_API_TOKEN])
     create_time_slot(user["id"])
     create_jobs_via_api(user["id"], qpu["id"], n=5)
+    
+    empty_user = create_user("emptyuser@example.com", "userpassword1234")
+    grant_user_qpu_time(empty_user["id"], qpu_seconds=1000.0, api_tokens=[])
+
     print(f"\n[seed] Done!  ACCESS_TOKEN={ACCESS_TOKEN}")
     print(
         f"[seed] Run the driver with:  QPI_ACCESS_TOKEN={ACCESS_TOKEN} python driver.py"

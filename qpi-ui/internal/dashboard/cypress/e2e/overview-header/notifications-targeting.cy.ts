@@ -5,11 +5,11 @@ describe("Overview & Header — Notification Targeting", () => {
     cy.visit("/");
   });
 
-  it("shows broadcast notifications to all users", () => {
+  it("shows broadcast notifications to all users", function() {
     // Admin broadcasts an announcement (no target users = broadcast)
     cy.contains("button", "Administrator").click();
-    cy.get('input[type="text"]').type("admin@example.com");
-    cy.get('input[type="password"]').type("supersecretpassword1234");
+    cy.get('input[type="text"]').clear().type("admin@example.com");
+    cy.get('input[type="password"]').clear().type("supersecretpassword1234");
     cy.get('button[type="submit"]').click();
     cy.contains("h1", "QPI Interface").should("be.visible");
 
@@ -17,50 +17,64 @@ describe("Overview & Header — Notification Targeting", () => {
     cy.contains("h1", "Admin Panel").should("be.visible");
     cy.contains("button", "Broadcast Announcement").click();
 
+    const uniqueTitle = `Shared Announcement`;
+    
     cy.get('input[placeholder="QPU Maintenance Schedule"]')
-      .type("Broadcast Alert");
+      .clear().type(uniqueTitle);
     cy.get('textarea[placeholder="Rigetti Aspen-9 will be offline for calibration tomorrow..."]')
-      .type("This is a broadcast to all users.");
-    cy.get("form").contains("button", "Broadcast Announcement").click();
+      .clear().type(`This is a shared broadcast announcement.`);
+    
+    // Fill datetime
+    const pad = (n: number) => n.toString().padStart(2, "0");
+    const start = new Date(Date.now() - 5 * 60000);
+    const end = new Date(Date.now() + 20 * 60000);
+    const startStr = `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}T${pad(start.getHours())}:${pad(start.getMinutes())}`;
+    const endStr = `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}T${pad(end.getHours())}:${pad(end.getMinutes())}`;
 
+    cy.get('input[type="datetime-local"]').first().type(startStr);
+    cy.get('input[type="datetime-local"]').last().type(endStr);
+
+    cy.get("form").contains("button", "Broadcast Announcement").click();
     cy.contains("Announcement broadcasted successfully!").should("be.visible");
 
-    // Log out and log in as regular user
-    cy.contains("button", "Logout").click();
-    cy.contains("h2", "Welcome Back").should("be.visible");
+    // Log out admin
+    cy.contains("button", "Profile Settings").click();
+    cy.contains("button", "Sign Out").click();
+    cy.get('[data-testid="login-modal"]').should("be.visible");
 
-    cy.get('input[type="text"]').type("user@example.com");
-    cy.get('input[type="password"]').type("userpassword1234");
+    // Log in as user@example.com
+    cy.get('input[type="text"]').clear().type("user@example.com");
+    cy.get('input[type="password"]').clear().type("userpassword1234");
     cy.get('button[type="submit"]').click();
     cy.contains("h1", "QPI Interface").should("be.visible");
+    cy.visit("/#overview");
 
-    // The broadcast notification should be visible
+    // Verify the broadcast is visible for user
     cy.contains("h3", "System Announcements")
       .parent()
       .within(() => {
-        cy.contains("Broadcast Alert").should("be.visible");
+        cy.contains(uniqueTitle).scrollIntoView().should("be.visible");
       });
   });
 
   it("does not show targeted notifications to non-target users", () => {
     // This test verifies the backend filtering: a notification targeted
-    // at a specific user should not appear for other users.
-    // Since the dashboard UI currently only supports broadcast (no target_users
-    // field in the broadcast form), we verify the backend rule is in place
+    // to specific users should not be fetched by a user not in the list.
+    // In our E2E, we assume seed.py set up the data or we can just verify
     // by checking that the notifications collection has the correct filter.
 
     // Log in as regular user
-    cy.get('input[type="text"]').type("user@example.com");
-    cy.get('input[type="password"]').type("userpassword1234");
+    cy.get('input[type="text"]').clear().type("user@example.com");
+    cy.get('input[type="password"]').clear().type("userpassword1234");
     cy.get('button[type="submit"]').click();
     cy.contains("h1", "QPI Interface").should("be.visible");
 
-    // The notifications panel should only show notifications relevant to this user.
-    // If there are no notifications, the empty state is shown.
+    // "Welcome to QPI" or generic seeded notifications may exist, but
+    // we expect that the list of announcements contains no "Admin Only" messages.
     cy.contains("h3", "System Announcements")
       .parent()
       .within(() => {
-        cy.get("div").should("exist");
+        cy.contains("Admin Only").should("not.exist");
       });
   });
 });

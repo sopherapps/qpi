@@ -31,6 +31,10 @@ export const LoginModal: React.FC<LoginModalProps> = ({
         await pb.collection("users").authWithPassword(identity, password);
       }
       onLoginSuccess();
+      setRole("user");
+      setIdentity("");
+      setPassword("");
+      setError("");
     } catch {
       setError("Invalid credentials. Please try again.");
     } finally {
@@ -39,7 +43,10 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-zinc-950/80 backdrop-blur-md">
+    <div
+      data-testid="login-modal"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-zinc-950/80 backdrop-blur-md"
+    >
       <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-lg shadow-2xl p-8 space-y-6">
         <div className="text-center">
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-zinc-800 text-white mb-4 border border-zinc-700">

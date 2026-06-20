@@ -4,8 +4,8 @@ describe("Bookings — Validation", () => {
     cy.clearLocalStorage();
     cy.visit("/");
 
-    cy.get('input[type="text"]').type("user@example.com");
-    cy.get('input[type="password"]').type("userpassword1234");
+    cy.get('input[type="text"]').clear().type("user@example.com");
+    cy.get('input[type="password"]').clear().type("userpassword1234");
     cy.get('button[type="submit"]').click();
     cy.contains("h1", "QPI Interface").should("be.visible");
 
@@ -25,7 +25,7 @@ describe("Bookings — Validation", () => {
 
     cy.get('input[type="datetime-local"]').first().type(startStr);
     cy.get('input[type="datetime-local"]').last().type(endStr);
-    cy.get("form").submit();
+    cy.contains("button", "Schedule Slot").click();
 
     // Error message should be visible
     cy.get("div.text-error")

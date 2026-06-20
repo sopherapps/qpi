@@ -118,21 +118,21 @@ install_py_client() {
 # PocketBase lifecycle
 # ---------------------------------------------------------------------------
 start_pocketbase() {
+    # Kill any existing process on port 8090 to prevent connecting to stale servers
+    local existing_pid
+    existing_pid=$(lsof -ti:8090 2>/dev/null || true)
+    if [ -n "$existing_pid" ]; then
+        echo "[e2e] Killing existing process on port 8090 (PIDs: $existing_pid)..."
+        echo "$existing_pid" | xargs kill -9 || true
+        sleep 1
+    fi
+
     echo "[e2e] Initializing database and creating superuser..."
     rm -rf "${PROJECT_ROOT}/bin/pb_data" "${PROJECT_ROOT}/bin/data"
     "${PROJECT_ROOT}/bin/qpi" superuser upsert admin@example.com supersecretpassword1234 --dir "${PROJECT_ROOT}/bin/pb_data"
 
     echo "[e2e] Starting PocketBase server..."
     mkdir -p "${DATA_DIR}"
-
-    # Kill any existing process on port 8090 to prevent connecting to stale servers
-    local existing_pid
-    existing_pid=$(lsof -ti:8090 2>/dev/null || true)
-    if [ -n "$existing_pid" ]; then
-        echo "[e2e] Killing existing process on port 8090 (PID $existing_pid)..."
-        kill "$existing_pid" 2>/dev/null || true
-        sleep 1
-    fi
 
     # Run from a temp directory to avoid picking up qpi.config.yml from project root
     (cd "$(mktemp -d)" && "${PROJECT_ROOT}/bin/qpi" serve --dir "${PROJECT_ROOT}/bin/pb_data" --dev > "${DATA_DIR}/pocketbase.log" 2>&1) &

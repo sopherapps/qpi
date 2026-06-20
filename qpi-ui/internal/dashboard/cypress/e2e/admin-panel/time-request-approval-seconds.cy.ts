@@ -1,6 +1,4 @@
 describe("Admin Panel — Time Request Approval Affects User Quota", () => {
-  // const pad = (n: number) => n.toString().padStart(2, "0");
-
   beforeEach(() => {
     cy.clearCookies();
     cy.clearLocalStorage();
@@ -9,16 +7,15 @@ describe("Admin Panel — Time Request Approval Affects User Quota", () => {
 
   it("increases the user's qpu_seconds when a time request is approved", () => {
     // 1. Log in as regular user and note current quota
-    cy.get('input[type="text"]').type("user@example.com");
-    cy.get('input[type="password"]').type("userpassword1234");
+    cy.get('input[type="text"]').clear().type("user@example.com");
+    cy.get('input[type="password"]').clear().type("userpassword1234");
     cy.get('button[type="submit"]').click();
     cy.contains("h1", "QPI Interface").should("be.visible");
 
     cy.contains("button", "Settings").click();
     cy.contains("h1", "Settings").should("be.visible");
 
-    // Capture the initial quota from the settings panel
-    cy.contains("QPU Quota")
+    cy.contains("QPU Balance")
       .parent()
       .within(() => {
         cy.get("span.font-mono")
@@ -31,22 +28,23 @@ describe("Admin Panel — Time Request Approval Affects User Quota", () => {
     cy.contains("button", "Request Time").click();
     cy.contains("h3", "Request QPU Time").should("be.visible");
 
-    cy.get('input[type="number"]').clear().type("300");
+    cy.get('input[type="number"]').type("{selectall}{backspace}300");
     cy.get('textarea[placeholder="Running VQE experiments for chemistry simulations..."]')
-      .type("Need extra time for testing");
+      .clear().type("Need extra time for testing");
+      
+    const alertStub = cy.stub();
+    cy.on("window:alert", alertStub);
     cy.contains("button", "Submit Time Request").click();
-
-    cy.on("window:alert", (txt) => {
-      expect(txt).to.contain("submitted successfully");
-    });
+    cy.wrap(alertStub).should("have.been.calledWithMatch", /submitted successfully/);
 
     // 3. Log out and log in as admin
-    cy.contains("button", "Logout").click();
-    cy.contains("h2", "Welcome Back").should("be.visible");
+    cy.contains("button", "Profile Settings").click();
+    cy.contains("button", "Sign Out").click();
+    cy.get('[data-testid="login-modal"]').should("be.visible");
 
     cy.contains("button", "Administrator").click();
-    cy.get('input[type="text"]').type("admin@example.com");
-    cy.get('input[type="password"]').type("supersecretpassword1234");
+    cy.get('input[type="text"]').clear().type("admin@example.com");
+    cy.get('input[type="password"]').clear().type("supersecretpassword1234");
     cy.get('button[type="submit"]').click();
     cy.contains("h1", "QPI Interface").should("be.visible");
 
@@ -55,27 +53,23 @@ describe("Admin Panel — Time Request Approval Affects User Quota", () => {
     cy.contains("h1", "Admin Panel").should("be.visible");
     cy.contains("button", "Time Requests").click();
 
-    cy.get('table tbody tr')
-      .first()
-      .within(() => {
-        cy.get('button svg.lucide-check')
-          .parent()
-          .click();
-      });
+    cy.get('[data-testid="time-request-row"]').first().as('requestRow');
+    cy.get('@requestRow').within(() => {
+      cy.get('button svg.lucide-check').parent().click();
+    });
 
     // Verify the request is now approved
-    cy.get('table tbody tr')
-      .first()
-      .within(() => {
-        cy.contains("span", "approved").should("be.visible");
-      });
+    cy.get('@requestRow').within(() => {
+      cy.contains("span", "approved").should("be.visible");
+    });
 
     // 5. Log out and log back in as the regular user
-    cy.contains("button", "Logout").click();
-    cy.contains("h2", "Welcome Back").should("be.visible");
+    cy.contains("button", "Profile Settings").click();
+    cy.contains("button", "Sign Out").click();
+    cy.get('[data-testid="login-modal"]').should("be.visible");
 
-    cy.get('input[type="text"]').type("user@example.com");
-    cy.get('input[type="password"]').type("userpassword1234");
+    cy.get('input[type="text"]').clear().type("user@example.com");
+    cy.get('input[type="password"]').clear().type("userpassword1234");
     cy.get('button[type="submit"]').click();
     cy.contains("h1", "QPI Interface").should("be.visible");
 
@@ -83,7 +77,7 @@ describe("Admin Panel — Time Request Approval Affects User Quota", () => {
     cy.contains("button", "Settings").click();
     cy.contains("h1", "Settings").should("be.visible");
 
-    cy.contains("QPU Quota")
+    cy.contains("QPU Balance")
       .parent()
       .within(() => {
         cy.get("span.font-mono")
@@ -99,15 +93,15 @@ describe("Admin Panel — Time Request Approval Affects User Quota", () => {
 
   it("does not change the user's qpu_seconds when a time request is rejected", () => {
     // 1. Log in as regular user and note current quota
-    cy.get('input[type="text"]').type("user@example.com");
-    cy.get('input[type="password"]').type("userpassword1234");
+    cy.get('input[type="text"]').clear().type("user@example.com");
+    cy.get('input[type="password"]').clear().type("userpassword1234");
     cy.get('button[type="submit"]').click();
     cy.contains("h1", "QPI Interface").should("be.visible");
 
     cy.contains("button", "Settings").click();
     cy.contains("h1", "Settings").should("be.visible");
 
-    cy.contains("QPU Quota")
+    cy.contains("QPU Balance")
       .parent()
       .within(() => {
         cy.get("span.font-mono")
@@ -120,22 +114,23 @@ describe("Admin Panel — Time Request Approval Affects User Quota", () => {
     cy.contains("button", "Request Time").click();
     cy.contains("h3", "Request QPU Time").should("be.visible");
 
-    cy.get('input[type="number"]').clear().type("200");
+    cy.get('input[type="number"]').type("{selectall}{backspace}200");
     cy.get('textarea[placeholder="Running VQE experiments for chemistry simulations..."]')
-      .type("Testing rejection flow");
+      .clear().type("Testing rejection flow");
+      
+    const alertStub = cy.stub();
+    cy.on("window:alert", alertStub);
     cy.contains("button", "Submit Time Request").click();
-
-    cy.on("window:alert", (txt) => {
-      expect(txt).to.contain("submitted successfully");
-    });
+    cy.wrap(alertStub).should("have.been.calledWithMatch", /submitted successfully/);
 
     // 3. Log out and log in as admin
-    cy.contains("button", "Logout").click();
-    cy.contains("h2", "Welcome Back").should("be.visible");
+    cy.contains("button", "Profile Settings").click();
+    cy.contains("button", "Sign Out").click();
+    cy.get('[data-testid="login-modal"]').should("be.visible");
 
     cy.contains("button", "Administrator").click();
-    cy.get('input[type="text"]').type("admin@example.com");
-    cy.get('input[type="password"]').type("supersecretpassword1234");
+    cy.get('input[type="text"]').clear().type("admin@example.com");
+    cy.get('input[type="password"]').clear().type("supersecretpassword1234");
     cy.get('button[type="submit"]').click();
     cy.contains("h1", "QPI Interface").should("be.visible");
 
@@ -144,31 +139,27 @@ describe("Admin Panel — Time Request Approval Affects User Quota", () => {
     cy.contains("h1", "Admin Panel").should("be.visible");
     cy.contains("button", "Time Requests").click();
 
-    cy.get('table tbody tr')
-      .first()
-      .within(() => {
-        cy.get('button svg.lucide-x')
-          .parent()
-          .click();
-      });
-
     cy.window().then((win) => {
       cy.stub(win, "prompt").returns("Not enough justification");
     });
 
+    cy.get('[data-testid="time-request-row"]').first().as('requestRow');
+    cy.get('@requestRow').within(() => {
+      cy.get('button svg.lucide-x').parent().click();
+    });
+
     // Verify the request is now rejected
-    cy.get('table tbody tr')
-      .first()
-      .within(() => {
-        cy.contains("span", "rejected").should("be.visible");
-      });
+    cy.get('@requestRow').within(() => {
+      cy.contains("span", "rejected").should("be.visible");
+    });
 
     // 5. Log out and log back in as the regular user
-    cy.contains("button", "Logout").click();
-    cy.contains("h2", "Welcome Back").should("be.visible");
+    cy.contains("button", "Profile Settings").click();
+    cy.contains("button", "Sign Out").click();
+    cy.get('[data-testid="login-modal"]').should("be.visible");
 
-    cy.get('input[type="text"]').type("user@example.com");
-    cy.get('input[type="password"]').type("userpassword1234");
+    cy.get('input[type="text"]').clear().type("user@example.com");
+    cy.get('input[type="password"]').clear().type("userpassword1234");
     cy.get('button[type="submit"]').click();
     cy.contains("h1", "QPI Interface").should("be.visible");
 
@@ -176,7 +167,7 @@ describe("Admin Panel — Time Request Approval Affects User Quota", () => {
     cy.contains("button", "Settings").click();
     cy.contains("h1", "Settings").should("be.visible");
 
-    cy.contains("QPU Quota")
+    cy.contains("QPU Balance")
       .parent()
       .within(() => {
         cy.get("span.font-mono")

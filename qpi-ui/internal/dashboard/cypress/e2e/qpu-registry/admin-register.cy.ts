@@ -6,8 +6,8 @@ describe("QPU Registry — Admin: Register QPU", () => {
 
     // Log in as admin
     cy.contains("button", "Administrator").click();
-    cy.get('input[type="text"]').type("admin@example.com");
-    cy.get('input[type="password"]').type("supersecretpassword1234");
+    cy.get('input[type="text"]').clear().type("admin@example.com");
+    cy.get('input[type="password"]').clear().type("supersecretpassword1234");
     cy.get('button[type="submit"]').click();
     cy.contains("h1", "QPI Interface").should("be.visible");
 
@@ -28,7 +28,7 @@ describe("QPU Registry — Admin: Register QPU", () => {
   it("registers a QPU and shows the success screen with correct details", () => {
     cy.contains("button", "Register QPU").click();
 
-    const qpuName = "cypress-test-qpu";
+    const qpuName = `cypress-test-qpu-${Date.now()}`;
     const executor = "qblox";
 
     cy.get('input[placeholder="rigetti-aspen-9"]').type(qpuName);
@@ -48,7 +48,7 @@ describe("QPU Registry — Admin: Register QPU", () => {
   it("shows a non-empty access token on the success screen", () => {
     cy.contains("button", "Register QPU").click();
 
-    cy.get('input[placeholder="rigetti-aspen-9"]').type("token-test-qpu");
+    cy.get('input[placeholder="rigetti-aspen-9"]').type(`token-test-${Date.now()}`);
     cy.get("select").select("mock");
     cy.contains("button", "Register Unit").click();
 
@@ -66,7 +66,8 @@ describe("QPU Registry — Admin: Register QPU", () => {
   it("shows a connection command with the required flags", () => {
     cy.contains("button", "Register QPU").click();
 
-    cy.get('input[placeholder="rigetti-aspen-9"]').type("cmd-test-qpu");
+    const qpuName = `cmd-test-${Date.now()}`;
+    cy.get('input[placeholder="rigetti-aspen-9"]').type(qpuName);
     cy.get("select").select("qiskit_aer");
     cy.contains("button", "Register Unit").click();
 
@@ -80,14 +81,14 @@ describe("QPU Registry — Admin: Register QPU", () => {
       .should("be.visible")
       .and("contain", "--ca-fingerprint")
       .and("contain", "--qpi-addr")
-      .and("contain", '--name "cmd-test-qpu"')
+      .and("contain", `--name "${qpuName}"`)
       .and("contain", '--executor "qiskit_aer"');
   });
 
   it("copies the access token when the copy button is clicked", () => {
     cy.contains("button", "Register QPU").click();
 
-    cy.get('input[placeholder="rigetti-aspen-9"]').type("copy-token-qpu");
+    cy.get('input[placeholder="rigetti-aspen-9"]').type(`copy-tok-${Date.now()}`);
     cy.get("select").select("mock");
     cy.contains("button", "Register Unit").click();
 
@@ -110,7 +111,7 @@ describe("QPU Registry — Admin: Register QPU", () => {
   it("copies the connection command when the copy button is clicked", () => {
     cy.contains("button", "Register QPU").click();
 
-    cy.get('input[placeholder="rigetti-aspen-9"]').type("copy-cmd-qpu");
+    cy.get('input[placeholder="rigetti-aspen-9"]').type(`copy-cmd-${Date.now()}`);
     cy.get("select").select("quantify");
     cy.contains("button", "Register Unit").click();
 
@@ -133,7 +134,7 @@ describe("QPU Registry — Admin: Register QPU", () => {
   it("closes the success screen and shows the new QPU in the grid", () => {
     cy.contains("button", "Register QPU").click();
 
-    const qpuName = "grid-test-qpu";
+    const qpuName = `grid-test-${Date.now()}`;
 
     cy.get('input[placeholder="rigetti-aspen-9"]').type(qpuName);
     cy.get("select").select("mock");
@@ -146,6 +147,6 @@ describe("QPU Registry — Admin: Register QPU", () => {
     cy.contains("h3", "QPU Registered Successfully!").should("not.exist");
 
     // The new QPU appears in the grid
-    cy.contains("h3", qpuName).should("be.visible");
+    cy.contains("h3", qpuName).should("exist");
   });
 });

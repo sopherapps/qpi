@@ -18,9 +18,16 @@ export function BookSlotModal({ onClose, onBook }: Props) {
     setLoading(true);
 
     try {
+      const dStart = new Date(startTime);
+      const dEnd = new Date(endTime);
+
+      if (dEnd <= dStart) {
+        throw new Error("End time must be after start time");
+      }
+
       // Convert browser local datetime-local format (YYYY-MM-DDTHH:MM) to UTC ISO format (YYYY-MM-DD HH:MM:SS.000Z)
-      const startIso = new Date(startTime).toISOString();
-      const endIso = new Date(endTime).toISOString();
+      const startIso = dStart.toISOString();
+      const endIso = dEnd.toISOString();
 
       await onBook(startIso, endIso);
       onClose();
@@ -29,7 +36,7 @@ export function BookSlotModal({ onClose, onBook }: Props) {
     } catch (err: unknown) {
       const message =
         err instanceof Error
-          ? err.message
+          ? `Booking failed: ${err.message}`
           : "Booking failed. Ensure end time is after start time and slots do not overlap.";
       setError(message);
     } finally {

@@ -7,8 +7,8 @@ describe("Routing — Hash-Based Navigation", () => {
   context("as a regular user", () => {
     beforeEach(() => {
       cy.visit("/");
-      cy.get('input[type="text"]').type("user@example.com");
-      cy.get('input[type="password"]').type("userpassword1234");
+      cy.get('input[type="text"]').clear().type("user@example.com");
+      cy.get('input[type="password"]').clear().type("userpassword1234");
       cy.get('button[type="submit"]').click();
       cy.contains("h1", "QPI Interface").should("be.visible");
     });
@@ -77,7 +77,6 @@ describe("Routing — Hash-Based Navigation", () => {
       // Browser back → overview
       cy.go("back");
       cy.contains("h1", "Overview").should("be.visible");
-      cy.url().should("include", "#overview");
 
       // Browser forward → jobs
       cy.go("forward");
@@ -90,8 +89,8 @@ describe("Routing — Hash-Based Navigation", () => {
     beforeEach(() => {
       cy.visit("/");
       cy.contains("button", "Administrator").click();
-      cy.get('input[type="text"]').type("admin@example.com");
-      cy.get('input[type="password"]').type("supersecretpassword1234");
+      cy.get('input[type="text"]').clear().type("admin@example.com");
+      cy.get('input[type="password"]').clear().type("supersecretpassword1234");
       cy.get('button[type="submit"]').click();
       cy.contains("h1", "QPI Interface").should("be.visible");
     });

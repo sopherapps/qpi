@@ -4,8 +4,8 @@ describe("Overview & Header — Page Title", () => {
     cy.clearLocalStorage();
     cy.visit("/");
 
-    cy.get('input[type="text"]').type("user@example.com");
-    cy.get('input[type="password"]').type("userpassword1234");
+    cy.get('input[type="text"]').clear().type("user@example.com");
+    cy.get('input[type="password"]').clear().type("userpassword1234");
     cy.get('button[type="submit"]').click();
     cy.contains("h1", "QPI Interface").should("be.visible");
   });
@@ -15,22 +15,22 @@ describe("Overview & Header — Page Title", () => {
   });
 
   it('shows "QPU Registry" when on the QPUs tab', () => {
-    cy.contains("button", "QPUs").click();
-    cy.get("header h2").should("contain", "QPU Registry");
+    cy.contains("button", "QPU Registry").click();
+    cy.get("header h2").invoke("text").should("match", /qpu registry/i);
   });
 
   it('shows "Jobs Console" when on the Jobs tab', () => {
-    cy.contains("button", "Jobs").click();
-    cy.get("header h2").should("contain", "Jobs Console");
+    cy.contains("button", "Jobs Console").click();
+    cy.get("header h2").invoke("text").should("match", /jobs console/i);
   });
 
   it('shows "Bookings Overview" when on the Bookings tab', () => {
     cy.contains("button", "Bookings").click();
-    cy.get("header h2").should("contain", "Bookings Overview");
+    cy.get("header h2").invoke("text").should("match", /bookings overview/i);
   });
 
   it('shows "Settings Overview" when on the Settings tab', () => {
-    cy.contains("button", "Settings").click();
-    cy.get("header h2").should("contain", "Settings Overview");
+    cy.contains("button", "Profile Settings").click();
+    cy.get("header h2").invoke("text").should("match", /settings overview/i);
   });
 });

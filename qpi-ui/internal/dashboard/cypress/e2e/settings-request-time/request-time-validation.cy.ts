@@ -4,8 +4,8 @@ describe("Settings & Request Time — Request Time Validation", () => {
     cy.clearLocalStorage();
     cy.visit("/");
 
-    cy.get('input[type="text"]').type("user@example.com");
-    cy.get('input[type="password"]').type("userpassword1234");
+    cy.get('input[type="text"]').clear().type("user@example.com");
+    cy.get('input[type="password"]').clear().type("userpassword1234");
     cy.get('button[type="submit"]').click();
     cy.contains("h1", "QPI Interface").should("be.visible");
 
@@ -14,7 +14,7 @@ describe("Settings & Request Time — Request Time Validation", () => {
   });
 
   it("does not submit with an empty reason", () => {
-    cy.get('input[type="number"]').clear().type("100");
+    cy.get('input[type="number"]').type("{selectall}{backspace}" + "100");
     cy.get("textarea").clear();
     cy.contains("button", "Submit Time Request").click();
 
@@ -24,7 +24,7 @@ describe("Settings & Request Time — Request Time Validation", () => {
 
   it("does not submit with empty seconds", () => {
     cy.get('input[type="number"]').clear();
-    cy.get("textarea").type("Valid reason");
+    cy.get("textarea").clear().type("Valid reason");
     cy.contains("button", "Submit Time Request").click();
 
     // Modal should still be open because number input is required

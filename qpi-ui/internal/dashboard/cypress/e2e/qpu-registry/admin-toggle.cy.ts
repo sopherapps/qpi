@@ -6,8 +6,8 @@ describe("QPU Registry — Admin: Toggle QPU", () => {
 
     // Log in as admin
     cy.contains("button", "Administrator").click();
-    cy.get('input[type="text"]').type("admin@example.com");
-    cy.get('input[type="password"]').type("supersecretpassword1234");
+    cy.get('input[type="text"]').clear().type("admin@example.com");
+    cy.get('input[type="password"]').clear().type("supersecretpassword1234");
     cy.get('button[type="submit"]').click();
     cy.contains("h1", "QPI Interface").should("be.visible");
 

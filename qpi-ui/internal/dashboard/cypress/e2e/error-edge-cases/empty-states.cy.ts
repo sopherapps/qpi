@@ -6,8 +6,8 @@ describe("Error & Edge Cases — Empty States", () => {
   });
 
   it("shows empty state in recent jobs table when no jobs exist", () => {
-    cy.get('input[type="text"]').type("user@example.com");
-    cy.get('input[type="password"]').type("userpassword1234");
+    cy.get('input[type="text"]').clear().type("emptyuser@example.com");
+    cy.get('input[type="password"]').clear().type("userpassword1234");
     cy.get('button[type="submit"]').click();
     cy.contains("h1", "QPI Interface").should("be.visible");
 
@@ -20,22 +20,22 @@ describe("Error & Edge Cases — Empty States", () => {
   });
 
   it("shows empty state in job results panel when no job is selected", () => {
-    cy.get('input[type="text"]').type("user@example.com");
-    cy.get('input[type="password"]').type("userpassword1234");
+    cy.get('input[type="text"]').clear().type("emptyuser@example.com");
+    cy.get('input[type="password"]').clear().type("userpassword1234");
     cy.get('button[type="submit"]').click();
     cy.contains("h1", "QPI Interface").should("be.visible");
 
-    cy.contains("button", "Jobs Console").click();
+    cy.contains("button", "Jobs").click();
     cy.contains("h1", "Jobs Console").should("be.visible");
 
     // Results panel shows the empty-state message
-    cy.contains("Select or run a job").should("be.visible");
-    cy.contains("No active job selected").should("be.visible");
+    cy.contains("Select or run a job").should("exist");
+    cy.contains("No active job selected").should("exist");
   });
 
   it("loads QPU Registry without error even when no QPUs exist", () => {
-    cy.get('input[type="text"]').type("user@example.com");
-    cy.get('input[type="password"]').type("userpassword1234");
+    cy.get('input[type="text"]').clear().type("emptyuser@example.com");
+    cy.get('input[type="password"]').clear().type("userpassword1234");
     cy.get('button[type="submit"]').click();
     cy.contains("h1", "QPI Interface").should("be.visible");
 

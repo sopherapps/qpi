@@ -18,8 +18,8 @@ describe("QPI Dashboard — End-to-End User Journeys", () => {
 
   it("regular user: submits a job and books a time slot", () => {
     // Log in
-    cy.get('input[type="text"]').type("user@example.com");
-    cy.get('input[type="password"]').type("userpassword1234");
+    cy.get('input[type="text"]').clear().type("user@example.com");
+    cy.get('input[type="password"]').clear().type("userpassword1234");
     cy.get('button[type="submit"]').click();
     cy.contains("h1", "QPI Interface").should("be.visible");
 
@@ -50,8 +50,8 @@ describe("QPI Dashboard — End-to-End User Journeys", () => {
 
     // Fill dates: start in 10 minutes, end in 20 minutes
     const pad = (n: number) => n.toString().padStart(2, "0");
-    const start = new Date(Date.now() + 10 * 60000);
-    const end = new Date(Date.now() + 20 * 60000);
+    const start = new Date(Date.now() + 120 * 60000);
+    const end = new Date(Date.now() + 130 * 60000);
 
     const startStr = `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}T${pad(start.getHours())}:${pad(start.getMinutes())}`;
     const endStr = `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}T${pad(end.getHours())}:${pad(end.getMinutes())}`;
@@ -66,14 +66,14 @@ describe("QPI Dashboard — End-to-End User Journeys", () => {
     // Logout
     cy.contains("button", "Profile Settings").click();
     cy.contains("button", "Sign Out").click();
-    cy.contains("h2", "Sign in to QPI").should("be.visible");
+    cy.get('[data-testid="login-modal"]').should("be.visible");
   });
 
   it("admin: registers a QPU, toggles it, and broadcasts an announcement", () => {
     // Log in as administrator
     cy.contains("button", "Administrator").click();
-    cy.get('input[type="text"]').type("admin@example.com");
-    cy.get('input[type="password"]').type("supersecretpassword1234");
+    cy.get('input[type="text"]').clear().type("admin@example.com");
+    cy.get('input[type="password"]').clear().type("supersecretpassword1234");
     cy.get('button[type="submit"]').click();
 
     cy.contains("h1", "QPI Interface").should("be.visible");
@@ -82,7 +82,7 @@ describe("QPI Dashboard — End-to-End User Journeys", () => {
     // Register a new QPU on QPU Registry
     cy.contains("button", "QPU Registry").click();
     cy.contains("button", "Register QPU").click();
-    cy.get('input[placeholder="rigetti-aspen-9"]').type("cypress-test-qpu");
+    cy.get('input[placeholder="rigetti-aspen-9"]').clear().type("cypress-test-qpu");
     cy.get("select").select("qblox");
     cy.contains("button", "Register Unit").click();
 
@@ -114,7 +114,7 @@ describe("QPI Dashboard — End-to-End User Journeys", () => {
     );
     cy.get(
       'textarea[placeholder="Rigetti Aspen-9 will be offline for calibration tomorrow..."]',
-    ).type("Test Cypress Broadcast Description");
+    ).clear().type("Test Cypress Broadcast Description");
     cy.get('form button[type="submit"]').click();
     cy.contains("Announcement broadcasted successfully!").should("be.visible");
 
@@ -125,6 +125,6 @@ describe("QPI Dashboard — End-to-End User Journeys", () => {
     // Sign Out
     cy.contains("button", "Profile Settings").click();
     cy.contains("button", "Sign Out").click();
-    cy.contains("h2", "Sign in to QPI").should("be.visible");
+    cy.get('[data-testid="login-modal"]').should("be.visible");
   });
 });

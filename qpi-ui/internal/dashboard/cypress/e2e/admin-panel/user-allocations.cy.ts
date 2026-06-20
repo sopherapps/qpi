@@ -5,8 +5,8 @@ describe("Admin Panel — User Allocations", () => {
     cy.visit("/");
 
     cy.contains("button", "Administrator").click();
-    cy.get('input[type="text"]').type("admin@example.com");
-    cy.get('input[type="password"]').type("supersecretpassword1234");
+    cy.get('input[type="text"]').clear().type("admin@example.com");
+    cy.get('input[type="password"]').clear().type("supersecretpassword1234");
     cy.get('button[type="submit"]').click();
     cy.contains("h1", "QPI Interface").should("be.visible");
 
@@ -30,7 +30,7 @@ describe("Admin Panel — User Allocations", () => {
     cy.contains("td", "user@example.com")
       .parent("tr")
       .within(() => {
-        cy.get('input[type="number"]').type("5000");
+        cy.get('input[type="number"]').clear().type("5000");
         cy.contains("button", "Grant").click();
       });
 

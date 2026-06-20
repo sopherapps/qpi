@@ -65,7 +65,7 @@ export function ReservationsTable({
                             onClick={() => onDelete(slot.id)}
                             className="text-red-400 hover:text-red-300 p-1.5 rounded hover:bg-red-500/10 transition-colors focus:outline-none"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="lucide-trash-2 w-4 h-4" />
                           </button>
                         ) : (
                           <span className="text-xs text-zinc-600 font-medium">

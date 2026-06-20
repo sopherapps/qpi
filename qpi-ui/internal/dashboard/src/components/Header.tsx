@@ -51,6 +51,7 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Notification Bell Dropdown */}
         <div className="relative" ref={dropdownRef}>
           <button
+            aria-label="Notifications"
             onClick={() => setDropdownOpen(!dropdownOpen)}
             className="w-9 h-9 rounded-full bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-zinc-400 hover:text-white transition-all flex items-center justify-center relative focus:outline-none"
           >

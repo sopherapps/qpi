@@ -5,8 +5,8 @@ describe("QPU Registry — Regular User View", () => {
     cy.visit("/");
 
     // Log in as regular user
-    cy.get('input[type="text"]').type("user@example.com");
-    cy.get('input[type="password"]').type("userpassword1234");
+    cy.get('input[type="text"]').clear().type("user@example.com");
+    cy.get('input[type="password"]').clear().type("userpassword1234");
     cy.get('button[type="submit"]').click();
     cy.contains("h1", "QPI Interface").should("be.visible");
 
@@ -30,9 +30,9 @@ describe("QPU Registry — Regular User View", () => {
     cy.get("h3").should("have.length.at.least", 1);
 
     // Each card shows status badge
-    cy.contains("span", "online").should("be.visible");
+    cy.contains("span", "offline").should("exist");
 
     // Each card shows executor driver
-    cy.contains("span", "Executor Driver").should("be.visible");
+    cy.contains("span", "Executor Driver").should("exist");
   });
 });

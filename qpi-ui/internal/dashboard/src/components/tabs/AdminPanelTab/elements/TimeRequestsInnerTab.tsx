@@ -39,6 +39,7 @@ export function TimeRequestsInnerTab({
                 return (
                   <tr
                     key={req.id}
+                    data-testid="time-request-row"
                     className="hover:bg-zinc-800/20 transition-colors"
                   >
                     <td className="py-3.5 px-4 font-medium text-white">
@@ -48,7 +49,7 @@ export function TimeRequestsInnerTab({
                       {req.seconds}s
                     </td>
                     <td className="py-3.5 px-4 text-zinc-400 text-xs">
-                      {req.reason}
+                      {req.requested_reason}
                     </td>
                     <td className="py-3.5 px-4">
                       <span
@@ -70,13 +71,13 @@ export function TimeRequestsInnerTab({
                             onClick={() => onApprove(req.id)}
                             className="bg-green-600 hover:bg-green-500 text-white p-1 rounded transition-colors focus:outline-none"
                           >
-                            <Check className="w-4 h-4" />
+                            <Check className="lucide-check w-4 h-4" />
                           </button>
                           <button
                             onClick={() => onReject(req.id)}
                             className="bg-red-600 hover:bg-red-500 text-white p-1 rounded transition-colors focus:outline-none"
                           >
-                            <X className="w-4 h-4" />
+                            <X className="lucide-x w-4 h-4" />
                           </button>
                         </div>
                       ) : (

@@ -4,8 +4,8 @@ describe("Settings & Request Time — Request Time Modal", () => {
     cy.clearLocalStorage();
     cy.visit("/");
 
-    cy.get('input[type="text"]').type("user@example.com");
-    cy.get('input[type="password"]').type("userpassword1234");
+    cy.get('input[type="text"]').clear().type("user@example.com");
+    cy.get('input[type="password"]').clear().type("userpassword1234");
     cy.get('button[type="submit"]').click();
     cy.contains("h1", "QPI Interface").should("be.visible");
   });
@@ -27,8 +27,8 @@ describe("Settings & Request Time — Request Time Modal", () => {
     cy.contains("button", "Request Time").click();
     cy.contains("h3", "Request QPU Time").should("be.visible");
 
-    cy.get('input[type="number"]').clear().type("500");
-    cy.get("textarea").type("Need extra time for VQE experiments");
+    cy.get('input[type="number"]').type("{selectall}{backspace}" + "500");
+    cy.get("textarea").clear().type("Need extra time for VQE experiments");
     cy.contains("button", "Submit Time Request").click();
 
     // Modal closes after successful submission
