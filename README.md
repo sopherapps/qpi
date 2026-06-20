@@ -318,10 +318,10 @@ make clean
 
 ### Cypress E2E — Bookings
 
-- [ ] Test booking a slot: open modal, pick valid start/end times, submit, verify the table shows the booking with the current user's email
-- [ ] Test booking validation: end time before start time shows an error message and does not create a slot
-- [ ] Test cancel booking: click cancel, confirm dialog, verify the slot disappears from the table
-- [ ] Test regular user only sees their own bookings; admin sees all bookings
+- [x] Test booking a slot: open modal, pick valid start/end times, submit, verify the table shows the booking with the current user's email (`cypress/e2e/bookings/book-slot.cy.ts`)
+- [x] Test booking validation: end time before start time shows an error message and does not create a slot (`cypress/e2e/bookings/validation.cy.ts`)
+- [x] Test cancel booking: click cancel, confirm dialog, verify the slot disappears from the table (`cypress/e2e/bookings/cancel.cy.ts`)
+- [x] Test regular user only sees their own bookings; admin sees all bookings (`cypress/e2e/bookings/visibility.cy.ts`)
 
 ### Cypress E2E — Admin Panel
 
