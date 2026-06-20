@@ -289,7 +289,6 @@ make clean
 
 ### Dashboard / UI
 
-- [ ] Add an announcements banner/section on the dashboard where users can see all unread announcements and dismiss individual ones. Only show announcements that are broadcast (no target users) or where the current user is among the target users.
 - [ ] Update the code snippet shown when registering/creating a qpu on the dashboard to also
   add the --ca-fingerprint option
 - [ ] Update tests (for qpi-driver and qpi-ui) to test for TLS related features
@@ -340,11 +339,13 @@ make clean
 
 ### Cypress E2E — Overview & Header
 
-- [ ] Test metrics row: counts for QPUs, jobs, bookings, and quota seconds match the actual data loaded from the API
-- [ ] Test quick-action buttons: "Book Slot" navigates to Bookings; "Submit Job" navigates to Jobs Console
-- [ ] Test recent jobs table: shows actual job data (ID, status, QPU name) from the API
-- [ ] Test notifications panel: dismiss an individual notification → it disappears; "Clear All" → all disappear
-- [ ] Test header page title: changes to match the active tab (e.g. "Jobs Console" when on `#jobs`)
+- [x] Test metrics row: counts for QPUs, jobs, bookings, and quota seconds match the actual data loaded from the API (`cypress/e2e/overview-header/metrics-row.cy.ts`)
+- [x] Test quick-action buttons: "Book Slot" navigates to Bookings; "Submit Job" navigates to Jobs Console (`cypress/e2e/overview-header/quick-actions.cy.ts`)
+- [x] Test recent jobs table: shows actual job data (ID, status, QPU name) from the API (`cypress/e2e/overview-header/recent-jobs.cy.ts`)
+- [x] Test notifications panel: dismiss an individual notification → it disappears; "Clear All" → all disappear (`cypress/e2e/overview-header/notifications-panel.cy.ts`)
+- [x] Test notification targeting: broadcast notifications show for all users; targeted notifications only show for target users (`cypress/e2e/overview-header/notifications-targeting.cy.ts`)
+- [x] Test notification dismiss isolation: when one user dismisses a notification, it is still visible to other users (`cypress/e2e/overview-header/notifications-dismiss-isolation.cy.ts`)
+- [x] Test header page title: changes to match the active tab (e.g. "Jobs Console" when on `#jobs`) (`cypress/e2e/overview-header/header-title.cy.ts`)
 
 ### Cypress E2E — Settings & Request Time
 
