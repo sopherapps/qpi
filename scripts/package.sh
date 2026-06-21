@@ -5,7 +5,7 @@
 
 set -e
 
-VERSION=${1:-"0.0.9"}
+VERSION=${1:-"0.0.10"}
 SRC_DIR="qpi-ui"
 DIST_DIR="bin/dist"
 

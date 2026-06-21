@@ -7,6 +7,8 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 
 ## [Unreleased]
 
+## [0.0.10] - 2026-06-21
+
 ### Added
 
 - Documentation site configuration (`mkdocs.yml`) with automated deployments (`docs.yml`) to GitHub Pages via MkDocs Material.
