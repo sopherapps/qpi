@@ -7,6 +7,8 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 
 ## [Unreleased]
 
+## [0.0.11] - 2026-06-21
+
 ### Fixed
 
 - Fixed failing deployment of documentation site in GitHub actions
