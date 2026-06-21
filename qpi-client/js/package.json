@@ -30,6 +30,7 @@
     "sdk"
   ],
   "license": "MIT",
+  "homepage": "https://sopherapps.github.io/qpi/clients/javascript/",
   "repository": {
     "type": "git",
     "url": "https://github.com/sopherapps/qpi"

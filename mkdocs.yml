@@ -1,0 +1,49 @@
+site_name: QPI Documentation
+site_url: https://sopherapps.github.io/qpi/
+repo_url: https://github.com/sopherapps/qpi
+repo_name: sopherapps/qpi
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+extra:
+  version:
+    provider: mike
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [qpi-driver, qpi-client/py]
+          options:
+            show_root_heading: true
+            show_source: true
+
+nav:
+  - Home: index.md
+  - Python Driver:
+      - Overview: driver/index.md
+      - API Reference: driver/api.md
+  - Clients:
+      - Python Client:
+          - Overview: clients/python.md
+          - API Reference: clients/python_api.md
+      - Go Client: clients/go.md
+      - JavaScript Client: clients/javascript.md

@@ -20,6 +20,10 @@
   Zero third-party dependencies — uses only the Go standard library.
 </p>
 
+<p align="center">
+  <strong><a href="https://sopherapps.github.io/qpi/clients/go/">📚 Read the Documentation</a></strong>
+</p>
+
 ---
 
 ## Install

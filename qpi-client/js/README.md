@@ -21,6 +21,10 @@
   Zero runtime dependencies — uses the global <code>fetch</code> API.
 </p>
 
+<p align="center">
+  <strong><a href="https://sopherapps.github.io/qpi/clients/javascript/">📚 Read the Documentation</a></strong>
+</p>
+
 ---
 
 ## Install

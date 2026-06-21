@@ -21,6 +21,10 @@
   Includes both a low-level HTTP client and a Qiskit-compatible backend.
 </p>
 
+<p align="center">
+  <strong><a href="https://sopherapps.github.io/qpi/clients/python/">📚 Read the Documentation</a></strong>
+</p>
+
 ---
 
 ## Install

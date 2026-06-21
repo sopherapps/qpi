@@ -20,7 +20,9 @@
   QPI is a distributed quantum control stack architecture designed to control multiple Quantum Processing Units (QPUs).
 </p>
 
-
+<p align="center">
+  <strong><a href="https://sopherapps.github.io/qpi/">📚 Read the Documentation</a></strong>
+</p>
 
 ## Prerequisites
 
@@ -281,6 +283,7 @@ make clean
 
 ## TODOs
 
+  
 ## License
 
 Copyright (c) 2026 [Martin Ahindura](https://github.com/Tinitto)

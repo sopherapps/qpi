@@ -1,0 +1,47 @@
+name: Deploy Docs
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version alias to deploy (e.g. 0.0.9 or latest)'
+        required: true
+        default: 'latest'
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install mkdocs-material mkdocstrings[python] mike
+
+      - name: Configure Git user
+        run: |
+          git config --local user.name "github-actions[bot]"
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Deploy Docs
+        run: |
+          VERSION=${{ github.event.inputs.version || github.event.release.tag_name }}
+          if [ -z "$VERSION" ]; then
+            VERSION="latest"
+          fi
+          # Strip 'v' prefix if it exists
+          VERSION=${VERSION#v}
+          mike deploy --push --update-aliases $VERSION latest

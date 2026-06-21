@@ -23,6 +23,7 @@ dev = [
 [project.urls]
 Homepage = "https://github.com/sopherapps/qpi"
 Repository = "https://github.com/sopherapps/qpi"
+Documentation = "https://sopherapps.github.io/qpi/clients/python/"
 
 [tool.setuptools.packages.find]
 include = ["qpi_client*"]

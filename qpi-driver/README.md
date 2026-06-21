@@ -21,6 +21,10 @@
   Runs on isolated hardware nodes controlling the QPU via multiple executor backends.
 </p>
 
+<p align="center">
+  <strong><a href="https://sopherapps.github.io/qpi/driver/">📚 Read the Documentation</a></strong>
+</p>
+
 ---
 
 ## Install

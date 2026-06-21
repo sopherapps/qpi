@@ -44,7 +44,7 @@ dev = [
 [project.urls]
 Homepage = "https://github.com/sopherapps/qpi"
 Repository = "https://github.com/sopherapps/qpi"
-Documentation = "https://github.com/sopherapps/qpi"
+Documentation = "https://sopherapps.github.io/qpi/driver/"
 Issues = "https://github.com/sopherapps/qpi/issues"
 Changelog = "https://github.com/sopherapps/qpi/blob/main/CHANGELOG.md"
 
