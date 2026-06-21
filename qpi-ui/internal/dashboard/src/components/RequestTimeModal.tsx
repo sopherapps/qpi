@@ -12,7 +12,7 @@ export const RequestTimeModal: React.FC<RequestTimeModalProps> = ({
   onClose,
   onSubmit,
 }) => {
-  const [seconds, setSeconds] = useState(100);
+  const [seconds, setSeconds] = useState<number | null | undefined>(100);
   const [reason, setReason] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -24,7 +24,9 @@ export const RequestTimeModal: React.FC<RequestTimeModalProps> = ({
     setError("");
     setLoading(true);
     try {
-      await onSubmit(seconds, reason);
+      if (seconds != undefined) {
+        await onSubmit(seconds, reason);
+      }
       onClose();
       setSeconds(100);
       setReason("");
@@ -58,8 +60,12 @@ export const RequestTimeModal: React.FC<RequestTimeModalProps> = ({
             <input
               type="number"
               required
-              value={seconds}
-              onChange={(e) => setSeconds(parseInt(e.target.value) || 1)}
+              value={seconds ?? ""}
+              onChange={(e) =>
+                setSeconds(
+                  e.target.value === "" ? undefined : parseInt(e.target.value),
+                )
+              }
               className="w-full bg-zinc-950 border border-zinc-800 rounded px-3 py-2 text-white focus:outline-none focus:border-zinc-500 transition-colors font-mono"
             />
           </div>

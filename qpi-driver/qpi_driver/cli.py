@@ -112,7 +112,7 @@ if typer.IS_TYPER_INSTALLED:
         ca_fingerprint: str = typer.Option(
             default=...,
             envvar="QPI_CA_FINGERPRINT",
-            help="The fingerprint to identify the right TLS server certificates.",
+            help="The fingerprint to verify the authenticity the automatically downloaded root CA certificate of the QPI server.",
         ),
     ):
         """

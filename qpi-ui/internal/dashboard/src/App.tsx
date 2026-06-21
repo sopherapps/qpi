@@ -18,6 +18,7 @@ import type {
   User,
   TimeRequest,
   CreateQpuResponse,
+  NotificationRequest,
 } from "./types";
 
 export const App: React.FC = () => {
@@ -45,18 +46,25 @@ export const App: React.FC = () => {
   // Synced tab hash router
   useEffect(() => {
     const handleHashChange = () => {
-      const hash = window.location.hash.replace("#", "");
+      let hash = window.location.hash.replace("#", "");
+      if (!hash) hash = "overview";
+
       if (
-        ["overview", "qpus", "jobs", "bookings", "admin", "settings"].includes(
+        ["overview", "qpus", "jobs", "bookings", "settings", "admin"].includes(
           hash,
         )
       ) {
-        setActiveTab(hash);
+        setActiveTab(hash as string);
       }
     };
     window.addEventListener("hashchange", handleHashChange);
-    handleHashChange(); // initial routing
-    return () => window.removeEventListener("hashchange", handleHashChange);
+    window.addEventListener("popstate", handleHashChange);
+    handleHashChange(); // Run once on mount
+
+    return () => {
+      window.removeEventListener("hashchange", handleHashChange);
+      window.removeEventListener("popstate", handleHashChange);
+    };
   }, []);
 
   const changeTab = (tab: string) => {
@@ -138,10 +146,10 @@ export const App: React.FC = () => {
 
   const loadTimeRequests = useCallback(async () => {
     try {
-      const records = await pb.collection("time_requests").getFullList({
-        sort: "-created",
+      const records = await pb.collection("qpu_time_requests").getFullList({
         expand: "user",
       });
+      console.log("Fetched time requests:", records);
       setTimeRequests(records as unknown as TimeRequest[]);
     } catch (err) {
       console.error("Failed to load time requests:", err);
@@ -201,7 +209,7 @@ export const App: React.FC = () => {
       pb.collection("users").subscribe("*", () => {
         loadAdminUsers();
       });
-      pb.collection("time_requests").subscribe("*", () => {
+      pb.collection("qpu_time_requests").subscribe("*", () => {
         loadTimeRequests();
       });
     }
@@ -213,7 +221,7 @@ export const App: React.FC = () => {
       pb.collection("qpus").unsubscribe();
       if (isSuper) {
         pb.collection("users").unsubscribe();
-        pb.collection("time_requests").unsubscribe();
+        pb.collection("qpu_time_requests").unsubscribe();
       }
     };
   }, [
@@ -265,7 +273,14 @@ export const App: React.FC = () => {
 
   // Actions & Custom Endpoints handlers
   const handleDismissNotification = async (id: string) => {
+    if (!userId) return;
     try {
+      const isSuper = pb.authStore.model?.collectionName === "_superusers";
+      if (isSuper) {
+        setNotifications((prev) => prev.filter((n) => n.id !== id));
+        return;
+      }
+
       await pb.send(`/api/notifications/${encodeURIComponent(id)}/dismiss`, {
         method: "POST",
       });
@@ -276,15 +291,24 @@ export const App: React.FC = () => {
   };
 
   const handleDismissAllNotifications = async () => {
+    if (!userId) return;
     try {
-      for (const ann of notifications) {
-        await pb.send(
-          `/api/notifications/${encodeURIComponent(ann.id)}/dismiss`,
-          {
-            method: "POST",
-          },
-        );
+      const isSuper = pb.authStore.model?.collectionName === "_superusers";
+      if (isSuper) {
+        setNotifications([]);
+        return;
       }
+
+      await Promise.all(
+        notifications.map(async (ann) => {
+          return pb.send(
+            `/api/notifications/${encodeURIComponent(ann.id)}/dismiss`,
+            {
+              method: "POST",
+            },
+          );
+        }),
+      );
       loadNotifications();
     } catch (err: unknown) {
       alert(`Clear failed: ${(err as Error).message}`);
@@ -353,12 +377,12 @@ export const App: React.FC = () => {
   };
 
   const handleRequestTime = async (seconds: number, reason: string) => {
-    await pb.collection("time_requests").create({
+    await pb.collection("qpu_time_requests").create({
       user: userId,
       seconds: seconds,
-      reason: reason,
+      requested_reason: reason,
       status: "pending",
-    });
+    } as TimeRequest);
     if (isAdmin) loadTimeRequests();
   };
 
@@ -375,17 +399,19 @@ export const App: React.FC = () => {
     start: string,
     end: string,
   ) => {
-    await pb.collection("notifications").create({
+    const payload: NotificationRequest = {
       title: title,
       description: desc,
-      start_time: start || null,
-      end_time: end || null,
-    });
+    };
+    if (start) payload.start_time = start;
+    if (end) payload.end_time = end;
+
+    await pb.collection("notifications").create(payload);
     loadNotifications();
   };
 
   const handleApproveRequest = async (id: string) => {
-    await pb.collection("time_requests").update(id, {
+    await pb.collection("qpu_time_requests").update(id, {
       status: "approved",
     });
     loadTimeRequests();
@@ -393,7 +419,7 @@ export const App: React.FC = () => {
   };
 
   const handleRejectRequest = async (id: string, reason: string) => {
-    await pb.collection("time_requests").update(id, {
+    await pb.collection("qpu_time_requests").update(id, {
       status: "rejected",
       rejection_reason: reason,
     });

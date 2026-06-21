@@ -9,8 +9,10 @@ import (
 
 // ValidateTimeSlot asserts start_time is before end_time and prevents globally overlapping bookings.
 func ValidateTimeSlot(app core.App, record *core.Record) error {
-	start := record.GetDateTime("start_time").Time()
-	end := record.GetDateTime("end_time").Time()
+	startDt := record.GetDateTime("start_time")
+	endDt := record.GetDateTime("end_time")
+	start := startDt.Time()
+	end := endDt.Time()
 
 	if start.After(end) || start.Equal(end) {
 		return errors.New("start_time must be strictly before end_time")
@@ -21,8 +23,8 @@ func ValidateTimeSlot(app core.App, record *core.Record) error {
 		Select("count(*)").
 		From("time_slots").
 		Where(dbx.NewExp("start_time < {:end_time} AND end_time > {:start_time}", dbx.Params{
-			"end_time":   end,
-			"start_time": start,
+			"end_time":   endDt.String(),
+			"start_time": startDt.String(),
 		}))
 
 	if record.Id != "" {

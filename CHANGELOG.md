@@ -12,6 +12,19 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 - TLS connection between the server (qpi-ui) and the driver (qpi-driver)
 - `qpi-driver`: added the `--ca-file` and `--ca-fingerprint` params to the qpi-driver all
 - `qpi-ui (dashboard)`: updated the code snippet shown to the user on QPU creation to include `--ca-fingerprint`.
+- Comprehensive Cypress E2E test suite covering all dashboard sections:
+  - **Auth & Navigation** — login error flow, role-based navigation, hash routing, back/forward sync, logout
+  - **QPU Registry** — admin QPU registration (with token and command verification), toggle online/offline, regular user restrictions
+  - **Jobs Console** — default form state, job submission and results, QPU dropdown filtering, empty state
+  - **Bookings** — booking a time slot, validation (end before start), cancel with confirmation, visibility (user vs admin)
+  - **Admin Panel** — user quota allocations, time request approval/rejection, broadcast announcements, notification badge, approval quota updates
+  - **Overview & Header** — metrics row accuracy, quick-action navigation, recent jobs table, notifications panel (dismiss individual/clear all), notification targeting (broadcast vs targeted), notification dismiss isolation (per-user), header page title sync
+  - **Settings & Request Time** — profile settings (email, quota, role badge), request time modal submission, validation (empty reason/seconds)
+  - **Error & Edge Cases** — empty states (no jobs, no selected job, no QPUs), network failure handling (`alert()` messages), unauthorized access to `/#admin`
+- Backend unit tests for `OnQPUTimeRequestUpdateRequest` hook:
+  - Approval adds requested seconds to user quota; rejection leaves it unchanged
+  - Non-superusers are forbidden from updating time requests
+  - Already-processed (approved/rejected) requests cannot be modified
 
 ## [0.0.8] - 2026-06-17
 

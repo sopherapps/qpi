@@ -52,7 +52,7 @@ export interface TimeRequest {
   id: string;
   user: string;
   seconds: number;
-  reason: string;
+  requested_reason: string;
   status: "pending" | "approved" | "rejected";
   rejection_reason?: string;
   expand?: {
@@ -60,19 +60,20 @@ export interface TimeRequest {
   };
 }
 
-export interface Announcement {
-  id: string;
+export interface NotificationRequest {
   title: string;
   description: string;
-  start_time: string;
-  end_time: string;
+  start_time?: string;
+  end_time?: string;
+  target_users?: string[];
 }
 
-export interface Notification {
+export interface Notification extends NotificationRequest {
   id: string;
   title: string;
   description: string;
   user_id?: string;
+  dismissed_by?: string[];
   created: string;
 }
 

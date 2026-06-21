@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { pb } from "../lib/pb";
 import { Lock } from "lucide-react";
+import type { AuthMethodsList } from "pocketbase";
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -16,6 +17,27 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [authMethods, setAuthMethods] = useState<AuthMethodsList | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    if (isOpen) {
+      const fetchAuthMethods = async () => {
+        try {
+          const methods = await pb.collection("users").listAuthMethods();
+          if (isMounted) {
+            setAuthMethods(methods);
+          }
+        } catch (err) {
+          console.error(err);
+        }
+      };
+      fetchAuthMethods();
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -31,6 +53,10 @@ export const LoginModal: React.FC<LoginModalProps> = ({
         await pb.collection("users").authWithPassword(identity, password);
       }
       onLoginSuccess();
+      setRole("user");
+      setIdentity("");
+      setPassword("");
+      setError("");
     } catch {
       setError("Invalid credentials. Please try again.");
     } finally {
@@ -38,8 +64,29 @@ export const LoginModal: React.FC<LoginModalProps> = ({
     }
   };
 
+  const handleOAuth2Login = async (providerName: string) => {
+    setError("");
+    setLoading(true);
+    try {
+      await pb.collection("users").authWithOAuth2({ provider: providerName });
+      onLoginSuccess();
+      setRole("user");
+      setIdentity("");
+      setPassword("");
+      setError("");
+    } catch (err) {
+      console.error("OAuth2 error:", err);
+      setError(`Failed to sign in with ${providerName}.`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-zinc-950/80 backdrop-blur-md">
+    <div
+      data-testid="login-modal"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-zinc-950/80 backdrop-blur-md"
+    >
       <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-lg shadow-2xl p-8 space-y-6">
         <div className="text-center">
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-zinc-800 text-white mb-4 border border-zinc-700">
@@ -84,6 +131,39 @@ export const LoginModal: React.FC<LoginModalProps> = ({
             Administrator
           </button>
         </div>
+
+        {role === "user" &&
+          authMethods?.oauth2?.enabled &&
+          authMethods.oauth2.providers.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex flex-col gap-2">
+                {authMethods.oauth2.providers.map((provider) => (
+                  <button
+                    key={provider.name}
+                    type="button"
+                    disabled={loading}
+                    onClick={() => handleOAuth2Login(provider.name)}
+                    className="w-full bg-zinc-800 hover:bg-zinc-700 text-white font-medium py-2 px-4 rounded transition-colors flex items-center justify-center gap-2 border border-zinc-700 disabled:opacity-50"
+                  >
+                    <span className="capitalize">
+                      Continue with {provider.name}
+                    </span>
+                  </button>
+                ))}
+              </div>
+
+              <div className="relative pt-4 pb-2">
+                <div className="absolute inset-0 flex items-center pt-2">
+                  <span className="w-full border-t border-zinc-800" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-zinc-900 px-2 text-zinc-500 font-medium tracking-wider">
+                    Or use credentials
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
