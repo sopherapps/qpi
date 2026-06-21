@@ -50,3 +50,4 @@ jobs:
           # Strip 'v' prefix if it exists
           VERSION=${VERSION#v}
           mike deploy --push --update-aliases $VERSION latest
+          mike set-default --push latest

@@ -7,6 +7,10 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed broken links and typos in docs website.
+
 ## [0.0.12] - 2026-06-21
 
 ### Fixed

@@ -213,9 +213,6 @@ class QPIBackend(BackendV2):
     Args:
         client: An authenticated :class:`QPIClient` instance.
         name: Human-readable backend name (default ``"qpi"``).
-        num_qubits: Number of qubits the backend advertises to the Qiskit
-            transpiler.  Defaults to a large value so circuits of any
-            reasonable size compile without resizing the target.
         **kwargs: Forwarded to :class:`BackendV2.__init__`.
     """
 

@@ -288,7 +288,7 @@ make clean
 
 Copyright (c) 2026 [Martin Ahindura](https://github.com/Tinitto)
 
-Licensed under the [MIT License](./LICENSE)
+Licensed under the [MIT License](https://github.com/sopherapps/qpi/blob/main/LICENSE)
 
 
 ## Gratitude
