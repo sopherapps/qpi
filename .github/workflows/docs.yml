@@ -12,7 +12,7 @@ on:
 
 concurrency:
   # cancel any previous run on this branch or tag that is still in progress
-  group: ci-${{ github.ref }}
+  group: docs-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:

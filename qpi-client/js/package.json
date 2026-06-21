@@ -1,6 +1,6 @@
 {
   "name": "qpi-client",
-  "version": "0.0.11",
+  "version": "0.0.12",
   "description": "JavaScript/TypeScript client SDK for the QPI quantum computing platform",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
