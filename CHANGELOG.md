@@ -7,6 +7,8 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 
 ## [Unreleased]
 
+## [0.0.9] - 2026-06-21
+
 ### Added
 
 - TLS connection between the server (qpi-ui) and the driver (qpi-driver)
