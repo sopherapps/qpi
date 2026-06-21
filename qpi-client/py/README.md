@@ -78,7 +78,7 @@ print(result.get_counts())
 ```python
 job = backend.run(
     qasm='OPENQASM 3.0; include "stdgates.inc"; qubit[1] q; bit[1] c; rx({{theta}}) q[0]; c = measure q;',
-    params=[[0.5], [1.0]],
+    parameter_values=[[0.5], [1.0]],
     shots=1024
 )
 result = job.result()
@@ -104,7 +104,7 @@ result = job.result()
 | Method | Description |
 |--------|-------------|
 | `backend.run(circuit, shots)` | Run a `QuantumCircuit` |
-| `backend.run(qasm, params, shots)` | Run raw QASM with parameter bindings |
+| `backend.run(qasm, parameter_values, shots)` | Run raw QASM with parameter bindings |
 | `backend.job(job_id)` | Retrieve a past job |
 
 ---

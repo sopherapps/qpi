@@ -185,7 +185,7 @@ Runs simulated measurements without external physics dependencies.
 pip install ./qpi-driver[cli]
 
 # Start the driver using mock executor
-qpi-driver start --token "my-super-secret-token-12345" --executor "mock"
+qpi-driver start --token "my-super-secret-token-12345" --ca-fingerprint "<fingerprint>" --executor "mock"
 ```
 
 #### 2. Qiskit Aer Simulator
@@ -195,7 +195,7 @@ Runs realistic circuit simulations using Qiskit Aer.
 pip install ./qpi-driver[cli,aer]
 
 # Start the driver using qiskit_aer executor
-qpi-driver start --token "my-super-secret-token-12345" --executor "qiskit_aer"
+qpi-driver start --token "my-super-secret-token-12345" --ca-fingerprint "<fingerprint>" --executor "qiskit_aer"
 ```
 
 #### 3. Quantify Executor (Qblox Cluster)
@@ -206,12 +206,12 @@ Compiles and runs circuits using `quantify-scheduler`.
   pip install ./qpi-driver[cli,quantify]
 
   # Start driver in dummy mode
-  qpi-driver start --token "my-super-secret-token-12345" --executor "quantify" --is-dummy --quantify-hardware-config quantify.hardware.example.json --quantify-deivce-config quantify.deivde.example.json
+  qpi-driver start --token "my-super-secret-token-12345" --ca-fingerprint "<fingerprint>" --executor "quantify" --is-dummy --quantify-hardware-config quantify.hardware.example.json --quantify-device-config quantify.device.example.json
   ```
 * **Real Hardware Mode**: Compiles and deploys to actual physical Qblox hardware.
   ```bash
   # Start driver with a hardware config file
-  qpi-driver start --token "my-super-secret-token-12345" --executor "quantify" --quantify-hardware-config quantify.hardware.example.json --quantify-deivce-config quantify.deivde.example.json
+  qpi-driver start --token "my-super-secret-token-12345" --ca-fingerprint "<fingerprint>" --executor "quantify" --quantify-hardware-config quantify.hardware.example.json --quantify-device-config quantify.device.example.json
   ```
 
 #### 4. Qblox Executor (Qblox Cluster)
@@ -222,12 +222,12 @@ Compiles and runs circuits using `qblox-scheduler`.
   pip install ./qpi-driver[cli,qblox]
 
   # Start driver in dummy mode
-  qpi-driver start --token "my-super-secret-token-12345" --executor "qblox" --is-dummy --quantify-hardware-config quantify.hardware.example.json --quantify-device-config quantify.device.example.json
+  qpi-driver start --token "my-super-secret-token-12345" --ca-fingerprint "<fingerprint>" --executor "qblox" --is-dummy --quantify-hardware-config quantify.hardware.example.json --quantify-device-config quantify.device.example.json
   ```
 * **Real Hardware Mode**: Compiles and deploys to actual physical Qblox hardware.
   ```bash
   # Start driver with a hardware config file
-  qpi-driver start --token "my-super-secret-token-12345" --executor "qblox" --quantify-hardware-config quantify.hardware.example.json --quantify-device-config quantify.device.example.json
+  qpi-driver start --token "my-super-secret-token-12345" --ca-fingerprint "<fingerprint>" --executor "qblox" --quantify-hardware-config quantify.hardware.example.json --quantify-device-config quantify.device.example.json
   ```
 
 ### CLI Usage

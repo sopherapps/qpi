@@ -62,6 +62,7 @@ Requires **Python ≥ 3.12, < 3.13**.
 qpi-driver start \
   --qpi-addr http://localhost:8090 \
   --token <qpu-access-token> \
+  --ca-fingerprint <fingerprint> \
   --name qpu_sim_01 \
   --executor mock \
   --data-dir ./data
@@ -72,6 +73,7 @@ Environment variables are also supported:
 ```bash
 export QPI_ADDR=http://localhost:8090
 export QPI_ACCESS_TOKEN=<token>
+export QPI_CA_FINGERPRINT=<fingerprint>
 export QPU_NAME=qpu_sim_01
 export DRIVER_BACKEND=mock
 qpi-driver start
@@ -85,6 +87,7 @@ from qpi_driver import run_driver
 run_driver(
     qpi_addr="http://localhost:8090",
     token="<qpu-access-token>",
+    ca_fingerprint="<fingerprint>",
     name="qpu_sim_01",
     executor="mock",
     data_dir="./data",
@@ -105,6 +108,7 @@ class MyCustomExecutor(Executor):
 run_driver(
     qpi_addr="http://localhost:8090",
     token="<token>",
+    ca_fingerprint="<fingerprint>",
     name="my_qpu",
     executor="custom",
     custom_executor=MyCustomExecutor(),
@@ -121,7 +125,6 @@ run_driver(
 | `qiskit_aer` | Qiskit Aer simulator | `[aer]` |
 | `quantify` | Quantify-scheduler + Qblox instruments | `[quantify]` |
 | `qblox` | Qblox scheduler (legacy) | `[qblox]` |
-| `presto` | Presto RF control | `[quantify]` |
 
 ---
 
@@ -177,6 +180,10 @@ Options:
   -d, --data-dir PATH          Data directory [env: QPI_DATA_DIR]
   --is-dummy                   Run in dummy/simulation mode
   --quantify-hardware-config PATH  Quantify hardware config [env: QPI_QUANTIFY_HARDWARE_CONFIG]
+  --quantify-device-config PATH    Quantify device config [env: QPI_QUANTIFY_DEVICE_CONFIG]
+  --job-timeout INTEGER        Job timeout in seconds [env: QPI_JOB_TIMEOUT]
+  --ca-file PATH               Path to the CA root certificate [env: QPI_CA_FILE]
+  --ca-fingerprint TEXT        Fingerprint to verify the CA root certificate [env: QPI_CA_FINGERPRINT]
   --help                       Show this message and exit.
 ```
 
