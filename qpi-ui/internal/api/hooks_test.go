@@ -1,9 +1,12 @@
 package api
 
 import (
+	"fmt"
 	"testing"
+	"time"
 
 	"qpi/internal/config"
+	"qpi/internal/db"
 
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
@@ -15,8 +18,17 @@ func TestOnQPUTimeRequestUpdateRequest_ApprovalAddsSeconds(t *testing.T) {
 		t.Fatalf("failed to create test app: %v", err)
 	}
 	defer app.Cleanup()
+	config.SaveConfigOnApp(app, &config.AppConfig{CollectionQPUs: config.DefaultQpusCollection, CollectionTimeSlots: config.DefaultTimeSlotsCollection, CollectionQuantumJobs: config.DefaultQuantumJobsCollection, CollectionAPITokens: config.DefaultAPITokensCollection, CollectionNotifications: config.DefaultNotificationsCollection, CollectionQPUTimeRequests: "qpu_time_requests"})
+	if err := db.EnsureSchema(app); err != nil {
+		t.Fatalf("failed to ensure schema: %v", err)
+	}
 
 	cfg := &config.AppConfig{
+		CollectionQPUs:            config.DefaultQpusCollection,
+		CollectionTimeSlots:       config.DefaultTimeSlotsCollection,
+		CollectionQuantumJobs:     config.DefaultQuantumJobsCollection,
+		CollectionAPITokens:       config.DefaultAPITokensCollection,
+		CollectionNotifications:   config.DefaultNotificationsCollection,
 		CollectionQPUTimeRequests: "qpu_time_requests",
 	}
 	_ = cfg
@@ -24,7 +36,7 @@ func TestOnQPUTimeRequestUpdateRequest_ApprovalAddsSeconds(t *testing.T) {
 	// Create a regular user with initial qpu_seconds
 	usersCol := getCollectionByName(t, app, "users")
 	userRec := core.NewRecord(usersCol)
-	userRec.Set("email", "test@example.com")
+	userRec.Set("email", fmt.Sprintf("test_%d@example.com", time.Now().UnixNano()))
 	userRec.Set("password", "testpassword1234")
 	userRec.Set("qpu_seconds", 100.0)
 	if err := app.Save(userRec); err != nil {
@@ -34,7 +46,7 @@ func TestOnQPUTimeRequestUpdateRequest_ApprovalAddsSeconds(t *testing.T) {
 	// Create a superuser admin
 	adminsCol := getCollectionByName(t, app, "_superusers")
 	adminRec := core.NewRecord(adminsCol)
-	adminRec.Set("email", "admin@example.com")
+	adminRec.Set("email", fmt.Sprintf("admin_%d@example.com", time.Now().UnixNano()))
 	adminRec.Set("password", "adminpassword1234")
 	if err := app.Save(adminRec); err != nil {
 		t.Fatalf("failed to create admin: %v", err)
@@ -52,12 +64,19 @@ func TestOnQPUTimeRequestUpdateRequest_ApprovalAddsSeconds(t *testing.T) {
 	}
 
 	// Simulate admin approving the request
+	reqRec, err = app.FindRecordById("qpu_time_requests", reqRec.Id)
+	if err != nil {
+		t.Fatalf("FindRecordById failed: %v", err)
+	}
 	reqRec.Set("status", "approved")
 
-	e := new(core.RecordRequestEvent)
-	e.App = app
-	e.Auth = adminRec
-	e.Record = reqRec
+	e := &core.RecordRequestEvent{
+		RequestEvent: &core.RequestEvent{
+			App:  app,
+			Auth: adminRec,
+		},
+		Record: reqRec,
+	}
 
 	if err := OnQPUTimeRequestUpdateRequest(e); err != nil {
 		t.Fatalf("approval failed: %v", err)
@@ -82,11 +101,15 @@ func TestOnQPUTimeRequestUpdateRequest_RejectionDoesNotChangeSeconds(t *testing.
 		t.Fatalf("failed to create test app: %v", err)
 	}
 	defer app.Cleanup()
+	config.SaveConfigOnApp(app, &config.AppConfig{CollectionQPUs: config.DefaultQpusCollection, CollectionTimeSlots: config.DefaultTimeSlotsCollection, CollectionQuantumJobs: config.DefaultQuantumJobsCollection, CollectionAPITokens: config.DefaultAPITokensCollection, CollectionNotifications: config.DefaultNotificationsCollection, CollectionQPUTimeRequests: "qpu_time_requests"})
+	if err := db.EnsureSchema(app); err != nil {
+		t.Fatalf("failed to ensure schema: %v", err)
+	}
 
 	// Create a regular user with initial qpu_seconds
 	usersCol := getCollectionByName(t, app, "users")
 	userRec := core.NewRecord(usersCol)
-	userRec.Set("email", "test@example.com")
+	userRec.Set("email", fmt.Sprintf("test_%d@example.com", time.Now().UnixNano()))
 	userRec.Set("password", "testpassword1234")
 	userRec.Set("qpu_seconds", 500.0)
 	if err := app.Save(userRec); err != nil {
@@ -96,7 +119,7 @@ func TestOnQPUTimeRequestUpdateRequest_RejectionDoesNotChangeSeconds(t *testing.
 	// Create a superuser admin
 	adminsCol := getCollectionByName(t, app, "_superusers")
 	adminRec := core.NewRecord(adminsCol)
-	adminRec.Set("email", "admin@example.com")
+	adminRec.Set("email", fmt.Sprintf("admin_%d@example.com", time.Now().UnixNano()))
 	adminRec.Set("password", "adminpassword1234")
 	if err := app.Save(adminRec); err != nil {
 		t.Fatalf("failed to create admin: %v", err)
@@ -114,13 +137,20 @@ func TestOnQPUTimeRequestUpdateRequest_RejectionDoesNotChangeSeconds(t *testing.
 	}
 
 	// Simulate admin rejecting the request
+	reqRec, err = app.FindRecordById("qpu_time_requests", reqRec.Id)
+	if err != nil {
+		t.Fatalf("FindRecordById failed: %v", err)
+	}
 	reqRec.Set("status", "rejected")
 	reqRec.Set("rejection_reason", "Insufficient justification")
 
-	e := new(core.RecordRequestEvent)
-	e.App = app
-	e.Auth = adminRec
-	e.Record = reqRec
+	e := &core.RecordRequestEvent{
+		RequestEvent: &core.RequestEvent{
+			App:  app,
+			Auth: adminRec,
+		},
+		Record: reqRec,
+	}
 
 	if err := OnQPUTimeRequestUpdateRequest(e); err != nil {
 		t.Fatalf("rejection failed: %v", err)
@@ -145,11 +175,15 @@ func TestOnQPUTimeRequestUpdateRequest_NonSuperuserForbidden(t *testing.T) {
 		t.Fatalf("failed to create test app: %v", err)
 	}
 	defer app.Cleanup()
+	config.SaveConfigOnApp(app, &config.AppConfig{CollectionQPUs: config.DefaultQpusCollection, CollectionTimeSlots: config.DefaultTimeSlotsCollection, CollectionQuantumJobs: config.DefaultQuantumJobsCollection, CollectionAPITokens: config.DefaultAPITokensCollection, CollectionNotifications: config.DefaultNotificationsCollection, CollectionQPUTimeRequests: "qpu_time_requests"})
+	if err := db.EnsureSchema(app); err != nil {
+		t.Fatalf("failed to ensure schema: %v", err)
+	}
 
 	// Create a regular user
 	usersCol := getCollectionByName(t, app, "users")
 	userRec := core.NewRecord(usersCol)
-	userRec.Set("email", "regular@example.com")
+	userRec.Set("email", fmt.Sprintf("regular_%d@example.com", time.Now().UnixNano()))
 	userRec.Set("password", "regularpassword1234")
 	if err := app.Save(userRec); err != nil {
 		t.Fatalf("failed to create user: %v", err)
@@ -157,7 +191,7 @@ func TestOnQPUTimeRequestUpdateRequest_NonSuperuserForbidden(t *testing.T) {
 
 	// Create another regular user who will try to update
 	otherUser := core.NewRecord(usersCol)
-	otherUser.Set("email", "other@example.com")
+	otherUser.Set("email", fmt.Sprintf("other_%d@example.com", time.Now().UnixNano()))
 	otherUser.Set("password", "otherpassword1234")
 	if err := app.Save(otherUser); err != nil {
 		t.Fatalf("failed to create other user: %v", err)
@@ -174,12 +208,19 @@ func TestOnQPUTimeRequestUpdateRequest_NonSuperuserForbidden(t *testing.T) {
 		t.Fatalf("failed to create time request: %v", err)
 	}
 
+	reqRec, err = app.FindRecordById("qpu_time_requests", reqRec.Id)
+	if err != nil {
+		t.Fatalf("FindRecordById failed: %v", err)
+	}
 	reqRec.Set("status", "approved")
 
-	e := new(core.RecordRequestEvent)
-	e.App = app
-	e.Auth = otherUser
-	e.Record = reqRec
+	e := &core.RecordRequestEvent{
+		RequestEvent: &core.RequestEvent{
+			App:  app,
+			Auth: otherUser,
+		},
+		Record: reqRec,
+	}
 
 	err = OnQPUTimeRequestUpdateRequest(e)
 	if err == nil {
@@ -193,11 +234,15 @@ func TestOnQPUTimeRequestUpdateRequest_CannotModifyProcessedRequest(t *testing.T
 		t.Fatalf("failed to create test app: %v", err)
 	}
 	defer app.Cleanup()
+	config.SaveConfigOnApp(app, &config.AppConfig{CollectionQPUs: config.DefaultQpusCollection, CollectionTimeSlots: config.DefaultTimeSlotsCollection, CollectionQuantumJobs: config.DefaultQuantumJobsCollection, CollectionAPITokens: config.DefaultAPITokensCollection, CollectionNotifications: config.DefaultNotificationsCollection, CollectionQPUTimeRequests: "qpu_time_requests"})
+	if err := db.EnsureSchema(app); err != nil {
+		t.Fatalf("failed to ensure schema: %v", err)
+	}
 
 	// Create a regular user
 	usersCol := getCollectionByName(t, app, "users")
 	userRec := core.NewRecord(usersCol)
-	userRec.Set("email", "test@example.com")
+	userRec.Set("email", fmt.Sprintf("test_%d@example.com", time.Now().UnixNano()))
 	userRec.Set("password", "testpassword1234")
 	if err := app.Save(userRec); err != nil {
 		t.Fatalf("failed to create user: %v", err)
@@ -206,7 +251,7 @@ func TestOnQPUTimeRequestUpdateRequest_CannotModifyProcessedRequest(t *testing.T
 	// Create a superuser admin
 	adminsCol := getCollectionByName(t, app, "_superusers")
 	adminRec := core.NewRecord(adminsCol)
-	adminRec.Set("email", "admin@example.com")
+	adminRec.Set("email", fmt.Sprintf("admin_%d@example.com", time.Now().UnixNano()))
 	adminRec.Set("password", "adminpassword1234")
 	if err := app.Save(adminRec); err != nil {
 		t.Fatalf("failed to create admin: %v", err)
@@ -224,12 +269,19 @@ func TestOnQPUTimeRequestUpdateRequest_CannotModifyProcessedRequest(t *testing.T
 	}
 
 	// Try to change it to rejected
+	reqRec, err = app.FindRecordById("qpu_time_requests", reqRec.Id)
+	if err != nil {
+		t.Fatalf("FindRecordById failed: %v", err)
+	}
 	reqRec.Set("status", "rejected")
 
-	e := new(core.RecordRequestEvent)
-	e.App = app
-	e.Auth = adminRec
-	e.Record = reqRec
+	e := &core.RecordRequestEvent{
+		RequestEvent: &core.RequestEvent{
+			App:  app,
+			Auth: adminRec,
+		},
+		Record: reqRec,
+	}
 
 	err = OnQPUTimeRequestUpdateRequest(e)
 	if err == nil {
@@ -239,7 +291,7 @@ func TestOnQPUTimeRequestUpdateRequest_CannotModifyProcessedRequest(t *testing.T
 
 // getCollectionByName gets the collection by name or errors out and fails the test
 func getCollectionByName(t *testing.T, app *tests.TestApp, name string) *core.Collection {
-	col, err := app.FindCollectionByNameOrId("qpu_time_requests")
+	col, err := app.FindCollectionByNameOrId(name)
 	if err != nil {
 		t.Errorf("error getting %s collection: %v", name, err)
 	}

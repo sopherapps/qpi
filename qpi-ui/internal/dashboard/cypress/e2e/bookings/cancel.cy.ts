@@ -42,7 +42,7 @@ describe("Bookings — Cancel Booking", () => {
     // Actually, PocketBase seed creates a slot. Let's just assert the specific success alert or that the table rows are fewer.
     cy.get('tbody tr').then($rows => {
       const initialCount = $rows.length;
-      cy.get('button svg.lucide-trash-2').first().parent().click();
+      cy.get('button svg.lucide-trash-2').last().parent().click();
       cy.get('tbody tr').should('have.length.lessThan', initialCount);
     });
   });

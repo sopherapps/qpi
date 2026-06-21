@@ -147,8 +147,8 @@ def grant_user_qpu_time(user_id, qpu_seconds=1000.0, api_tokens=None):
 
 def create_time_slot(user_id):
     now = datetime.now(timezone.utc)
-    start = (now + timedelta(minutes=2)).strftime("%Y-%m-%dT%H:%M:%S.000Z")
-    end = (now + timedelta(minutes=10)).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    start = (now - timedelta(minutes=2)).strftime("%Y-%m-%d %H:%M:%S.000Z")
+    end = (now + timedelta(minutes=5)).strftime("%Y-%m-%d %H:%M:%S.000Z")
     resp = s.post(
         f"{BASE}/api/collections/time_slots/records",
         json={

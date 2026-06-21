@@ -20,13 +20,24 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   const [authMethods, setAuthMethods] = useState<AuthMethodsList | null>(null);
 
   useEffect(() => {
+    let isMounted = true;
     if (isOpen) {
-      pb.collection("users")
-        .listAuthMethods()
-        .then(setAuthMethods)
-        .catch(console.error);
+      const fetchAuthMethods = async () => {
+        try {
+          const methods = await pb.collection("users").listAuthMethods();
+          if (isMounted) {
+            setAuthMethods(methods);
+          }
+        } catch (err) {
+          console.error(err);
+        }
+      };
+      fetchAuthMethods();
     }
-  }, [isOpen, setAuthMethods]);
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -121,34 +132,38 @@ export const LoginModal: React.FC<LoginModalProps> = ({
           </button>
         </div>
 
-        {role === "user" && authMethods?.oauth2?.enabled && authMethods.oauth2.providers.length > 0 && (
-          <div className="space-y-3">
-            <div className="flex flex-col gap-2">
-              {authMethods.oauth2.providers.map((provider) => (
-                <button
-                  key={provider.name}
-                  type="button"
-                  disabled={loading}
-                  onClick={() => handleOAuth2Login(provider.name)}
-                  className="w-full bg-zinc-800 hover:bg-zinc-700 text-white font-medium py-2 px-4 rounded transition-colors flex items-center justify-center gap-2 border border-zinc-700 disabled:opacity-50"
-                >
-                  <span className="capitalize">Continue with {provider.name}</span>
-                </button>
-              ))}
-            </div>
+        {role === "user" &&
+          authMethods?.oauth2?.enabled &&
+          authMethods.oauth2.providers.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex flex-col gap-2">
+                {authMethods.oauth2.providers.map((provider) => (
+                  <button
+                    key={provider.name}
+                    type="button"
+                    disabled={loading}
+                    onClick={() => handleOAuth2Login(provider.name)}
+                    className="w-full bg-zinc-800 hover:bg-zinc-700 text-white font-medium py-2 px-4 rounded transition-colors flex items-center justify-center gap-2 border border-zinc-700 disabled:opacity-50"
+                  >
+                    <span className="capitalize">
+                      Continue with {provider.name}
+                    </span>
+                  </button>
+                ))}
+              </div>
 
-            <div className="relative pt-4 pb-2">
-              <div className="absolute inset-0 flex items-center pt-2">
-                <span className="w-full border-t border-zinc-800" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-zinc-900 px-2 text-zinc-500 font-medium tracking-wider">
-                  Or use credentials
-                </span>
+              <div className="relative pt-4 pb-2">
+                <div className="absolute inset-0 flex items-center pt-2">
+                  <span className="w-full border-t border-zinc-800" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-zinc-900 px-2 text-zinc-500 font-medium tracking-wider">
+                    Or use credentials
+                  </span>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
