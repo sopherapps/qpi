@@ -334,6 +334,13 @@ func BindFlags(cmd *cobra.Command) {
 // NewFromFlags builds an AppConfig from the parsed CLI flags, optional config file, and environment variables.
 // It enforces the precedence: CLI Flag (explicit) > Env Var > Config File > Default.
 func NewFromFlags(cmd *cobra.Command) (*AppConfig, error) {
+	if cmd != nil {
+		// PocketBase's OnBootstrap hook runs before the cobra command parses flags.
+		// So we need to manually parse them first ignoring unknown flags to get the CLI supplied values.
+		cmd.PersistentFlags().ParseErrorsAllowlist.UnknownFlags = true
+		_ = cmd.PersistentFlags().Parse(os.Args[1:])
+	}
+
 	cfg := &AppConfig{}
 
 	// Set hardcoded defaults
