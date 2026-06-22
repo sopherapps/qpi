@@ -87,6 +87,8 @@ The Go orchestrator can be configured via CLI flags, environment variables, or a
 | CLI Option | Environment Variable | Default | Description |
 |---|---|---|---|
 | `--config-file` | `QPI_CONFIG_FILE` | `qpi.config.yml` | Path to JSON or YAML configuration file. |
+| `--domain` | `QPI_DOMAIN` | | The domain name this server is running on. |
+| `--server-port` | `QPI_SERVER_PORT` | `8090` | The port this server should run on. |
 | `--tls-ca-cert-file` | `QPI_TLS_CA_CERT_FILE` | `.qpi.ca.pem` | Path to TLS root CA certificate file. |
 | `--tls-ca-key-file` | `QPI_TLS_CA_KEY_FILE` | `.qpi.ca.key` | Path to TLS root CA key file. |
 | `--tls-cert-file` | `QPI_TLS_CERT_FILE` | `.qpi.cert.pem` | Path to TLS certificate file. |
@@ -94,7 +96,9 @@ The Go orchestrator can be configured via CLI flags, environment variables, or a
 | `--qpus-collection` | `QPI_QPUS_COLLECTION` | `qpus` | Collection name for QPUs. |
 | `--timeslots-collection` | `QPI_TIMESLOTS_COLLECTION` | `time_slots` | Collection name for Reservation Time Slots. |
 | `--jobs-collection` | `QPI_JOBS_COLLECTION` | `quantum_jobs` | Collection name for Quantum Jobs. |
+| `--api-tokens-collection` | `QPI_API_TOKENS_COLLECTION` | `api_tokens` | Collection name for API Tokens. |
 | `--notifications-collection` | `QPI_NOTIFICATIONS_COLLECTION` | `notifications` | Collection name for Notifications. |
+| `--qpu-time-requests-collection` | `QPI_QPU_TIME_REQUESTS_COLLECTION` | `qpu_time_requests` | Collection name for QPU Time Requests. |
 | `--idle-threshold` | `QPI_IDLE_THRESHOLD` | `5s` | Time to wait before running fallback FIFO jobs. |
 | `--recovery-interval` | `QPI_RECOVERY_INTERVAL` | `10s` | Interval for resetting hung/stale jobs. |
 | `--job-timeout` | `QPI_JOB_TIMEOUT` | `20s` | Max execution time before a job is reset. |

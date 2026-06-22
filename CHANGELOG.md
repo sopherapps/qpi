@@ -7,6 +7,8 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 
 ## [Unreleased]
 
+## [0.0.14] - 2026-06-23
+
 ### Fixed
 
 - `qpi-ui`: Fixed the loading of flags which were not taking effect even when supplied.
