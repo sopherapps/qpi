@@ -7,6 +7,12 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 
 ## [Unreleased]
 
+## [0.0.18] - 2026-06-23
+
+### Fixed
+
+- `qpi-ui`: Added `wixl` to the apt-get install step to fix missing command during Windows MSI packaging.
+
 ## [0.0.17] - 2026-06-23
 
 ### Fixed

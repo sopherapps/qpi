@@ -324,7 +324,7 @@ jobs:
 
     # Installs wixl (msitools) onto Ubuntu to compile the .msi package natively
     - name: Install MSI Packing Tooling
-      run: sudo apt-get update && sudo apt-get install -y msitools
+      run: sudo apt-get update && sudo apt-get install -y msitools wixl
 
     - name: Run GoReleaser
       uses: goreleaser/goreleaser-action@v7
