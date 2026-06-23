@@ -83,6 +83,71 @@ export DRIVER_BACKEND=mock
 qpi-driver start
 ```
 
+### systemd Service (Linux)
+
+To run `qpi-driver` persistently on a Linux machine in the background, you can use `systemd`. 
+
+We have provided an interactive bash installer that will automate this entire process for you (installing `uv`, installing the `qpi-driver` tool, prompting for your tokens, and registering the systemd service):
+```bash
+# Run the interactive systemd installer script (requires sudo to create the service)
+sudo ./install-systemd.sh
+```
+
+#### Manual systemd Installation
+If you prefer to configure it manually, follow these exact steps:
+
+1. **Install `uv`** (a fast Python package installer):
+   ```bash
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+   source $HOME/.local/bin/env
+   ```
+
+2. **Install `qpi-driver` as a tool**:
+   Make sure to specify the correct extras (e.g. `[cli,qblox]`, `[cli,aer]`):
+   ```bash
+   uv tool install "qpi-driver[cli,qblox]"
+   ```
+
+3. **Create the systemd unit file**:
+   Replace the placeholder `<values>` with your actual configuration.
+   ```bash
+   sudo bash -c 'cat > /etc/systemd/system/qpi-driver.service <<EOF
+   [Unit]
+   Description=QPI Driver Service
+   After=network.target
+
+   [Service]
+   Type=simple
+
+   Environment="QPI_ACCESS_TOKEN=<your-qpi-access-token>"
+   Environment=PYTHONUNBUFFERED=1
+
+   ExecStart=/home/<user>/.local/bin/qpi-driver start \
+           --ca-fingerprint <your-fingerprint> \
+           --qpi-addr <your-qpi-server-address> \
+           --name "<your-qpu-name>" \
+           --executor "qblox"
+
+   Restart=on-failure
+   User=<user>
+
+   StandardOutput=journal
+   StandardError=journal
+   SyslogIdentifier=qpi-driver
+
+   [Install]
+   WantedBy=multi-user.target
+   EOF'
+   ```
+
+4. **Start and enable the service**:
+   ```bash
+   sudo systemctl daemon-reload
+   sudo systemctl enable qpi-driver.service
+   sudo systemctl start qpi-driver.service
+   sudo systemctl status qpi-driver.service
+   ```
+
 ### Python API
 
 ```python
