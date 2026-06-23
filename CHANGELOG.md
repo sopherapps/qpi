@@ -7,6 +7,12 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 
 ## [Unreleased]
 
+## [0.0.20] - 2026-06-23
+
+### Fixed
+
+- `qpi-ui`: Configured GoReleaser to create a `draft` release and automated publishing at the end of the pipeline to avoid GitHub's immutable release asset errors during Windows MSI and macOS PKG uploads.
+
 ## [0.0.19] - 2026-06-23
 
 ### Fixed
