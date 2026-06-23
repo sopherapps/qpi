@@ -347,6 +347,7 @@ jobs:
       uses: softprops/action-gh-release@v3
       with:
         files: dist/qpi_windows_amd64.msi
+        draft: true
 
   # Independent job to build the official Mac installer natively
   package-macos-pkg:
@@ -395,6 +396,7 @@ jobs:
       uses: softprops/action-gh-release@v3
       with:
         files: ${{ env.OUTPUT_ARTEFACT }}
+        draft: true
 
   publish-release:
     needs: [package-macos-pkg]
