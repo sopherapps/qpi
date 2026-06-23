@@ -7,6 +7,12 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 
 ## [Unreleased]
 
+## [0.0.16] - 2026-06-23
+
+### Fixed
+
+- `qpi-ui`: Fixed GoReleaser v2 syntax errors and NFPM script names.
+
 ## [0.0.15] - 2026-06-23
 
 ### Changed
