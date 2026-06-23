@@ -176,11 +176,6 @@ format-py-client:
 # ---------------------------------------------------------------------------
 # Package / Publish targets
 # ---------------------------------------------------------------------------
-
-package: build-dashboard
-	@echo "Packaging Go application..."
-	./scripts/package.sh $(VERSION)
-
 package-js:
 	@echo "Packaging JS client..."
 	(cd qpi-client/js && npm ci && npm run build)

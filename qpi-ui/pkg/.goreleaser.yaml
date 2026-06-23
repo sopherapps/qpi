@@ -1,0 +1,89 @@
+version: 2
+
+project_name: qpi
+
+before:
+  hooks:
+    - dir: qpi-ui/internal/dashboard
+      cmd: npm ci
+      env:
+        - CYPRESS_INSTALL_BINARY=0
+    - dir: qpi-ui/internal/dashboard
+      cmd: npm run build
+    - go mod tidy
+
+builds:
+  - id: qpi
+    dir: qpi-ui
+    main: .
+    binary: qpi
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - windows
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -X 'main.Version={{.Tag}}'
+
+archives:
+  - id: qpi-archive
+    name_template: "qpi-{{ .Version }}-{{ .Os }}-{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        format: binary
+      - goos: darwin
+        format: binary
+    files:
+      - src: README.md
+      - src: qpi-ui/LICENSE
+      - src: qpi-ui/qpi.config.example.yml
+        dst: qpi.config.example.yml
+
+nfpms:
+  - id: qpi-linux-packages
+    package_name: qpi
+    file_name_template: "qpi_{{ .Version }}_{{ .Arch }}"
+    maintainer: "SopherApps <team.sopherapps@gmail.com>"
+    description: |
+      Quantum Processing Interface (QPI) Orchestrator
+      QPI is a distributed quantum control stack architecture designed
+      to control multiple Quantum Processing Units (QPUs).
+    homepage: https://github.com/SopherApps/qpi
+    section: utils
+    priority: optional
+    
+    # 1. Target all major Linux packaging flavors here:
+    formats:
+      - deb # Ubuntu, Debian, Pop!_OS, Mint
+      - rpm # Fedora, RHEL, CentOS, Rocky Linux, openSUSE
+      - apk # Alpine Linux (Note: Alpine uses OpenRC, not systemd, by default)
+
+    dependencies:
+      - systemd: [deb, rpm]
+
+    contents:
+      - dst: /usr/local/bin/qpi
+      # For systemd systems (Debian/RPM)
+      - src: qpi-ui/pkg/qpi.service
+        dst: /lib/systemd/system/qpi.service
+
+      # For OpenRC systems (Alpine APK)
+      - src: qpi-ui/pkg/qpi.initd
+        dst: /etc/init.d/qpi
+        file_info:
+          mode: 0755 # Crucial: Init scripts must be executable
+
+      # Map the example config file to the live config destination
+      - src: qpi-ui/qpi.config.example.yml
+        dst: /etc/qpi.config.yml
+        type: config # Protects the file from being overwritten blindly during package updates
+
+    # Life-cycle execution hooks for starting and updating the service
+    scripts:
+      postinstall: qpi-ui/pkg/postinstall.sh
+      prerm: qpi-ui/pkg/prerm.sh
+      postremove: qpi-ui/pkg/postremove.sh

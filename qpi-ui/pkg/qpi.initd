@@ -1,0 +1,13 @@
+#!/sbin/openrc-run
+
+description="QPI Server Service"
+# OpenRC tracks the process ID automatically using this supervisor
+supervisor="supervise-daemon"
+command="/usr/local/bin/qpi"
+# Passes the runtime hostname variable directly into your Go command flags
+command_args="serve ${RC_HOSTNAME} --dir /var/qpi --config-file /etc/qpi.config.yml --server-port 443 --domain ${RC_HOSTNAME}"
+
+depend() {
+    need net
+    after firewall
+}

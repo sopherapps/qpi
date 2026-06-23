@@ -1,0 +1,21 @@
+[Unit]
+Description=QPI Server Service
+After=network.target
+
+[Service]
+Type=simple
+# %H will be replaced by the machine's actual hostname at runtime
+ExecStart=/usr/local/bin/qpi serve %H --dir /var/qpi \
+   --config-file /etc/qpi.config.yml \
+   --server-port 443 \
+   --domain %H
+Restart=on-failure
+User=root
+
+# Journalctl logging configuration
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=qpi
+
+[Install]
+WantedBy=multi-user.target

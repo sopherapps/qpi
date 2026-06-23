@@ -4,57 +4,57 @@
 # The server will pick this up if run with --config-file qpi.config.yml or by setting QPI_CONFIG_FILE=qpi.config.yml.
 
 # Collection name for physical/logical QPUs
-qpusCollection: "qpus"
+# qpusCollection: "qpus"
 
 # Collection name for reservation Time Slots
-timeslotsCollection: "time_slots"
+# timeslotsCollection: "time_slots"
 
 # Collection name for Quantum Jobs
-jobsCollection: "quantum_jobs"
+# jobsCollection: "quantum_jobs"
 
 # Idle threshold: time to wait before falling back when the schedule is idle
-idleThreshold: "5s"
+idleThreshold: "300s"
 
 # Recovery interval: how often to check for stale/hung quantum jobs to reset
-recoveryInterval: "10s"
+recoveryInterval: "120s"
 
 # Job timeout: maximum time allowed for a job to run before it is considered stale
-jobTimeout: "20s"
+jobTimeout: "300s"
 
 # Dispatch poll interval: how often to check for new pending jobs to dispatch
-dispatchPollInterval: "1s"
+dispatchPollInterval: "5s"
 
 # NNG Port Range: start port for allocating connection channels to executors
-portRangeStart: 6000
+# portRangeStart: 6000
 
 # NNG Port Range: end port for allocating connection channels to executors
-portRangeEnd: 7000
+# portRangeEnd: 7000
 
 # The port on which the server is to run
-serverPort: 8090
+# serverPort: 8090
 
 # Disable email/password authentication on the users collection (forcing OAuth2 usage only)
-disableEmailPasswordAuth: false
+# disableEmailPasswordAuth: false
 
 # Path to the TLS certificate to use to secure the socket connections to the driver
-tlsCertFile: ".qpi.cert.pem"
+tlsCertFile: "/var/qpi/.qpi.cert.pem"
 
 # Path to the TLS key to use to secure the socket connections to the driver
-tlsKeyFile: ".qpi.key"
+tlsKeyFile: "/var/qpi/.qpi.key"
 
 # Path to the TLS root CA certificate to use to secure the socket connections to the driver
-tlsCaCertFile: ".qpi.ca.pem"
+tlsCaCertFile: "/var/qpi/.qpi.ca.pem"
 
 # Path to the TLS root CA key to use to secure the socket connections to the driver
-tlsCaKeyFile: ".qpi.ca.key"
+tlsCaKeyFile: "/var/qpi/.qpi.ca.key"
 
 # List of OAuth2 Identity Providers to configure for authentication
-oauth2Providers:
-  - name: "github"
-    clientId: "YOUR_GITHUB_CLIENT_ID"
-    clientSecret: "YOUR_GITHUB_CLIENT_SECRET"
-    displayName: "GitHub"
-    pkce: true
+# oauth2Providers:
+#   - name: "github"
+#     clientId: "YOUR_GITHUB_CLIENT_ID"
+#     clientSecret: "YOUR_GITHUB_CLIENT_SECRET"
+#     displayName: "GitHub"
+#     pkce: true
 
   # Custom or generic OpenID Connect (OIDC) provider example
   # - name: "oidc"
