@@ -7,6 +7,16 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 
 ## [Unreleased]
 
+## [0.0.21] - 2026-06-23
+
+### Added
+- `qpi-ui`: Added macOS ARM64 (Apple Silicon) native installer packaging to the CI pipeline.
+
+### Fixed
+
+- `qpi-ui`: Fixed directory pathing error during the macOS binary build step in GitHub Actions.
+- `qpi-ui`: Fixed macOS pkg output path evaluation and eliminated a GitHub release asset race condition between parallel macOS runners.
+
 ## [0.0.20] - 2026-06-23
 
 ### Fixed

@@ -355,6 +355,14 @@ jobs:
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && vars.PUBLISH_GO_APP == 'true'
     permissions:
       contents: write
+    strategy:
+      matrix:
+        goarch: ['amd64', 'arm64']
+    env:
+      GOARCH: ${{ matrix.goarch }}
+      ARTEFACT: "qpi_${{ matrix.goarch }}"
+      OUTPUT_ARTEFACT: "qpi_macos_${{ matrix.goarch }}.pkg"
+      PKG_ROOT: "pkg_${{ matrix.goarch }}_root"
     steps:
     - name: Checkout Code
       uses: actions/checkout@v4
@@ -369,21 +377,33 @@ jobs:
       with:
         node-version: '22'
 
-    - name: Build Dashboard & Mac Binary
+    - name: Build Dashboard
+      run: make build-dashboard
+
+    - name: Build Mac ${{ matrix.goarch }} Binary
       run: |
-        cd qpi-ui/internal/dashboard && npm ci && npm run build && cd ../..
-        cd qpi-ui && GOOS=darwin GOARCH=amd64 go build -o ../qpi .
+        GOOS=darwin go build -C "qpi-ui" -ldflags="-X 'main.Version=v${RAW_VERSION#v}'" -o "../${ARTEFACT}" .
 
     # Uses Apple's built-in tool suite to build the native component installer
-    - name: Build Native macOS .pkg
+    - name: Build Native ${{ matrix.goarch }} macOS .pkg
       run: |
-        mkdir -p pkg_root/usr/local/bin
-        cp qpi pkg_root/usr/local/bin/
-        VERSION="${RAW_VERSION#v}"
-        pkgbuild --identifier "com.sopherapps.qpi" --version "${VERSION}" --install-location "/" --root pkg_root qpi_macos_amd64.pkg
+        mkdir -p "${PKG_ROOT}/usr/local/bin/"
+        cp "${ARTEFACT}" "${PKG_ROOT}/usr/local/bin/"
+        pkgbuild --identifier "com.sopherapps.qpi" --version "${RAW_VERSION#v}" --install-location "/" --root "$PKG_ROOT" "$OUTPUT_ARTEFACT"
 
     - name: Upload macOS PKG to Release
       uses: softprops/action-gh-release@v3
       with:
-        files: qpi_macos_amd64.pkg
+        files: ${{ env.OUTPUT_ARTEFACT }}
+
+  publish-release:
+    needs: [package-macos-pkg]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && vars.PUBLISH_GO_APP == 'true'
+    permissions:
+      contents: write
+    steps:
+    - name: Publish Release
+      uses: softprops/action-gh-release@v3
+      with:
         draft: false
