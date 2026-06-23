@@ -62,24 +62,31 @@ nfpms:
       - rpm # Fedora, RHEL, CentOS, Rocky Linux, openSUSE
       - apk # Alpine Linux (Note: Alpine uses OpenRC, not systemd, by default)
 
-    dependencies:
-      - systemd
-
     contents:
-      # For systemd systems (Debian/RPM)
-      - src: qpi-ui/pkg/qpi.service
-        dst: /lib/systemd/system/qpi.service
-
-      # For OpenRC systems (Alpine APK)
-      - src: qpi-ui/pkg/qpi.initd
-        dst: /etc/init.d/qpi
-        file_info:
-          mode: 0755 # Crucial: Init scripts must be executable
-
       # Map the example config file to the live config destination
       - src: qpi-ui/qpi.config.example.yml
         dst: /etc/qpi.config.yml
         type: config # Protects the file from being overwritten blindly during package updates
+
+    overrides:
+      deb:
+        dependencies:
+          - systemd
+        contents:
+          - src: qpi-ui/pkg/qpi.service
+            dst: /lib/systemd/system/qpi.service
+      rpm:
+        dependencies:
+          - systemd
+        contents:
+          - src: qpi-ui/pkg/qpi.service
+            dst: /usr/lib/systemd/system/qpi.service
+      apk:
+        contents:
+          - src: qpi-ui/pkg/qpi.initd
+            dst: /etc/init.d/qpi
+            file_info:
+              mode: 0755 # Crucial: Init scripts must be executable
 
     # Life-cycle execution hooks for starting and updating the service
     scripts:
