@@ -7,6 +7,12 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 
 ## [Unreleased]
 
+## [0.0.17] - 2026-06-23
+
+### Fixed
+
+- `qpi-ui`: Fixed GoReleaser LICENSE path and removed invalid NFPM contents entry.
+
 ## [0.0.16] - 2026-06-23
 
 ### Fixed

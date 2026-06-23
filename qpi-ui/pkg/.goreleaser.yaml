@@ -6,7 +6,7 @@ before:
   hooks:
     - sh -c 'cd qpi-ui/internal/dashboard && CYPRESS_INSTALL_BINARY=0 npm ci'
     - sh -c 'cd qpi-ui/internal/dashboard && npm run build'
-    - go mod tidy
+    - sh -c 'cd qpi-ui && go mod tidy'
 
 builds:
   - id: qpi
@@ -35,7 +35,7 @@ archives:
         format: binary
     files:
       - src: README.md
-      - src: qpi-ui/LICENSE
+      - src: LICENSE
       - src: qpi-ui/qpi.config.example.yml
         dst: qpi.config.example.yml
 
@@ -51,6 +51,7 @@ nfpms:
     homepage: https://github.com/SopherApps/qpi
     section: utils
     priority: optional
+    bindir: /usr/local/bin
     
     # 1. Target all major Linux packaging flavors here:
     formats:
@@ -58,15 +59,10 @@ nfpms:
       - rpm # Fedora, RHEL, CentOS, Rocky Linux, openSUSE
       - apk # Alpine Linux (Note: Alpine uses OpenRC, not systemd, by default)
 
-    deb:
-      depends:
-        - systemd
-    rpm:
-      depends:
-        - systemd
+    dependencies:
+      - systemd
 
     contents:
-      - dst: /usr/local/bin/qpi
       # For systemd systems (Debian/RPM)
       - src: qpi-ui/pkg/qpi.service
         dst: /lib/systemd/system/qpi.service
