@@ -4,12 +4,8 @@ project_name: qpi
 
 before:
   hooks:
-    - dir: qpi-ui/internal/dashboard
-      cmd: npm ci
-      env:
-        - CYPRESS_INSTALL_BINARY=0
-    - dir: qpi-ui/internal/dashboard
-      cmd: npm run build
+    - sh -c 'cd qpi-ui/internal/dashboard && CYPRESS_INSTALL_BINARY=0 npm ci'
+    - sh -c 'cd qpi-ui/internal/dashboard && npm run build'
     - go mod tidy
 
 builds:
@@ -62,8 +58,12 @@ nfpms:
       - rpm # Fedora, RHEL, CentOS, Rocky Linux, openSUSE
       - apk # Alpine Linux (Note: Alpine uses OpenRC, not systemd, by default)
 
-    dependencies:
-      - systemd: [deb, rpm]
+    deb:
+      depends:
+        - systemd
+    rpm:
+      depends:
+        - systemd
 
     contents:
       - dst: /usr/local/bin/qpi
@@ -85,5 +85,5 @@ nfpms:
     # Life-cycle execution hooks for starting and updating the service
     scripts:
       postinstall: qpi-ui/pkg/postinstall.sh
-      prerm: qpi-ui/pkg/prerm.sh
+      preremove: qpi-ui/pkg/preremove.sh
       postremove: qpi-ui/pkg/postremove.sh
