@@ -7,6 +7,12 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 
 ## [Unreleased]
 
+## [0.0.19] - 2026-06-23
+
+### Fixed
+
+- `github-actions`: Updated Node.js version from 20 to 22 in CI jobs to resolve deprecation warnings.
+
 ## [0.0.18] - 2026-06-23
 
 ### Fixed
