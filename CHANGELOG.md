@@ -7,6 +7,8 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 
 ## [Unreleased]
 
+## [0.0.15] - 2026-06-23
+
 ### Changed
 
 - `qpi-ui`: Upgraded the packaging to support 'rpm', 'apk', macOS and windows installers.
