@@ -7,9 +7,23 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 
 ## [Unreleased]
 
+## [0.0.24] - 2026-06-23
+
+### Fixed
+
+- Updated the CHANGELOG appropriately.
+
 ## [0.0.23] - 2026-06-23
 
 ### Fixed
+
+- `qpi-ui`: Used GoReleaser NFPM overrides to separate Debian/RPM and Alpine `init` script configurations, preventing `dpkg` installation crashes (`Default-Start contains no runlevels`) and eliminating improper `systemd` dependencies in `.apk` packages.
+
+
+## [0.0.22] - 2026-06-23
+
+### Fixed
+
 - `qpi-ui`: Added `draft: true` to all intermediate `softprops/action-gh-release` asset upload steps to prevent them from prematurely publishing the GitHub release and triggering immutable release errors on subsequent jobs.
 
 ## [0.0.21] - 2026-06-23
