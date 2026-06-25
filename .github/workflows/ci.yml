@@ -136,7 +136,7 @@ jobs:
         cache-dependency-glob: "qpi-client/py/pyproject.toml"
 
     - name: Install Python client dependencies
-      run: uv sync --project qpi-client/py --extra dev
+      run: uv sync --project qpi-client/py --dev
 
     - name: Audit Python Client Formatting & Style
       run: make lint-py-client
