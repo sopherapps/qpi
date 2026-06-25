@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <strong><a href="https://sopherapps.github.io/qpi/">📚 Read the Documentation</a></strong>
+  <strong><a href="https://sopherapps.github.io/qpi/">📚 Read the Documentation</a></strong> | <strong><a href="https://qpi.sopherapps.se">🚀 Live Demo</a></strong>
 </p>
 
 ## What is QPI?
@@ -337,7 +337,6 @@ make clean
 - [ ] Fix authentication routing: ensure super users can sign in at the `/dashboard` (especially when `passwordAuth` is disabled in `qpi.config.yml`), rather than being restricted to the default PocketBase `/_/` dashboard.
 - [ ] Synchronize auth sessions: automatically sign users into the `/dashboard` if they are already signed into `/_/`, and vice versa.
 - [ ] Add a user profile dropdown menu in the dashboard top bar (accessible by clicking the avatar) with options to sign out and manage account settings.
-- [ ] Add a link to the demo, maybe with screenshots or GIF
 - [ ] Add a way of translating the configuration files (calib seed etc.) of tergite to the quantify.device.yml of this one
 - [ ] Share this library in quantum journals, Euro projects, etc.  
 
