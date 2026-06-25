@@ -203,6 +203,7 @@ start_driver() {
         --executor "$executor" \
         --data-dir "${PROJECT_ROOT}/bin/data" \
         --ca-fingerprint "$ca_fingerprint" \
+        --ca-file "${PROJECT_ROOT}/bin/qpi.ca.pem" \
         --is-dummy $extra_flags >"$DRIVER_LOG" 2>&1 &
     DRIVER_PID=$!
 }
