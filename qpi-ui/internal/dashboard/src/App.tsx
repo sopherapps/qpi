@@ -442,15 +442,13 @@ export const App: React.FC = () => {
   const renderActiveTab = () => {
     switch (activeTab) {
       case "qpus":
-        return isAdmin ? (
+        return (
           <QpuRegistryTab
             qpus={qpus}
             isAdmin={isAdmin}
             onToggleQpu={handleToggleQpu}
             onRegisterQpu={handleCreateQpu}
           />
-        ) : (
-          <div className="text-zinc-500">Access Denied.</div>
         );
       case "jobs":
         return (

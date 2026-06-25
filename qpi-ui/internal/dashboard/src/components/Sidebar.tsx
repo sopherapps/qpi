@@ -27,7 +27,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const navItems = [
     { id: "overview", label: "Overview", icon: LayoutDashboard },
-    ...(isAdmin ? [{ id: "qpus", label: "QPU Registry", icon: Cpu }] : []),
+    { id: "qpus", label: "QPU Registry", icon: Cpu },
     { id: "jobs", label: "Jobs Console", icon: Terminal },
     { id: "bookings", label: "Bookings", icon: Calendar },
     ...(isAdmin
