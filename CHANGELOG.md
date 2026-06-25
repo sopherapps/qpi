@@ -139,7 +139,7 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 
 ### Added
 
-- Added READMEs for all client packages (Go, JS, Python) and the hardware driver
+- Added READMEs for all client packages (Go, JS, Python) and the QPU driver
 
 ## [0.0.7] - 2026-06-17
 

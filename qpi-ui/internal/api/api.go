@@ -517,7 +517,7 @@ func handleRootCaDownload(re *core.RequestEvent) error {
 	return re.Blob(200, "application/x-pem-file", data)
 }
 
-// handleQPUConnect connects a hardware driver node, allocating dynamic command/result ports
+// handleQPUConnect connects a QPU driver node, allocating dynamic command/result ports
 // and starting parallel dispatcher and result listener routines.
 // POST /api/op/qpus/connect
 func handleQPUConnect(re *core.RequestEvent) error {

@@ -7,7 +7,7 @@
  ╚══▀▀═╝ ╚═╝     ╚═╝
 </pre>
 
-<h1 align="center">QPI Hardware Driver</h1>
+<h1 align="center">QPI QPU Driver</h1>
 
 <p align="center">
   <a href="https://badge.fury.io/py/qpi-driver"><img src="https://badge.fury.io/py/qpi-driver.svg" alt="PyPI version"></a>
@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  Python hardware driver for the <a href="https://github.com/sopherapps/qpi">QPI</a> quantum computing platform.
+  Python QPU driver for the <a href="https://github.com/sopherapps/qpi">QPI</a> quantum computing platform.
   Runs on isolated hardware nodes controlling the QPU via multiple executor backends.
 </p>
 

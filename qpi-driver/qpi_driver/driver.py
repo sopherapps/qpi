@@ -265,7 +265,7 @@ def run_driver(
     ca_file_path: Path = Path("./bin/qpi.ca.pem"),
     **executor_options: Any,
 ) -> None:
-    """Run the QPI Python hardware driver.
+    """Run the QPI Python QPU driver.
 
     Args:
         qpi_addr: Full URL of the QPI server

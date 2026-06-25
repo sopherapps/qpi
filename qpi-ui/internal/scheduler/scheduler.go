@@ -92,7 +92,7 @@ func recordToQuantumJob(record *core.Record) *db.QuantumJob {
 
 // RunRecoveryEngine runs a background loop that identifies 'running' jobs
 // that have exceeded cfg.JobTimeout and resets their status to 'pending'
-// (e.g. if the hardware driver crashed or lost connection during simulation).
+// (e.g. if the QPU driver crashed or lost connection during simulation).
 func RunRecoveryEngine(app core.App) {
 	cfg, err := config.GetConfigFromApp(app)
 	if err != nil {

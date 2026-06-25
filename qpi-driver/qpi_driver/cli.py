@@ -7,7 +7,7 @@ from qpi_driver.driver import run_driver
 
 app = None
 if typer.IS_TYPER_INSTALLED:
-    app = typer.Typer(help="Quantum Processing Interface (QPI) Hardware Driver CLI")
+    app = typer.Typer(help="Quantum Processing Interface (QPI) QPU Driver CLI")
 
     @app.command()
     def start(
@@ -166,7 +166,7 @@ if typer.IS_TYPER_INSTALLED:
             "[bold bright_cyan]  ╚══▀▀═╝ ╚═╝     ╚═╝  [/bold bright_cyan]\n"
             "\n"
             "  [dim]Quantum Processing Interface[/dim]\n"
-            f"  [dim]Hardware Driver[/dim]  [bold]{_get_version()}[/bold]\n"
+            f"  [dim]QPU Driver[/dim]  [bold]{_get_version()}[/bold]\n"
             "\n"
             "  [link=https://github.com/sopherapps/qpi]github.com/sopherapps/qpi[/link]"
         )

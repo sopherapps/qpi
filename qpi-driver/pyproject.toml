@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "qpi-driver"
 version = "0.0.24"
-description = "Quantum Processing Interface (QPI) Hardware Driver"
+description = "Quantum Processing Interface (QPI) QPU Driver"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 license = { text = "MIT" }

@@ -26,7 +26,7 @@ QPI is a distributed quantum control stack architecture designed to manage, sche
 
 It consists of three main components:
 1. **Server (`qpi-ui`)**: A Go-based server that manages the job queue, user time-slot bookings, and dispatches jobs to available QPUs. It includes a built-in React web dashboard.
-2. **Hardware Driver (`qpi-driver`)**: A Python daemon that runs alongside the actual quantum hardware (or simulator), executing incoming jobs from the Server and returning results.
+2. **QPU Driver (`qpi-driver`)**: A Python daemon that runs alongside the actual quantum hardware (or simulator), executing incoming jobs from the Server and returning results.
 3. **Clients**: SDKs (Python, Go, JS) for end-users to submit OpenQASM (or Qiskit) quantum jobs over the network.
 
 ```mermaid
@@ -87,7 +87,7 @@ print(job)
 The architecture consists of four primary components under the hood:
 1. **PocketBase Go Server (`qpi-ui/main.go`):** Extends PocketBase with Go, handling job queues, session-based bookings, and real-time job dispatching. Actively listens for LAN connections on dynamically allocated network ports.
 2. **React SPA Dashboard (`qpi-ui/internal/dashboard`):** Single-page application built with Vite, React 19, TypeScript, and Tailwind CSS. It is served directly from the server (via `//go:embed`) at `/dashboard/` for viewing jobs, allocating QPU time, scheduling announcements, managing bookings, and observing calibration telemetry.
-3. **Python Hardware Driver (`qpi-driver`):** Runs on isolated hardware nodes controlling the QPU. Uses Python's `multiprocessing` library to isolate network handling, quantum circuit compilation/simulation, and translation into separate processes.
+3. **Python QPU Driver (`qpi-driver`):** Runs on isolated hardware nodes controlling the QPU. Uses Python's `multiprocessing` library to isolate network handling, quantum circuit compilation/simulation, and translation into separate processes.
 4. **QPI Clients (Python, JavaScript, Go):** SDKs for submitting jobs to the quantum computer using OpenQASM specification (and Qiskit circuits if one uses the Python client)
 
 To optimize performance and simplify communication over multiprocessing queues, the worker process executes the quantum job, processes the resulting `xarray` dataset into a Qiskit-compatible result dictionary using the executor's `process_result()` method, and directly sends the results via the queue to the result sender process. This removes file-system serialization overhead.
@@ -101,7 +101,7 @@ graph TD
         Recovery[Recovery Engine]
     end
 
-    subgraph python_driver [Python Hardware Driver Package]
+    subgraph python_driver [Python QPU Driver Package]
         MainProc[Main Process: NNG PULL]
         Worker[Worker Process: Executor]
         ResultSender[Result Sender Process: NNG PUSH]
@@ -333,7 +333,7 @@ make clean
 
 ## TODOs
 - [ ] Automate updating the fallback `QPI_DRIVER_VERSION` in `qpi-driver/install-systemd.sh` during the release pipeline.
-- [ ] Ensure the 'QPU Registry' is only visible to admin users; hide it from normal users.
+- [x] Ensure the 'QPU Registry' is only visible to admin users; hide it from normal users.
 - [ ] Implement a light mode in the dashboard and improve the overall dark mode UI.
 - [ ] Fix authentication routing: ensure super users can sign in at the `/dashboard` (especially when `passwordAuth` is disabled in `qpi.config.yml`), rather than being restricted to the default PocketBase `/_/` dashboard.
 - [ ] Synchronize auth sessions: automatically sign users into the `/dashboard` if they are already signed into `/_/`, and vice versa.

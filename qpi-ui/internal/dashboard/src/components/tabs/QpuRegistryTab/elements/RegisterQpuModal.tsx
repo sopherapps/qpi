@@ -88,7 +88,7 @@ export function RegisterQpuModal({ onClose, onRegister }: Props) {
           <div className="space-y-4 text-sm text-zinc-300">
             <p>
               Your QPU <strong>{createdQpu.name}</strong> has been registered.
-              Copy the credentials below to configure your hardware driver.
+              Copy the credentials below to configure your QPU driver.
             </p>
 
             <div className="bg-zinc-950 border border-zinc-800 rounded p-4 space-y-4">

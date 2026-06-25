@@ -111,7 +111,7 @@ func runDispatcher(ctx context.Context, app core.App, qpuID string, cmdPort int)
 }
 
 // runResultListener starts an NNG PULL socket on the resPort (secured with TLS cert and key), waiting for job execution
-// results sent back by the hardware driver node and saving them to the database.
+// results sent back by the QPU driver node and saving them to the database.
 func runResultListener(ctx context.Context, app core.App, qpuID string, resPort int) {
 	cfg, err := config.GetConfigFromApp(app)
 	if err != nil {
