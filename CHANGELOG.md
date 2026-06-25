@@ -15,8 +15,15 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 - `qpi-ui`: Updated the QPU Registration success modal to generate and display a copyable `install-systemd.sh` execution snippet.
 - `ci`: Added a dedicated E2E testing job (`test-systemd-installer`) in GitHub Actions to validate the systemd installation script via a Docker container.
 
+### Changed
+
+- Global: Renamed all instances of "Orchestrator" to "Server" (and "orchestrator" to "server") across documentation, code, and CI scripts.
+- Global: Renamed all instances of "Hardware Driver" to "QPU Driver" (and "hardware driver" to "QPU driver") across the project.
+- `qpi-ui`: Simplified the `README.md` introduction with a shorter description, a simpler mermaid diagram, and pulled the Quick Start section to the top.
+
 ### Fixed
 
+- `qpi-ui`: Fixed a bug in the dashboard (`App.tsx` and `Sidebar.tsx`) where the "QPU Registry" tab was still visible to standard non-admin users.
 - `qpi-ui`: Fixed a double-hashing bug in `handleQPUCreate` that caused driver connection snippet tests to fail with `401 Unauthorized`.
 
 ## [0.0.24] - 2026-06-23
