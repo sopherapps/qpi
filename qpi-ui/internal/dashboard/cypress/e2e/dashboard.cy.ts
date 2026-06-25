@@ -27,6 +27,9 @@ describe("QPI Dashboard — End-to-End User Journeys", () => {
     cy.contains("button", "Jobs Console").click();
     cy.contains("h1", "Jobs Console").should("be.visible");
 
+    // Verify footer is NOT visible for regular users
+    cy.get('[data-testid="admin-footer"]').should("not.exist");
+
     // Select first online QPU (should be set by default, but let's check its presence)
     cy.get("select").should("be.visible").and("not.have.value", "");
 
@@ -78,6 +81,12 @@ describe("QPI Dashboard — End-to-End User Journeys", () => {
 
     cy.contains("h1", "QPI Interface").should("be.visible");
     cy.contains("button", "Admin Panel").should("be.visible");
+
+    // Verify footer IS visible and shows version for admins
+    cy.get('[data-testid="admin-footer"]')
+      .scrollIntoView()
+      .should("be.visible")
+      .and("contain", "v0.");
 
     // Register a new QPU on QPU Registry
     cy.contains("button", "QPU Registry").click();

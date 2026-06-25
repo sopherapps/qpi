@@ -78,11 +78,22 @@ describe("QPU Registry — Admin: Register QPU", () => {
 
     // The command contains the required flags
     cy.get("pre.font-mono")
+      .first()
       .should("be.visible")
       .and("contain", "--ca-fingerprint")
       .and("contain", "--qpi-addr")
       .and("contain", `--name "${qpuName}"`)
       .and("contain", '--executor "qiskit_aer"');
+
+    // Systemd Command section is visible
+    cy.contains("label", "Installation Command (Systemd)").should("be.visible");
+    cy.get("pre.font-mono")
+      .last()
+      .should("be.visible")
+      .and("contain", "install-systemd.sh")
+      .and("contain", `QPU_NAME="${qpuName}"`)
+      .and("contain", `QPI_DRIVER_VERSION=`)
+      .and("contain", 'EXECUTOR="qiskit_aer"');
   });
 
   it("copies the access token when the copy button is clicked", () => {
@@ -127,6 +138,19 @@ describe("QPU Registry — Admin: Register QPU", () => {
 
     // The icon changes to a checkmark
     cy.get('button[title="Copy Connection Command"]')
+      .find("svg")
+      .should("have.class", "lucide-check");
+
+    // The copy button for the systemd command shows the Copy icon initially
+    cy.get('button[title="Copy Systemd Command"]')
+      .find("svg")
+      .should("have.class", "lucide-copy");
+
+    // Click the copy button
+    cy.get('button[title="Copy Systemd Command"]').click();
+
+    // The icon changes to a checkmark
+    cy.get('button[title="Copy Systemd Command"]')
       .find("svg")
       .should("have.class", "lucide-check");
   });

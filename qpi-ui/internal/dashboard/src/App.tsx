@@ -27,6 +27,7 @@ export const App: React.FC = () => {
   const [userId, setUserId] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
   const [qpuSeconds, setQpuSeconds] = useState(0);
+  const [version, setVersion] = useState<string>("");
 
   // Tab routing
   const [activeTab, setActiveTab] = useState("overview");
@@ -156,6 +157,17 @@ export const App: React.FC = () => {
     }
   }, []);
 
+  const loadVersion = useCallback(async () => {
+    try {
+      const res = await pb.send<{ version: string }>("/api/op/version", {
+        method: "GET",
+      });
+      setVersion(res.version);
+    } catch (err) {
+      console.error("Failed to load version:", err);
+    }
+  }, []);
+
   // Main data loader
   const loadAllData = useCallback(async () => {
     if (!pb.authStore.isValid || !pb.authStore.model) return;
@@ -170,7 +182,7 @@ export const App: React.FC = () => {
     ]);
 
     if (isSuper) {
-      await Promise.all([loadAdminUsers(), loadTimeRequests()]);
+      await Promise.all([loadAdminUsers(), loadTimeRequests(), loadVersion()]);
     }
   }, [
     loadUserQuota,
@@ -180,6 +192,7 @@ export const App: React.FC = () => {
     loadNotifications,
     loadAdminUsers,
     loadTimeRequests,
+    loadVersion,
   ]);
 
   // Real-time Subscriptions setup
@@ -510,6 +523,7 @@ export const App: React.FC = () => {
             isAdmin={isAdmin}
             qpuSeconds={qpuSeconds}
             onRequestTimeClick={() => setIsRequestTimeOpen(true)}
+            version={version}
           />
 
           <div className="flex-1 flex flex-col min-w-0 h-full">

@@ -206,6 +206,18 @@ jobs:
       run: make test-e2e-dashboard
 
   # -------------------------------------------------------------------------
+  # E2E Systemd Installer Tests
+  # -------------------------------------------------------------------------
+  test-systemd-installer:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Run Systemd Installer E2E Test
+      run: make test-e2e-systemd
+
+  # -------------------------------------------------------------------------
   # Publish qpi-driver to PyPI
   # -------------------------------------------------------------------------
   publish-pypi-driver:

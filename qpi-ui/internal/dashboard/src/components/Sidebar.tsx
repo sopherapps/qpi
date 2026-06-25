@@ -14,6 +14,7 @@ interface SidebarProps {
   isAdmin: boolean;
   qpuSeconds: number;
   onRequestTimeClick: () => void;
+  version?: string;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -22,6 +23,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isAdmin,
   qpuSeconds,
   onRequestTimeClick,
+  version,
 }) => {
   const navItems = [
     { id: "overview", label: "Overview", icon: LayoutDashboard },
@@ -85,13 +87,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
           <div className="text-[10px] text-zinc-500 flex justify-between items-center">
             <span>{isAdmin ? "Administrator" : "User Account"}</span>
-            {!isAdmin && (
+            {!isAdmin ? (
               <button
                 onClick={onRequestTimeClick}
                 className="text-indigo-400 hover:underline font-medium focus:outline-none"
               >
                 Request Time
               </button>
+            ) : (
+              version && (
+                <span data-testid="admin-footer" className="font-mono">
+                  {version}
+                </span>
+              )
             )}
           </div>
         </div>
