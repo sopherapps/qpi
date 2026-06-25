@@ -10,10 +10,14 @@ trap "echo 'Cleaning up...'; docker stop \$CONTAINER_ID >/dev/null; docker rm \$
 # Give systemd a moment to initialize
 sleep 3
 
+# Resolve absolute path to project root
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
 echo "Container started: $CONTAINER_ID"
 echo "Copying installer to container..."
-# Copy from parent directory since we are running this in e2e/
-docker cp ../qpi-driver/install-systemd.sh $CONTAINER_ID:/install-systemd.sh
+# Copy from project root to ensure robustness regardless of execution directory
+docker cp "$PROJECT_ROOT/qpi-driver/install-systemd.sh" $CONTAINER_ID:/install-systemd.sh
 docker exec $CONTAINER_ID chmod +x /install-systemd.sh
 
 # Need to install curl and sudo as they are missing in basic ubuntu image
