@@ -17,30 +17,78 @@
 </p>
 
 <p align="center">
-  QPI is a distributed quantum control stack architecture designed to control multiple Quantum Processing Units (QPUs).
-</p>
-
-<p align="center">
   <strong><a href="https://sopherapps.github.io/qpi/">📚 Read the Documentation</a></strong>
 </p>
 
-## Prerequisites
+## What is QPI?
 
+QPI is a distributed quantum control stack architecture designed to manage, schedule, and execute quantum circuits across multiple Quantum Processing Units (QPUs). 
+
+It consists of three main components:
+1. **Orchestrator (`qpi-ui`)**: A Go-based server that manages the job queue, user time-slot bookings, and dispatches jobs to available QPUs. It includes a built-in React web dashboard.
+2. **Hardware Driver (`qpi-driver`)**: A Python daemon that runs alongside the actual quantum hardware (or simulator), executing incoming jobs from the Orchestrator and returning results.
+3. **Clients**: SDKs (Python, Go, JS) for end-users to submit OpenQASM (or Qiskit) quantum jobs over the network.
+
+```mermaid
+flowchart LR
+    User[Clients] -->|Submit Quantum Jobs| Orchestrator
+    Orchestrator -->|Dispatch Jobs| Driver1[QPI Driver]
+    Orchestrator -->|Dispatch Jobs| Driver2[QPI Driver]
+    Driver1 -->|Control| Hardware1[Physical QPU]
+    Driver2 -->|Control| Hardware2[Simulated QPU]
+```
+
+## Quick Start
+
+### Prerequisites
 * **Go**: `>= 1.25` (tested up to `1.26`)
 * **Python**: `~= 3.12`
 * **Nodejs**: `>= 20.x` (tested up to `22.x`)
 
+### 1. Start the Orchestrator
+
+Compile and run the PocketBase Go server (this automatically builds the React dashboard if you use `make`):
+
+```bash
+make build
+./bin/qpi serve
+```
+*The dashboard is now available at `http://127.0.0.1:8090/dashboard/`. You can log in using the PocketBase Admin UI at `http://127.0.0.1:8090/_/` to create your initial superuser account.*
+
+### 2. Connect a QPU Driver
+Open a new terminal. In the dashboard, navigate to **QPU Registry** and register a new QPU. You will receive an access token and a `ca-fingerprint`. Use them to start the Python driver (using the `mock` executor for local testing):
+
+```bash
+# Install the python driver CLI (using uv for speed)
+uv tool install ./qpi-driver[cli]
+
+# Start the driver daemon
+qpi-driver start --qpi-addr http://127.0.0.1:8090                  --token "<YOUR_ACCESS_TOKEN>"                  --ca-fingerprint "<YOUR_CA_FINGERPRINT>"                  --name "local_mock_qpu"                  --executor "mock"
+```
+*(Note: For production deployments, the dashboard will provide a convenient systemd script to install this driver as a background service.)*
+
+### 3. Submit a Job
+Users can now submit quantum jobs via the Python client!
+```bash
+pip install qpi-client
+```
+```python
+from qpi_client import QPIClient
+
+client = QPIClient("http://127.0.0.1:8090", api_token="<YOUR_USER_API_TOKEN>")
+job = client.submit_job(circuits=[{"circuit": "OPENQASM 2.0; ..."}], shots=100)
+print(job)
+```
+
 ---
 
-## System Architecture
+## Architecture Deep Dive
 
-The architecture consists of four primary components:
+The architecture consists of four primary components under the hood:
 1. **PocketBase Go Orchestrator (`qpi-ui/main.go`):** Extends PocketBase with Go, handling job queues, session-based bookings, and real-time job dispatching. Actively listens for LAN connections on dynamically allocated network ports.
 2. **React SPA Dashboard (`qpi-ui/internal/dashboard`):** Single-page application built with Vite, React 19, TypeScript, and Tailwind CSS. It is served directly from the orchestrator (via `//go:embed`) at `/dashboard/` for viewing jobs, allocating QPU time, scheduling announcements, managing bookings, and observing calibration telemetry.
 3. **Python Hardware Driver (`qpi-driver`):** Runs on isolated hardware nodes controlling the QPU. Uses Python's `multiprocessing` library to isolate network handling, quantum circuit compilation/simulation, and translation into separate processes.
-4. **QPI Clients (Python, JavaScript, Go):** SDKs for submitting
-jobs to the quantum computer using OpenQASM specification (and
-Qiskit circuits if one uses the Python client)
+4. **QPI Clients (Python, JavaScript, Go):** SDKs for submitting jobs to the quantum computer using OpenQASM specification (and Qiskit circuits if one uses the Python client)
 
 To optimize performance and simplify communication over multiprocessing queues, the worker process executes the quantum job, processes the resulting `xarray` dataset into a Qiskit-compatible result dictionary using the executor's `process_result()` method, and directly sends the results via the queue to the result sender process. This removes file-system serialization overhead.
 
@@ -121,6 +169,7 @@ The orchestrator exposes both **custom HTTP routes** and **PocketBase collection
 | `POST` | `/api/op/qpus/create` | Superuser | Creates a new QPU record and returns the generated access token. |
 | `POST` | `/api/op/qpus/connect` | Access token | Connects a QPU driver and returns assigned NNG ports + JWT. |
 | `POST` | `/api/op/qpu/toggle` | Superuser | Enables or disables a QPU by name. |
+| `GET`  | `/api/op/version` | Superuser | Retrieves the application's current version. |
 | `POST` | `/api/jobs` | Authenticated | Submits a new quantum job. |
 | `GET`  | `/api/jobs` | Authenticated | Lists jobs for the authenticated user. |
 | `GET`  | `/api/jobs/{id}` | Authenticated | Retrieves a specific job. |
@@ -282,9 +331,6 @@ make format
 make clean
 ```
 
-
-
-
 ## TODOs
 - [ ] Automate updating the fallback `QPI_DRIVER_VERSION` in `qpi-driver/install-systemd.sh` during the release pipeline.
 - [ ] Ensure the 'QPU Registry' is only visible to admin users; hide it from normal users.
@@ -293,11 +339,9 @@ make clean
 - [ ] Synchronize auth sessions: automatically sign users into the `/dashboard` if they are already signed into `/_/`, and vice versa.
 - [ ] Add a user profile dropdown menu in the dashboard top bar (accessible by clicking the avatar) with options to sign out and manage account settings.
 - [ ] Add a link to the demo, maybe with screenshots or GIF
-- [ ] Simplify the documentation of qpi-ui. Let installation, quick start be first before 
-     all the extra documentation about the APIs and architecture etc.
-     - [ ] Draw a simpler diagram for showing the architecture
-- [ ] Add a way of translating the configuration files (calib seed etc.) of tergite to the
-  quantify.device.yml of this one
+- [x] Simplify the documentation of qpi-ui. Let installation, quick start be first before all the extra documentation about the APIs and architecture etc.
+- [x] Draw a simpler diagram for showing the architecture
+- [ ] Add a way of translating the configuration files (calib seed etc.) of tergite to the quantify.device.yml of this one
 - [ ] Share this library in quantum journals, Euro projects, etc.  
 
 ## License
