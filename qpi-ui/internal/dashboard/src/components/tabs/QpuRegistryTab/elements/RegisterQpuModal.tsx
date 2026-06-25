@@ -16,6 +16,7 @@ export function RegisterQpuModal({ onClose, onRegister }: Props) {
   const [createdQpu, setCreatedQpu] = useState<CreateQpuResponse | null>(null);
   const [copiedToken, setCopiedToken] = useState(false);
   const [copiedCommand, setCopiedCommand] = useState(false);
+  const [copiedSystemdCommand, setCopiedSystemdCommand] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,12 +58,21 @@ export function RegisterQpuModal({ onClose, onRegister }: Props) {
     setTimeout(() => setCopiedCommand(false), 2000);
   };
 
+  const handleCopySystemdCommand = () => {
+    if (!createdQpu) return;
+    const cmd = getDriverSystemdCmd(createdQpu);
+    navigator.clipboard.writeText(cmd);
+    setCopiedSystemdCommand(true);
+    setTimeout(() => setCopiedSystemdCommand(false), 2000);
+  };
+
   if (createdQpu) {
     const commandText = getDriverStartCmd(createdQpu);
+    const systemdCommandText = getDriverSystemdCmd(createdQpu);
 
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/80 backdrop-blur-sm animate-fade-in">
-        <div className="w-full max-w-lg bg-zinc-900 border border-zinc-800 rounded-lg shadow-2xl p-6 space-y-5">
+        <div className="w-full max-w-lg bg-zinc-900 border border-zinc-800 rounded-lg shadow-2xl p-6 space-y-5 max-h-[90vh] overflow-y-auto">
           <div className="flex justify-between items-center border-b border-zinc-800 pb-3">
             <h3 className="text-lg font-semibold font-geist text-emerald-400">
               QPU Registered Successfully!
@@ -130,6 +140,29 @@ export function RegisterQpuModal({ onClose, onRegister }: Props) {
                   </button>
                 </div>
               </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1">
+                  Installation Command (Systemd)
+                </label>
+                <div className="flex items-start gap-2">
+                  <pre className="flex-1 font-mono bg-zinc-900 border border-zinc-800 p-3 rounded text-zinc-200 text-xs overflow-x-auto whitespace-pre-wrap break-all leading-relaxed max-h-40">
+                    {systemdCommandText}
+                  </pre>
+                  <button
+                    type="button"
+                    onClick={handleCopySystemdCommand}
+                    className="p-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded transition-colors focus:outline-none flex items-center justify-center min-w-[36px] mt-1"
+                    title="Copy Systemd Command"
+                  >
+                    {copiedSystemdCommand ? (
+                      <Check className="w-4 h-4 text-emerald-400" />
+                    ) : (
+                      <Copy className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -149,7 +182,7 @@ export function RegisterQpuModal({ onClose, onRegister }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/80 backdrop-blur-sm">
-      <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-lg shadow-2xl p-6 space-y-4">
+      <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-lg shadow-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center border-b border-zinc-800 pb-3">
           <h3 className="text-lg font-semibold font-geist text-white">
             Register QPU
@@ -223,4 +256,20 @@ function getDriverStartCmd(qpuCreationResp: CreateQpuResponse) {
         --qpi-addr ${qpuCreationResp.qpi_addr} \\
         --name "${qpuCreationResp.name}" \\
         --executor "${qpuCreationResp.executor_type}"`;
+}
+
+/**
+ * Gets the systemd installer command
+ *
+ * @param qpuCreationResp - the response on creation of the QPU
+ * @returns - the command to use to install the qpi-driver as a systemd service
+ */
+function getDriverSystemdCmd(qpuCreationResp: CreateQpuResponse) {
+  return `curl -sL https://raw.githubusercontent.com/sopherapps/qpi/${qpuCreationResp.driver_version}/qpi-driver/install-systemd.sh | sudo \\
+  QPI_TOKEN="${qpuCreationResp.access_token}" \\
+  QPI_ADDR="${qpuCreationResp.qpi_addr}" \\
+  CA_FINGERPRINT="${qpuCreationResp.ca_fingerprint}" \\
+  QPU_NAME="${qpuCreationResp.name}" \\
+  EXECUTOR="${qpuCreationResp.executor_type}" \\
+  QPI_DRIVER_VERSION="${qpuCreationResp.driver_version}" bash`;
 }

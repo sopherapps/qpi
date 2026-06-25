@@ -27,6 +27,9 @@ var (
 	activeQPUsMu sync.Mutex
 )
 
+// Version holds the version of the application, injected from main.go
+var Version string
+
 // SetupServer initializes the server with a few important configs
 func SetupServer(e *core.ServeEvent) error {
 	cfg, err := config.GetConfigFromApp(e.App)
@@ -65,6 +68,7 @@ func RegisterRoutes(e *core.ServeEvent, dashboardFS fs.FS) {
 	e.Router.GET("/api/pub/root-ca.pem", handleRootCaDownload)
 
 	// ops routes
+	e.Router.GET("/api/op/version", handleOpVersion)
 	e.Router.POST("/api/op/qpus/connect", handleQPUConnect)
 	e.Router.POST("/api/op/qpus/create", handleQPUCreate)
 	e.Router.POST("/api/op/qpu/toggle", handleQPUToggle)
@@ -439,6 +443,15 @@ func handleTokenDelete(re *core.RequestEvent) error {
 	return re.JSON(http.StatusOK, map[string]string{"status": "deleted"})
 }
 
+// handleOpVersion handles GET /api/op/version — returns the current application version
+func handleOpVersion(re *core.RequestEvent) error {
+	if !re.HasSuperuserAuth() {
+		return re.Error(http.StatusForbidden, "admin access required", nil)
+	}
+
+	return re.JSON(http.StatusOK, map[string]string{"version": Version})
+}
+
 // handleQPUCreate creates a new QPU record (admin-only), generating a random
 // access token and returning it in the response.  The hashed token is stored.
 // POST /api/op/qpus/create
@@ -480,6 +493,7 @@ func handleQPUCreate(re *core.RequestEvent) error {
 
 	resp := QPUCreateResponse{
 		CaFingerprint: cfg.GetTlsCaHash(),
+		DriverVersion: Version,
 	}
 	_ = resp.RefreshFromDbModel(&qpu)
 	resp.AccessToken = rawToken

@@ -93,4 +93,5 @@ export interface CreateQpuResponse {
   enabled: boolean;
   qpi_addr: string;
   ca_fingerprint: string;
+  driver_version: string;
 }

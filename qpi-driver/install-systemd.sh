@@ -11,6 +11,10 @@ if [ "$EUID" -ne 0 ]; then
   exit 1
 fi
 
+# The version of qpi-driver to install.
+# This should match the qpi-ui version if provided via environment variable.
+QPI_DRIVER_VERSION="${QPI_DRIVER_VERSION:-}"
+
 # Detect the real user who ran sudo
 if [ -n "$SUDO_USER" ]; then
     REAL_USER="$SUDO_USER"
@@ -23,12 +27,12 @@ fi
 echo "Installing for user: $REAL_USER (Home: $REAL_HOME)"
 echo ""
 
-# 1. Prompt for configuration
-read -p "Enter QPI Access Token: " QPI_TOKEN
-read -p "Enter QPI Server Address (e.g. https://qpi.sopherapps.se): " QPI_ADDR
-read -p "Enter CA Fingerprint: " CA_FINGERPRINT
-read -p "Enter QPU Name (e.g. rigetti-aspen-1): " QPU_NAME
-read -p "Enter Executor (mock, qiskit_aer, quantify, qblox, presto) [mock]: " EXECUTOR
+# 1. Prompt for configuration if not provided via environment
+[ -z "$QPI_TOKEN" ] && read -p "Enter QPI Access Token: " QPI_TOKEN
+[ -z "$QPI_ADDR" ] && read -p "Enter QPI Server Address (e.g. https://qpi.sopherapps.se): " QPI_ADDR
+[ -z "$CA_FINGERPRINT" ] && read -p "Enter CA Fingerprint: " CA_FINGERPRINT
+[ -z "$QPU_NAME" ] && read -p "Enter QPU Name (e.g. rigetti-aspen-1): " QPU_NAME
+[ -z "$EXECUTOR" ] && read -p "Enter Executor (mock, qiskit_aer, quantify, qblox, presto) [mock]: " EXECUTOR
 EXECUTOR=${EXECUTOR:-mock}
 
 # 2. Install uv if not present
@@ -40,15 +44,22 @@ fi
 
 # 3. Install qpi-driver using uv tool
 echo "Installing qpi-driver via uv tool..."
+
+if [ -z "$QPI_DRIVER_VERSION" ]; then
+    VERSION_SUFFIX=""
+else
+    VERSION_SUFFIX="==$QPI_DRIVER_VERSION"
+fi
+
 # Ensure the correct extras are added based on the executor
 if [ "$EXECUTOR" = "qblox" ]; then
-    sudo -u "$REAL_USER" "$REAL_HOME/.local/bin/uv" tool install "qpi-driver[cli,qblox]"
+    sudo -u "$REAL_USER" "$REAL_HOME/.local/bin/uv" tool install --python 3.12 "qpi-driver[cli,qblox]${VERSION_SUFFIX}"
 elif [ "$EXECUTOR" = "quantify" ]; then
-    sudo -u "$REAL_USER" "$REAL_HOME/.local/bin/uv" tool install "qpi-driver[cli,quantify]"
+    sudo -u "$REAL_USER" "$REAL_HOME/.local/bin/uv" tool install --python 3.12 "qpi-driver[cli,quantify]${VERSION_SUFFIX}"
 elif [ "$EXECUTOR" = "qiskit_aer" ]; then
-    sudo -u "$REAL_USER" "$REAL_HOME/.local/bin/uv" tool install "qpi-driver[cli,aer]"
+    sudo -u "$REAL_USER" "$REAL_HOME/.local/bin/uv" tool install --python 3.12 "qpi-driver[cli,aer]${VERSION_SUFFIX}"
 else
-    sudo -u "$REAL_USER" "$REAL_HOME/.local/bin/uv" tool install "qpi-driver[cli]"
+    sudo -u "$REAL_USER" "$REAL_HOME/.local/bin/uv" tool install --python 3.12 "qpi-driver[cli]${VERSION_SUFFIX}"
 fi
 
 # 4. Create systemd unit file

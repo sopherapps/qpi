@@ -261,6 +261,7 @@ type QPUCreateResponse struct {
 	Enabled       bool   `json:"enabled"`
 	QpiAddr       string `json:"qpi_addr"`
 	CaFingerprint string `json:"ca_fingerprint"`
+	DriverVersion string `json:"driver_version"`
 }
 
 // RefreshFromDbModel refreshes this DTO's field values from a database model

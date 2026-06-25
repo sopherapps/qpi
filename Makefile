@@ -87,7 +87,7 @@ test-py-client:
 	$(UV) sync --project qpi-client/py --extra dev
 	$(UV) run --project qpi-client/py pytest qpi-client/py/tests/ -v
 
-test-e2e: test-e2e-driver test-e2e-client-py test-e2e-client-js test-e2e-client-go test-e2e-dashboard
+test-e2e: test-e2e-driver test-e2e-client-py test-e2e-client-js test-e2e-client-go test-e2e-dashboard test-e2e-systemd
 
 test-e2e-driver:
 	@echo "Running E2E driver tests..."
@@ -108,6 +108,10 @@ test-e2e-client-go:
 test-e2e-dashboard:
 	@echo "Running E2E Cypress dashboard tests..."
 	./e2e/test_dashboard_cypress.sh
+
+test-e2e-systemd:
+	@echo "Running E2E systemd installer tests..."
+	./e2e/test_systemd_install.sh
 
 # ---------------------------------------------------------------------------
 # Lint targets

@@ -30,6 +30,7 @@ func main() {
 
 	// set the current version of the application
 	app.RootCmd.Version = Version
+	api.Version = Version
 
 	appCtx, cancelAppCtx := context.WithCancel(context.Background())
 	defer cancelAppCtx()

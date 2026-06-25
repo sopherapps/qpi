@@ -286,17 +286,12 @@ make clean
 
 
 ## TODOs
+- [ ] Automate updating the fallback `QPI_DRIVER_VERSION` in `qpi-driver/install-systemd.sh` during the release pipeline.
 - [ ] Ensure the 'QPU Registry' is only visible to admin users; hide it from normal users.
 - [ ] Implement a light mode in the dashboard and improve the overall dark mode UI.
 - [ ] Fix authentication routing: ensure super users can sign in at the `/dashboard` (especially when `passwordAuth` is disabled in `qpi.config.yml`), rather than being restricted to the default PocketBase `/_/` dashboard.
 - [ ] Synchronize auth sessions: automatically sign users into the `/dashboard` if they are already signed into `/_/`, and vice versa.
 - [ ] Add a user profile dropdown menu in the dashboard top bar (accessible by clicking the avatar) with options to sign out and manage account settings.
-- [ ] Add code snippet returned on registration to use the qpi-driver-installer script, maybe (though this may rule out windows).
-  - [ ] Make the installer script work like the one used to install uv
-  - [ ] Make the code snippet supply the token and fingerprint directly to 
-     the shell script say as shell/env vars (thus when env vars are set or some param is ser
-     to read from env vars, the interractive nature of the script is dropped)
-- [ ] Fix 401 error on connection of qpi-driver to qpi-ui on the demo setup
 - [ ] Add a link to the demo, maybe with screenshots or GIF
 - [ ] Simplify the documentation of qpi-ui. Let installation, quick start be first before 
      all the extra documentation about the APIs and architecture etc.
