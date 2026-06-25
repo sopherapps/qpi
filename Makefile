@@ -84,7 +84,7 @@ test-go-client:
 
 test-py-client:
 	@echo "Running Python client tests..."
-	$(UV) sync --project qpi-client/py --extra dev
+	$(UV) sync --project qpi-client/py --dev
 	$(UV) run --project qpi-client/py pytest qpi-client/py/tests/ -v
 
 test-e2e: test-e2e-driver test-e2e-client-py test-e2e-client-js test-e2e-client-go test-e2e-dashboard test-e2e-systemd
