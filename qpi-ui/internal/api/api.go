@@ -457,7 +457,7 @@ func handleQPUCreate(re *core.RequestEvent) error {
 		return err
 	}
 
-	// Generate a random access token (raw token is returned once, hash is stored)
+	// Generate a random access token (raw token is returned once, hash is stored by db hook)
 	rawToken := generateAPIToken()
 
 	enabled := true
@@ -467,7 +467,7 @@ func handleQPUCreate(re *core.RequestEvent) error {
 
 	qpu := db.QPU{
 		Name:         req.Name,
-		AccessToken:  db.HashToken(rawToken),
+		AccessToken:  rawToken,
 		Status:       "offline",
 		ExecutorType: req.ExecutorType,
 		NumQubits:    req.NumQubits,

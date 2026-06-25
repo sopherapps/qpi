@@ -22,7 +22,8 @@ The script exits 0 on success, 1 on failure.
 """
 
 import argparse, os, sys, time, requests, json
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone, timedelta    
+import threading, socket, ssl, subprocess, sys
 
 HOST = os.getenv("GO_SERVER_HOST", "127.0.0.1")
 PORT = int(os.getenv("GO_SERVER_PORT", "8090"))
@@ -1362,6 +1363,169 @@ def test_qpus_auth_rules():
     return True
 
 
+def test_driver_snippet_connection():
+    """Verify that the copied snippet connects right (even with a different SSL certificate)."""
+    print("\n[verify] Testing driver snippet connection …")
+
+    # 1. Admin login to create QPU
+    admin_session = requests.Session()
+    resp = admin_session.post(
+        f"{BASE}/api/collections/_superusers/auth-with-password",
+        json={"identity": ADMIN_EMAIL, "password": ADMIN_PASSWORD},
+    )
+    if resp.status_code != 200:
+        print("[verify] ✗ Admin auth failed")
+        return False
+    admin_session.headers["Authorization"] = resp.json()["token"]
+
+    # 2. Create QPU
+    resp = admin_session.post(
+        f"{BASE}/api/op/qpus/create",
+        json={
+            "name": "SnippetTestQPU",
+            "executor_type": "mock",
+        },
+    )
+    if resp.status_code != 201:
+        print(f"[verify] ✗ Failed to create QPU: {resp.text}")
+        return False
+        
+    data = resp.json()
+    token = data["access_token"]
+    fingerprint = data["ca_fingerprint"]
+    qpu_name = data["name"]
+    executor = data["executor_type"]
+    
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    qpi_dir = os.path.dirname(script_dir)
+    
+    import queue
+    import threading
+    
+    def wait_for_handshake(p, timeout_sec=10):
+        start_time = time.time()
+        output = []
+        q = queue.Queue()
+        def read_stream(stream):
+            for line in iter(stream.readline, ""):
+                q.put(line)
+        
+        t_out = threading.Thread(target=read_stream, args=(p.stdout,), daemon=True)
+        t_err = threading.Thread(target=read_stream, args=(p.stderr,), daemon=True)
+        t_out.start()
+        t_err.start()
+        
+        success = False
+        while time.time() - start_time < timeout_sec:
+            try:
+                line = q.get(timeout=0.1)
+                output.append(line)
+                if "Handshake OK" in line:
+                    success = True
+                    break
+                if "401 Client Error" in line:
+                    break
+            except queue.Empty:
+                if p.poll() is not None:
+                    break
+                    
+        p.terminate()
+        p.wait()
+        return success, "".join(output)
+
+    # 3. Test direct snippet connection
+    print("[verify]   Testing direct connection...")
+    qpi_addr_direct = BASE
+    cmd_direct = [
+        sys.executable, "-m", "qpi_driver.cli", "start",
+        "--ca-fingerprint", fingerprint,
+        "--qpi-addr", qpi_addr_direct,
+        "--name", f"{qpu_name}_direct",
+        "--executor", executor
+    ]
+    env = os.environ.copy()
+    env["QPI_ACCESS_TOKEN"] = token
+    env["PYTHONPATH"] = os.path.join(qpi_dir, "qpi-driver")
+
+    p1 = subprocess.Popen(cmd_direct, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, cwd=os.path.join(qpi_dir, "qpi-driver"))
+    success, out1 = wait_for_handshake(p1, timeout_sec=10)
+    
+    if not success:
+        print(f"[verify] ✗ Direct connection failed or timed out. Output:\n{out1}")
+        return False
+    print("[verify]   ✓ Direct connection successful")
+
+    # 4. Test proxy snippet connection
+    print("[verify]   Testing proxied connection with different SSL certificate...")
+    cert_path = os.path.join(script_dir, "test-cert.pem")
+    key_path = os.path.join(script_dir, "test-key.pem")
+    subprocess.run(["openssl", "req", "-x509", "-newkey", "rsa:2048", "-keyout", key_path, "-out", cert_path, "-days", "1", "-nodes", "-subj", "/CN=localhost", "-addext", "subjectAltName=DNS:localhost,IP:127.0.0.1"], check=True, capture_output=True)
+    
+    proxy_port = 8443
+    def proxy_server():
+        context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+        context.load_cert_chain(certfile=cert_path, keyfile=key_path)
+        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        server.bind(("127.0.0.1", proxy_port))
+        server.listen(5)
+        def handle_client(client_sock):
+            target_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            target_sock.connect(("127.0.0.1", 8090))
+            def forward(src, dst):
+                try:
+                    while True:
+                        d = src.recv(4096)
+                        if not d: break
+                        dst.sendall(d)
+                except: pass
+                finally:
+                    src.close()
+                    dst.close()
+            threading.Thread(target=forward, args=(client_sock, target_sock)).start()
+            threading.Thread(target=forward, args=(target_sock, client_sock)).start()
+        while True:
+            try:
+                client_sock, addr = server.accept()
+                ssl_client = context.wrap_socket(client_sock, server_side=True)
+                threading.Thread(target=handle_client, args=(ssl_client,)).start()
+            except:
+                break
+    
+    t = threading.Thread(target=proxy_server, daemon=True)
+    t.start()
+    time.sleep(1)
+
+    qpi_addr_proxy = f"https://localhost:{proxy_port}"
+    cmd_proxy = [
+        sys.executable, "-m", "qpi_driver.cli", "start",
+        "--ca-fingerprint", fingerprint,
+        "--qpi-addr", qpi_addr_proxy,
+        "--name", f"{qpu_name}_proxy",
+        "--executor", executor
+    ]
+    env_proxy = env.copy()
+    env_proxy["REQUESTS_CA_BUNDLE"] = cert_path
+    
+    p2 = subprocess.Popen(cmd_proxy, env=env_proxy, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, cwd=os.path.join(qpi_dir, "qpi-driver"))
+    time.sleep(3)
+    p2.terminate()
+    out2, err2 = p2.communicate()
+    
+    os.remove(cert_path)
+    os.remove(key_path)
+
+    if "401 Client Error" in err2 or "401 Client Error" in out2:
+        print(f"[verify] ✗ Proxied connection failed with 401 Unauthorized!\nOutput excerpt:\n{err2[:500]}")
+        return False
+    elif "Handshake OK" not in err2 and "Handshake OK" not in out2:
+        print(f"[verify] ✗ Proxied connection failed for another reason. Output:\n{err2}\n{out2}")
+        return False
+
+    print("[verify]   ✓ Proxied connection successful")
+    return True
+
+
 def run_driver_tests():
     """Run tests that exercise the driver + core API (no client SDKs)."""
     admin_auth()
@@ -1410,6 +1574,9 @@ def run_driver_tests():
         all_passed = False
 
     if not test_qpus_auth_rules():
+        all_passed = False
+
+    if not test_driver_snippet_connection():
         all_passed = False
 
     return all_passed

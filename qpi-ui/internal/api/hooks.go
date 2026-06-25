@@ -184,5 +184,3 @@ func OnQpuUpdateRequest(e *core.RecordRequestEvent) error {
 	}
 	return e.Next()
 }
-
-// OnBootstrap runs on application bootstrap
