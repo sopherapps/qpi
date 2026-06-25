@@ -7,6 +7,12 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 
 ## [Unreleased]
 
+## [0.0.29] - 2026-06-25
+
+### Fixed
+
+- `ci`: Fixed failing python test step in CI.
+
 ## [0.0.28] - 2026-06-25
 
 ### Fixed
