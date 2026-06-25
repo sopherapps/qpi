@@ -15,7 +15,7 @@ echo "[e2e] Running JavaScript client E2E smoke test"
 echo "========================================================================"
 echo ""
 
-build_orchestrator
+build_server
 build_js_client
 install_driver
 

@@ -11,7 +11,7 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 source "${DIR}/lib.sh"
 
 # Build once
-build_orchestrator
+build_server
 
 run_driver_e2e() {
     local executor=$1

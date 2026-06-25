@@ -208,7 +208,7 @@ class QPIJob(JobV1):
 
 
 class QPIBackend(BackendV2):
-    """A Qiskit ``BackendV2`` that submits circuits to the QPI orchestrator.
+    """A Qiskit ``BackendV2`` that submits circuits to the QPI server.
 
     Args:
         client: An authenticated :class:`QPIClient` instance.
@@ -234,7 +234,7 @@ class QPIBackend(BackendV2):
         )
 
     def _resolve_num_qubits(self, name: str) -> int:
-        """Query the orchestrator for QPU info and return its num_qubits.
+        """Query the server for QPU info and return its num_qubits.
 
         Raises:
             RuntimeError: If the QPU cannot be found or has no valid num_qubits.

@@ -1,5 +1,5 @@
 # QPI Configuration File Example
-# This file defines settings for the QPI orchestrator service.
+# This file defines settings for the QPI server service.
 # You can copy this file to 'qpi.config.yml' (which is gitignored) and customize the values.
 # The server will pick this up if run with --config-file qpi.config.yml or by setting QPI_CONFIG_FILE=qpi.config.yml.
 

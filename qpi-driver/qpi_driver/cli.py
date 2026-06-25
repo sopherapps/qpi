@@ -17,7 +17,7 @@ if typer.IS_TYPER_INSTALLED:
                 "--qpi-addr",
                 "-a",
                 envvar="QPI_ADDR",
-                help="Full URL of the QPI orchestrator (e.g. http://localhost:8090 or https://qpi.example.com)",
+                help="Full URL of the QPI server (e.g. http://localhost:8090 or https://qpi.example.com)",
             ),
         ] = "http://127.0.0.1:8090",
         token: Annotated[

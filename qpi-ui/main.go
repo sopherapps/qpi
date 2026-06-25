@@ -1,4 +1,4 @@
-// Package main is the entry point for the QPI orchestrator service, bootstrapping PocketBase,
+// Package main is the entry point for the QPI server service, bootstrapping PocketBase,
 // binding custom command line flags, and registering dbs, HTTP handlers, and recovery background tasks.
 package main
 

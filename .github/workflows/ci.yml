@@ -16,9 +16,9 @@ env:
 
 jobs:
   # -------------------------------------------------------------------------
-  # Core lint-and-test matrix (orchestrator + driver)
+  # Core lint-and-test matrix (server + driver)
   # -------------------------------------------------------------------------
-  lint-and-test-orchestrator-and-driver:
+  lint-and-test-server-and-driver:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -221,7 +221,7 @@ jobs:
   # Publish qpi-driver to PyPI
   # -------------------------------------------------------------------------
   publish-pypi-driver:
-    needs: lint-and-test-orchestrator-and-driver
+    needs: lint-and-test-server-and-driver
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && vars.PUBLISH_TO_PYPI == 'true'
     environment:
@@ -310,10 +310,10 @@ jobs:
         NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   # -------------------------------------------------------------------------
-  # Publish Go orchestrator binaries to GitHub Release
+  # Publish Go server binaries to GitHub Release
   # -------------------------------------------------------------------------
   publish-go-release:
-    needs: [lint-and-test-orchestrator-and-driver, test-dashboard-cypress]
+    needs: [lint-and-test-server-and-driver, test-dashboard-cypress]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && vars.PUBLISH_GO_APP == 'true'
     permissions:

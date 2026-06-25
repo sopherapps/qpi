@@ -13,7 +13,7 @@ venv-check:
 	fi
 
 build: venv-check build-dashboard
-	@echo "Building Go orchestrator..."
+	@echo "Building Go server..."
 	mkdir -p bin
 	(cd qpi-ui && go build -o ../bin/qpi .)
 	@echo "Installing python driver package..."
@@ -36,7 +36,7 @@ build-dashboard:
 test: test-go test-py test-js-client test-go-client test-py-client test-e2e
 
 test-go: build-dashboard
-	@echo "Running Go unit tests (orchestrator)..."
+	@echo "Running Go unit tests (server)..."
 	(cd qpi-ui && go test -v ./...)
 
 test-py: test-py-base test-py-cli test-py-aer test-py-quantify test-py-qblox
@@ -120,7 +120,7 @@ test-e2e-systemd:
 lint: lint-go lint-py lint-js lint-dashboard lint-go-client lint-py-client
 
 lint-go: build-dashboard
-	@echo "Linting Go orchestrator files..."
+	@echo "Linting Go server files..."
 	(cd qpi-ui && go vet ./...)
 	(cd qpi-ui && gofmt -l -d .)
 
@@ -152,7 +152,7 @@ lint-py-client:
 format: format-go format-py format-js format-dashboard format-go-client format-py-client
 
 format-go:
-	@echo "Formatting Go orchestrator files..."
+	@echo "Formatting Go server files..."
 	(cd qpi-ui && go fmt ./...)
 
 format-py:

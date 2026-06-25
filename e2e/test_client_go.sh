@@ -15,7 +15,7 @@ echo "[e2e] Running Go client E2E smoke test"
 echo "========================================================================"
 echo ""
 
-build_orchestrator
+build_server
 install_driver
 
 start_pocketbase

@@ -68,7 +68,7 @@ def do_handshake(
     """POST to /api/op/qpus/connect and return dynamic port configurations.
 
     Args:
-        qpi_addr: Full URL of the QPI orchestrator (e.g. ``"http://localhost:8090"``
+        qpi_addr: Full URL of the QPI server (e.g. ``"http://localhost:8090"``
             or ``"https://qpi.example.com"``).
         token: QPU access token.
         name: Human-readable name for this QPU.
@@ -200,7 +200,7 @@ def send_results(
     ca_file_path: Path,
 ) -> None:
     """Result sender process: reads Qiskit-format result dicts from result_queue
-    and pushes them to the Go orchestrator via NNG PUSH.
+    and pushes them to the Go server via NNG PUSH.
 
     Args:
         result_queue: Queue used to receive result dicts from the worker.
@@ -268,7 +268,7 @@ def run_driver(
     """Run the QPI Python hardware driver.
 
     Args:
-        qpi_addr: Full URL of the QPI orchestrator
+        qpi_addr: Full URL of the QPI server
             (e.g. ``"http://localhost:8090"`` or ``"https://qpi.example.com"``).
         token: QPU access token.
         name: Human-readable name for this QPU.

@@ -1,4 +1,4 @@
-// Package config manages application-wide configuration parameters for the QPI orchestrator,
+// Package config manages application-wide configuration parameters for the QPI server,
 // including database collection names, NNG connection ports, and job timeout intervals.
 // Configuration is saved on the pocketbase app store for concurrent-safe thread access.
 // It supports a strict configuration precedence: CLI Flag > Env Var > Config File > Default.
@@ -62,7 +62,7 @@ var (
 	flagServerPort               int
 )
 
-// AppConfig stores application-wide configuration parameters for the QPI orchestrator.
+// AppConfig stores application-wide configuration parameters for the QPI server.
 type AppConfig struct {
 	CollectionQPUs            string
 	CollectionTimeSlots       string

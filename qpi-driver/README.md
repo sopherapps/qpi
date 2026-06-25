@@ -62,7 +62,7 @@ Requires **Python ≥ 3.12, < 3.13**.
 ### CLI
 
 ```bash
-# Connect a mock QPU to the orchestrator
+# Connect a mock QPU to the server
 qpi-driver start \
   --qpi-addr http://localhost:8090 \
   --token <qpu-access-token> \
@@ -201,13 +201,13 @@ run_driver(
 
 The driver uses Python's `multiprocessing` library to isolate responsibilities:
 
-- **Main Process**: NNG PULL listener, receives commands from orchestrator
+- **Main Process**: NNG PULL listener, receives commands from server
 - **Worker Process**: Executes quantum circuits via the configured executor
-- **Result Sender Process**: NNG PUSH, sends results back to orchestrator
+- **Result Sender Process**: NNG PUSH, sends results back to server
 
 ```
 ┌─────────────┐     NNG PUSH      ┌─────────────────┐
-│ Orchestrator│ ────────────────> │  Main Process   │
+│ Server│ ────────────────> │  Main Process   │
 │  Dispatcher │                   │  (PULL listener)│
 └─────────────┘                   └────────┬────────┘
                                            │
@@ -229,7 +229,7 @@ The driver uses Python's `multiprocessing` library to isolate responsibilities:
                                            │ NNG PUSH
                                            ▼
                                    ┌───────────────┐
-                                   │  Orchestrator │
+                                   │  Server │
                                    │   Listener    │
                                    └───────────────┘
 ```
@@ -242,7 +242,7 @@ The driver uses Python's `multiprocessing` library to isolate responsibilities:
 qpi-driver start [OPTIONS]
 
 Options:
-  -a, --qpi-addr TEXT          QPI orchestrator URL [env: QPI_ADDR]
+  -a, --qpi-addr TEXT          QPI server URL [env: QPI_ADDR]
   -t, --token TEXT             QPU access token [env: QPI_ACCESS_TOKEN]
   -n, --name TEXT              QPU name [env: QPU_NAME]
   -e, --executor TEXT          Backend: mock, qiskit_aer, quantify, qblox, presto [env: DRIVER_BACKEND]

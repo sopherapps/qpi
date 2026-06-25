@@ -22,7 +22,7 @@ echo "[e2e] Preparing React dashboard..."
 echo "[e2e] Compiling static assets..."
 (cd "${PROJECT_ROOT}/qpi-ui/internal/dashboard" && npm run build)
 
-build_orchestrator
+build_server
 install_driver
 
 start_pocketbase

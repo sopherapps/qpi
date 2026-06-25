@@ -1,5 +1,5 @@
 #!/bin/bash
-# run_tests.sh — Master E2E orchestrator.
+# run_tests.sh — Master E2E server.
 #
 # Delegates to per-component E2E scripts:
 #   test_driver.sh    — qpi-driver (mock, qiskit_aer)

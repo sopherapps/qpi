@@ -1,5 +1,5 @@
 // Package qpiclient provides a Go client SDK for the QPI quantum computing
-// platform orchestrator REST API.
+// platform server REST API.
 //
 // The [Client] type wraps all four API endpoints (submit, get, list, cancel)
 // and adds a convenience [Client.WaitForJob] poller.  Only the Go standard
@@ -110,9 +110,9 @@ type UserRecord struct {
 // Client
 // ---------------------------------------------------------------------------
 
-// Client is an HTTP client for the QPI orchestrator API.
+// Client is an HTTP client for the QPI server API.
 type Client struct {
-	// BaseURL is the root URL of the orchestrator (e.g. "http://localhost:8090").
+	// BaseURL is the root URL of the server (e.g. "http://localhost:8090").
 	BaseURL string
 	// APIToken is sent via the X-API-Token header when non-empty.
 	APIToken string

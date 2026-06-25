@@ -1,4 +1,4 @@
-"""Low-level HTTP client for the QPI orchestrator REST API.
+"""Low-level HTTP client for the QPI server REST API.
 
 This module provides :class:`QPIClient`, a thin wrapper around ``requests.Session``
 that handles authentication and serialisation for every QPI API endpoint.
@@ -15,10 +15,10 @@ if TYPE_CHECKING:
 
 
 class QPIClient:
-    """Low-level HTTP wrapper for the QPI orchestrator API.
+    """Low-level HTTP wrapper for the QPI server API.
 
     Args:
-        base_url: Root URL of the QPI orchestrator (e.g. ``"http://localhost:8090"``).
+        base_url: Root URL of the QPI server (e.g. ``"http://localhost:8090"``).
         api_token: Optional API token used for authentication via the
             ``X-API-Token`` header. When *None*, no token header is sent
             (useful for cookie/JWT-based auth in browser contexts).
@@ -42,7 +42,7 @@ class QPIClient:
         meas_return: str = "single",
         qpu_target: str = "",
     ) -> str:
-        """Submit a quantum job to the orchestrator.
+        """Submit a quantum job to the server.
 
         Args:
             circuits: A list of circuit payload dicts.  Each dict **must**
@@ -72,7 +72,7 @@ class QPIClient:
         resp.raise_for_status()
         data = resp.json()
 
-        # The orchestrator may return the ID at the top level or nested.
+        # The server may return the ID at the top level or nested.
         job_id: str = data.get("id") or data.get("job_id", "")
         if not job_id:
             raise ValueError(f"Server response did not contain a job ID: {data!r}")

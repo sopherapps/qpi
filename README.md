@@ -25,15 +25,15 @@
 QPI is a distributed quantum control stack architecture designed to manage, schedule, and execute quantum circuits across multiple Quantum Processing Units (QPUs). 
 
 It consists of three main components:
-1. **Orchestrator (`qpi-ui`)**: A Go-based server that manages the job queue, user time-slot bookings, and dispatches jobs to available QPUs. It includes a built-in React web dashboard.
-2. **Hardware Driver (`qpi-driver`)**: A Python daemon that runs alongside the actual quantum hardware (or simulator), executing incoming jobs from the Orchestrator and returning results.
+1. **Server (`qpi-ui`)**: A Go-based server that manages the job queue, user time-slot bookings, and dispatches jobs to available QPUs. It includes a built-in React web dashboard.
+2. **Hardware Driver (`qpi-driver`)**: A Python daemon that runs alongside the actual quantum hardware (or simulator), executing incoming jobs from the Server and returning results.
 3. **Clients**: SDKs (Python, Go, JS) for end-users to submit OpenQASM (or Qiskit) quantum jobs over the network.
 
 ```mermaid
 flowchart LR
-    User[Clients] -->|Submit Quantum Jobs| Orchestrator
-    Orchestrator -->|Dispatch Jobs| Driver1[QPI Driver]
-    Orchestrator -->|Dispatch Jobs| Driver2[QPI Driver]
+    User[Clients] -->|Submit Quantum Jobs| Server
+    Server -->|Dispatch Jobs| Driver1[QPI Driver]
+    Server -->|Dispatch Jobs| Driver2[QPI Driver]
     Driver1 -->|Control| Hardware1[Physical QPU]
     Driver2 -->|Control| Hardware2[Simulated QPU]
 ```
@@ -45,7 +45,7 @@ flowchart LR
 * **Python**: `~= 3.12`
 * **Nodejs**: `>= 20.x` (tested up to `22.x`)
 
-### 1. Start the Orchestrator
+### 1. Start the Server
 
 Compile and run the PocketBase Go server (this automatically builds the React dashboard if you use `make`):
 
@@ -85,8 +85,8 @@ print(job)
 ## Architecture Deep Dive
 
 The architecture consists of four primary components under the hood:
-1. **PocketBase Go Orchestrator (`qpi-ui/main.go`):** Extends PocketBase with Go, handling job queues, session-based bookings, and real-time job dispatching. Actively listens for LAN connections on dynamically allocated network ports.
-2. **React SPA Dashboard (`qpi-ui/internal/dashboard`):** Single-page application built with Vite, React 19, TypeScript, and Tailwind CSS. It is served directly from the orchestrator (via `//go:embed`) at `/dashboard/` for viewing jobs, allocating QPU time, scheduling announcements, managing bookings, and observing calibration telemetry.
+1. **PocketBase Go Server (`qpi-ui/main.go`):** Extends PocketBase with Go, handling job queues, session-based bookings, and real-time job dispatching. Actively listens for LAN connections on dynamically allocated network ports.
+2. **React SPA Dashboard (`qpi-ui/internal/dashboard`):** Single-page application built with Vite, React 19, TypeScript, and Tailwind CSS. It is served directly from the server (via `//go:embed`) at `/dashboard/` for viewing jobs, allocating QPU time, scheduling announcements, managing bookings, and observing calibration telemetry.
 3. **Python Hardware Driver (`qpi-driver`):** Runs on isolated hardware nodes controlling the QPU. Uses Python's `multiprocessing` library to isolate network handling, quantum circuit compilation/simulation, and translation into separate processes.
 4. **QPI Clients (Python, JavaScript, Go):** SDKs for submitting jobs to the quantum computer using OpenQASM specification (and Qiskit circuits if one uses the Python client)
 
@@ -94,7 +94,7 @@ To optimize performance and simplify communication over multiprocessing queues, 
 
 ```mermaid
 graph TD
-    subgraph pocketbase [PocketBase Go Orchestrator]
+    subgraph pocketbase [PocketBase Go Server]
         PB[PocketBase API / DB]
         Dispatcher[NNG PUSH Dispatcher]
         Listener[NNG PULL Listener]
@@ -122,15 +122,15 @@ graph TD
     ResultSender -->|3. NNG PUSH Result Port| Listener
 ```
 
-### Key Orchestrator Features
+### Key Server Features
 * **Session-Based Booking with Opportunistic FIFO:** Dispatches jobs prioritizing users who have booked the current time slot. Fallback mechanism allows other users' pending jobs to execute if the slot booker is idle.
 * **Auto-Schema Migration & Port Allocation:** Automatically creates required database collections (`qpus`, `time_slots`, `quantum_jobs`, `qpu_time_requests`, `notifications`) and dynamically allocates race-free TCP ports for registered QPUs.
 * **Stale Job Recovery:** A background ticking routine monitors running jobs and resets them to `pending` if their driver hangs or disconnects (timeout default: 20 seconds).
 * **Admin Notifications:** Broadcast or targeted notifications with time-window visibility and per-user dismiss support. Only superusers can create, update, or delete notifications. Authenticated users see only notifications relevant to them (broadcast or targeted) that are within their active time window and not dismissed.
 
-### Orchestrator Configuration Options
+### Server Configuration Options
 
-The Go orchestrator can be configured via CLI flags, environment variables, or a configuration file (JSON or YAML, specified via `--config-file` or `QPI_CONFIG_FILE`). The precedence hierarchy is: CLI Flag > Env Var > Config File > Default.
+The Go server can be configured via CLI flags, environment variables, or a configuration file (JSON or YAML, specified via `--config-file` or `QPI_CONFIG_FILE`). The precedence hierarchy is: CLI Flag > Env Var > Config File > Default.
 
 | CLI Option | Environment Variable | Default | Description |
 |---|---|---|---|
@@ -158,9 +158,9 @@ The Go orchestrator can be configured via CLI flags, environment variables, or a
 
 ---
 
-## Orchestrator API & Collections
+## Server API & Collections
 
-The orchestrator exposes both **custom HTTP routes** and **PocketBase collection endpoints** for client interaction.
+The server exposes both **custom HTTP routes** and **PocketBase collection endpoints** for client interaction.
 
 ### Custom Routes
 
@@ -289,7 +289,7 @@ Compiles and runs circuits using `qblox-scheduler`.
 The package exposes a command-line interface via `typer`. Options can be passed as CLI arguments/flags or will automatically fall back to their corresponding environment variables.
 
 Common options:
-* `-a`, `--qpi-addr`: Full URL of the QPI orchestrator (env: `QPI_ADDR`, default: `http://127.0.0.1:8090`).
+* `-a`, `--qpi-addr`: Full URL of the QPI server (env: `QPI_ADDR`, default: `http://127.0.0.1:8090`).
 * `-t`, `--token`: Access token for the QPU (env: `QPI_ACCESS_TOKEN`, required).
 * `-n`, `--name`: Human-readable name for this QPU (env: `QPU_NAME`, default: `qpu_sim_01`).
 * `-e`, `--executor`: Which executor backend to use (env: `DRIVER_BACKEND`, default: `mock`).

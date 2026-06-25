@@ -4,7 +4,7 @@
 # Usage:
 #   source "$(dirname "$0")/lib.sh"
 #
-# Provides: build_orchestrator, build_js_client, detect_python, install_driver,
+# Provides: build_server, build_js_client, detect_python, install_driver,
 #           install_py_client, start_pocketbase, stop_pocketbase, seed_database,
 #           start_driver, stop_driver, run_verify
 
@@ -38,8 +38,8 @@ trap cleanup EXIT
 # ---------------------------------------------------------------------------
 # Build
 # ---------------------------------------------------------------------------
-build_orchestrator() {
-    echo "[e2e] Building Go orchestrator..."
+build_server() {
+    echo "[e2e] Building Go server..."
     mkdir -p "${PROJECT_ROOT}/bin"
     (cd "${PROJECT_ROOT}/qpi-ui" && go build -o ../bin/qpi .)
 }
@@ -190,11 +190,11 @@ start_driver() {
         extra_flags="--quantify-hardware-config ${PROJECT_ROOT}/qpi-driver/tests/fixtures/quantify.hardware.json --quantify-device-config ${PROJECT_ROOT}/qpi-driver/tests/fixtures/quantify.device.yml"
     fi
 
-    # Fetch the CA fingerprint from the orchestrator for TLS verification
+    # Fetch the CA fingerprint from the server for TLS verification
     local ca_fingerprint
     ca_fingerprint=$(curl -s http://127.0.0.1:8090/api/pub/root-ca.pem | openssl x509 -outform DER | sha256sum | cut -d' ' -f1)
     if [ -z "$ca_fingerprint" ]; then
-        echo "[e2e] Failed to fetch CA fingerprint from orchestrator"
+        echo "[e2e] Failed to fetch CA fingerprint from server"
         exit 1
     fi
     echo "[e2e] CA fingerprint: $ca_fingerprint"

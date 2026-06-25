@@ -10,7 +10,7 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 ### Added
 
 - `qpi-driver`: Added `install-systemd.sh` script to automate installation of the driver as a systemd background service.
-- `qpi-ui`: Added an admin-only endpoint `GET /api/op/version` to retrieve the orchestrator's version.
+- `qpi-ui`: Added an admin-only endpoint `GET /api/op/version` to retrieve the server's version.
 - `qpi-ui`: Added a dynamic version label to the dashboard sidebar (visible only to admins).
 - `qpi-ui`: Updated the QPU Registration success modal to generate and display a copyable `install-systemd.sh` execution snippet.
 - `ci`: Added a dedicated E2E testing job (`test-systemd-installer`) in GitHub Actions to validate the systemd installation script via a Docker container.

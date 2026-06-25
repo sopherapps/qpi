@@ -51,7 +51,7 @@ export interface JobRecord {
 
 /** Options for constructing a {@link QPIClient}. */
 export interface QPIClientOptions {
-  /** Root URL of the QPI orchestrator, e.g. `"http://localhost:8090"`. */
+  /** Root URL of the QPI server, e.g. `"http://localhost:8090"`. */
   baseUrl: string;
   /**
    * API token for authentication.  Sent as `X-API-Token` header.
@@ -89,7 +89,7 @@ export class QPIError extends Error {
 // ---------------------------------------------------------------------------
 
 /**
- * HTTP client for the QPI orchestrator REST API.
+ * HTTP client for the QPI server REST API.
  *
  * All methods are `async` and return parsed JSON responses.  Network and
  * server errors are surfaced as {@link QPIError} instances.

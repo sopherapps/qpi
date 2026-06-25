@@ -15,7 +15,7 @@ echo "[e2e] Running Python client E2E smoke test"
 echo "========================================================================"
 echo ""
 
-build_orchestrator
+build_server
 install_driver
 install_py_client
 

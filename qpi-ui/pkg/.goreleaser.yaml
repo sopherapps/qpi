@@ -48,7 +48,7 @@ nfpms:
     file_name_template: "qpi_{{ .Version }}_{{ .Arch }}"
     maintainer: "SopherApps <team.sopherapps@gmail.com>"
     description: |
-      Quantum Processing Interface (QPI) Orchestrator
+      Quantum Processing Interface (QPI) Server
       QPI is a distributed quantum control stack architecture designed
       to control multiple Quantum Processing Units (QPUs).
     homepage: https://github.com/SopherApps/qpi
