@@ -1,6 +1,6 @@
 .PHONY: all build build-dashboard test lint lint-go lint-py lint-js lint-dashboard lint-go-client lint-py-client format format-go format-py format-js format-dashboard format-go-client format-py-client package package-driver package-js package-py package-go clean venv-check test-e2e-dashboard
 
-VERSION ?= 0.0.27
+VERSION ?= 0.0.28
 UV := $(shell command -v uv 2> /dev/null || echo "$$HOME/.local/bin/uv")
 
 all: build

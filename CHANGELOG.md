@@ -7,6 +7,12 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 
 ## [Unreleased]
 
+## [0.0.28] - 2026-06-25
+
+### Fixed
+
+- `ci`: Fixed failing lint step in CI by updating `uv sync` flags.
+
 ## [0.0.27] - 2026-06-25
 
 ### Fixed
