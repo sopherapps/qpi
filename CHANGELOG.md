@@ -9,6 +9,12 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 
 ## [0.0.26] - 2026-06-25
 
+### Fixed
+
+- `qpi-ui`: Reverted the hiding of the "QPU Registry" dashboard tab for standard non-admin users so that they can see existing QPUs (but cannot register or toggle them).
+
+## [0.0.25] - 2026-06-25
+
 ### Added
 
 - `qpi-driver`: Added `install-systemd.sh` script to automate installation of the driver as a systemd background service.
