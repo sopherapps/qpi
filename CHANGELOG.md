@@ -7,6 +7,12 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 
 ## [Unreleased]
 
+## [0.0.27] - 2026-06-25
+
+### Fixed
+
+- `qpi-ui`: Fixed `CHANGELOG.md` versioning mismatch and correctly restored `0.0.25` entries. Bumping version to `0.0.27` due to tag immutability on `0.0.26`.
+
 ## [0.0.26] - 2026-06-25
 
 ### Fixed
