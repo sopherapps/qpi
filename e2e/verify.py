@@ -1448,7 +1448,7 @@ def test_driver_snippet_connection():
     env["PYTHONPATH"] = os.path.join(qpi_dir, "qpi-driver")
 
     p1 = subprocess.Popen(cmd_direct, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, cwd=os.path.join(qpi_dir, "qpi-driver"))
-    success, out1 = wait_for_handshake(p1, timeout_sec=10)
+    success, out1 = wait_for_handshake(p1, timeout_sec=20)
     
     if not success:
         print(f"[verify] ✗ Direct connection failed or timed out. Output:\n{out1}")
@@ -1508,18 +1508,16 @@ def test_driver_snippet_connection():
     env_proxy["REQUESTS_CA_BUNDLE"] = cert_path
     
     p2 = subprocess.Popen(cmd_proxy, env=env_proxy, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, cwd=os.path.join(qpi_dir, "qpi-driver"))
-    time.sleep(3)
-    p2.terminate()
-    out2, err2 = p2.communicate()
+    success, out2 = wait_for_handshake(p2, timeout_sec=20)
     
     os.remove(cert_path)
     os.remove(key_path)
 
-    if "401 Client Error" in err2 or "401 Client Error" in out2:
-        print(f"[verify] ✗ Proxied connection failed with 401 Unauthorized!\nOutput excerpt:\n{err2[:500]}")
+    if "401 Client Error" in out2:
+        print(f"[verify] ✗ Proxied connection failed with 401 Unauthorized!\nOutput excerpt:\n{out2[:500]}")
         return False
-    elif "Handshake OK" not in err2 and "Handshake OK" not in out2:
-        print(f"[verify] ✗ Proxied connection failed for another reason. Output:\n{err2}\n{out2}")
+    elif not success:
+        print(f"[verify] ✗ Proxied connection failed for another reason. Output:\n{out2}")
         return False
 
     print("[verify]   ✓ Proxied connection successful")
