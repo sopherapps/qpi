@@ -7,6 +7,8 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 
 ## [Unreleased]
 
+## [0.0.25] - 2026-06-25
+
 ### Added
 
 - `qpi-driver`: Added `install-systemd.sh` script to automate installation of the driver as a systemd background service.
