@@ -152,63 +152,67 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                 ))}
               </div>
 
-              <div className="relative pt-4 pb-2">
-                <div className="absolute inset-0 flex items-center pt-2">
-                  <span className="w-full border-t border-zinc-800" />
+              {(!authMethods || authMethods.password?.enabled !== false) && (
+                <div className="relative pt-4 pb-2">
+                  <div className="absolute inset-0 flex items-center pt-2">
+                    <span className="w-full border-t border-zinc-800" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-zinc-900 px-2 text-zinc-500 font-medium tracking-wider">
+                      Or use credentials
+                    </span>
+                  </div>
                 </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-zinc-900 px-2 text-zinc-500 font-medium tracking-wider">
-                    Or use credentials
-                  </span>
-                </div>
+              )}
+            </div>
+          )}
+
+        {(!authMethods || role === "admin" || authMethods.password?.enabled !== false) && (
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label className="block text-xs font-medium text-zinc-400 mb-1.5 uppercase tracking-wider">
+                Email or Username
+              </label>
+              <input
+                type="text"
+                required
+                value={identity}
+                onChange={(e) => setIdentity(e.target.value)}
+                className="w-full bg-zinc-950 border border-zinc-800 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-zinc-500 transition-colors"
+                placeholder={
+                  role === "admin" ? "admin@example.com" : "user@example.com"
+                }
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-zinc-400 mb-1.5 uppercase tracking-wider">
+                Password
+              </label>
+              <input
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full bg-zinc-950 border border-zinc-800 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-zinc-500 transition-colors"
+                placeholder="••••••••"
+              />
+            </div>
+
+            {error && (
+              <div className="text-xs text-error font-medium bg-error/10 border border-error/20 p-2.5 rounded">
+                {error}
               </div>
-            </div>
-          )}
+            )}
 
-        <form onSubmit={handleLogin} className="space-y-4">
-          <div>
-            <label className="block text-xs font-medium text-zinc-400 mb-1.5 uppercase tracking-wider">
-              Email or Username
-            </label>
-            <input
-              type="text"
-              required
-              value={identity}
-              onChange={(e) => setIdentity(e.target.value)}
-              className="w-full bg-zinc-950 border border-zinc-800 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-zinc-500 transition-colors"
-              placeholder={
-                role === "admin" ? "admin@example.com" : "user@example.com"
-              }
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-zinc-400 mb-1.5 uppercase tracking-wider">
-              Password
-            </label>
-            <input
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-zinc-950 border border-zinc-800 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-zinc-500 transition-colors"
-              placeholder="••••••••"
-            />
-          </div>
-
-          {error && (
-            <div className="text-xs text-error font-medium bg-error/10 border border-error/20 p-2.5 rounded">
-              {error}
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-white text-zinc-950 font-geist font-semibold py-2.5 rounded hover:opacity-90 transition-opacity flex justify-center items-center gap-2 disabled:opacity-50"
-          >
-            {loading ? "Signing In..." : "Sign In"}
-          </button>
-        </form>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-white text-zinc-950 font-geist font-semibold py-2.5 rounded hover:opacity-90 transition-opacity flex justify-center items-center gap-2 disabled:opacity-50"
+            >
+              {loading ? "Signing In..." : "Sign In"}
+            </button>
+          </form>
+        )}
       </div>
     </div>
   );

@@ -67,4 +67,66 @@ describe("Auth — Login & Logout", () => {
     cy.contains("button", "Regular User").click();
     cy.contains("button", "Regular User").should("have.class", "border-white");
   });
+
+  it("hides the password form for regular users if password auth is disabled", () => {
+    // 1. Log in as admin
+    cy.contains("button", "Administrator").click();
+    cy.get('input[type="text"]').clear().type("admin@example.com");
+    cy.get('input[type="password"]').clear().type("supersecretpassword1234");
+    cy.get('button[type="submit"]').click();
+    cy.contains("h1", "QPI Interface").should("be.visible");
+
+    // 2. Set password auth off via PocketBase API
+    cy.window().then((win) => {
+      const pbAuth = JSON.parse(win.localStorage.getItem("pocketbase_auth") || "{}");
+      cy.request({
+        method: "PATCH",
+        url: "http://127.0.0.1:8090/api/collections/users",
+        headers: { Authorization: pbAuth.token },
+        body: { passwordAuth: { enabled: false, identityFields: ["email"] } }
+      });
+    });
+
+    // 3. Logout
+    cy.contains("button", "Profile Settings").click();
+    cy.contains("button", "Sign Out").click();
+
+    // 4. Verify regular user doesn't see username/password form
+    cy.contains("button", "Regular User").click();
+    cy.get('input[type="text"]').should("not.exist");
+    cy.get('input[type="password"]').should("not.exist");
+    cy.contains("button", "Sign In").should("not.exist");
+    cy.contains("Or use credentials").should("not.exist");
+  });
+
+  it("shows the password form for regular users if password auth is enabled", () => {
+    // 1. Log in as admin
+    cy.contains("button", "Administrator").click();
+    cy.get('input[type="text"]').clear().type("admin@example.com");
+    cy.get('input[type="password"]').clear().type("supersecretpassword1234");
+    cy.get('button[type="submit"]').click();
+    cy.contains("h1", "QPI Interface").should("be.visible");
+
+    // 2. Set password auth on via PocketBase API
+    cy.window().then((win) => {
+      const pbAuth = JSON.parse(win.localStorage.getItem("pocketbase_auth") || "{}");
+      cy.request({
+        method: "PATCH",
+        url: "http://127.0.0.1:8090/api/collections/users",
+        headers: { Authorization: pbAuth.token },
+        body: { passwordAuth: { enabled: true, identityFields: ["email"] } }
+      });
+    });
+
+    // 3. Logout
+    cy.contains("button", "Profile Settings").click();
+    cy.contains("button", "Sign Out").click();
+
+    // 4. Verify regular user DOES see the form
+    cy.contains("button", "Regular User").click();
+    cy.get('input[type="text"]').should("be.visible");
+    cy.get('input[type="password"]').should("be.visible");
+    cy.contains("button", "Sign In").should("be.visible");
+  });
 });
+
