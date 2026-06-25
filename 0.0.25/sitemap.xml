@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+    <url>
+         <loc>https://sopherapps.github.io/qpi/0.0.25/</loc>
+         <lastmod>2026-06-25</lastmod>
+    </url>
+    <url>
+         <loc>https://sopherapps.github.io/qpi/0.0.25/changelog/</loc>
+         <lastmod>2026-06-25</lastmod>
+    </url>
+    <url>
+         <loc>https://sopherapps.github.io/qpi/0.0.25/clients/go/</loc>
+         <lastmod>2026-06-25</lastmod>
+    </url>
+    <url>
+         <loc>https://sopherapps.github.io/qpi/0.0.25/clients/javascript/</loc>
+         <lastmod>2026-06-25</lastmod>
+    </url>
+    <url>
+         <loc>https://sopherapps.github.io/qpi/0.0.25/clients/python/</loc>
+         <lastmod>2026-06-25</lastmod>
+    </url>
+    <url>
+         <loc>https://sopherapps.github.io/qpi/0.0.25/clients/python_api/</loc>
+         <lastmod>2026-06-25</lastmod>
+    </url>
+    <url>
+         <loc>https://sopherapps.github.io/qpi/0.0.25/driver/</loc>
+         <lastmod>2026-06-25</lastmod>
+    </url>
+    <url>
+         <loc>https://sopherapps.github.io/qpi/0.0.25/driver/api/</loc>
+         <lastmod>2026-06-25</lastmod>
+    </url>
+</urlset>
