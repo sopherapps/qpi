@@ -32,7 +32,8 @@ describe("QPU Registry — Regular User View", () => {
     // Each card shows status badge
     cy.contains("span", "offline").should("exist");
 
-    // Each card shows executor driver
+    // Each card shows executor driver label and a non-empty value
     cy.contains("span", "Executor Driver").should("exist");
+    cy.get('[data-testid="executor-value"]').should("not.be.empty");
   });
 });

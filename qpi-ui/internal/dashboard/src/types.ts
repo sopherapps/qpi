@@ -12,7 +12,7 @@ export interface QPU {
   nng_command_port: number;
   nng_result_port: number;
   enabled: boolean;
-  executor: "mock" | "qiskit_aer" | "quantify" | "presto" | "qblox";
+  executor_type: "mock" | "qiskit_aer" | "quantify" | "presto" | "qblox";
   calibration_data?: unknown;
 }
 

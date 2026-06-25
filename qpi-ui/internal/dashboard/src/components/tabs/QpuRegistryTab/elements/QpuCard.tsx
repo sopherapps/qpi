@@ -55,8 +55,8 @@ export function QpuCard({ qpu, isAdmin, onToggle }: Props) {
             <span className="text-zinc-500 block uppercase tracking-wider text-[10px] mb-1">
               Executor Driver
             </span>
-            <span className="font-mono text-zinc-300 bg-zinc-950 px-2 py-0.5 rounded border border-zinc-800">
-              {qpu.executor}
+            <span data-testid="executor-value" className="font-mono text-zinc-300 bg-zinc-950 px-2 py-0.5 rounded border border-zinc-800">
+              {qpu.executor_type}
             </span>
           </div>
           <div>
