@@ -98,17 +98,17 @@ describe("Overview & Header — Metrics Row", () => {
   });
 
   it("navigates to the corresponding tab when clicking on a card", () => {
-    cy.contains("Active QPUs").parent().parent().click();
+    cy.contains("Active QPUs").closest("a").click();
     cy.hash().should("eq", "#qpus");
 
-    cy.get('nav button:contains("Overview")').click();
+    cy.get('nav button').contains("Overview").click();
 
-    cy.contains("Queue Status").parent().parent().click();
+    cy.contains("Queue Status").closest("a").click();
     cy.hash().should("eq", "#jobs");
 
-    cy.get('nav button:contains("Overview")').click();
+    cy.get('nav button').contains("Overview").click();
 
-    cy.contains("Next Booking").parent().parent().click();
+    cy.contains("Next Booking").closest("a").click();
     cy.hash().should("eq", "#bookings");
   });
 });
