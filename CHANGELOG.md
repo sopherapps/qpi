@@ -7,6 +7,12 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 
 ## [Unreleased]
 
+## [0.0.32] - 2026-06-26
+
+### Fixed
+
+- `qpi`: Fixed various linting errors across the Go and React UI codebases.
+
 ## [0.0.31] - 2026-06-26
 
 ### Changed
