@@ -7,6 +7,20 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 
 ## [Unreleased]
 
+### Added
+
+- `qpi-ui`: Added an admin option to delete QPUs from the QPU Registry, complete with a confirmation modal.
+- `qpi-ui`: Added a user profile dropdown menu in the dashboard top bar for quick access to settings and signing out.
+
+### Changed
+
+- `qpi-ui`: Restricted the "Create QPU" and "Toggle Status" buttons in the QPU Registry tab to administrators only, while still allowing standard users to view available QPUs.
+- `qpi-ui`: Conditionally hide the username and password login fields if `passwordAuth` is disabled in the PocketBase users collection.
+
+### Fixed
+
+- `qpi-ui`: Fixed the QPU Registry cards to properly display the Executor Driver (`executor_type`).
+
 ## [0.0.29] - 2026-06-25
 
 ### Fixed

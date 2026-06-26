@@ -337,6 +337,15 @@ export const App: React.FC = () => {
     loadQpus();
   };
 
+  const handleDeleteQpu = async (id: string) => {
+    try {
+      await pb.collection("qpus").delete(id);
+      loadQpus();
+    } catch (err: unknown) {
+      alert(`Failed to delete QPU: ${(err as Error).message}`);
+    }
+  };
+
   const handleCreateQpu = async (
     name: string,
     executor: string,
@@ -448,6 +457,7 @@ export const App: React.FC = () => {
             isAdmin={isAdmin}
             onToggleQpu={handleToggleQpu}
             onRegisterQpu={handleCreateQpu}
+            onDeleteQpu={handleDeleteQpu}
           />
         );
       case "jobs":

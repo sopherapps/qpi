@@ -9,6 +9,7 @@ interface QpuRegistryTabProps {
   isAdmin: boolean;
   onToggleQpu: (id: string, enabled: boolean) => Promise<void>;
   onRegisterQpu: (name: string, executor: string) => Promise<CreateQpuResponse>;
+  onDeleteQpu: (id: string) => Promise<void>;
 }
 
 export const QpuRegistryTab: React.FC<QpuRegistryTabProps> = ({
@@ -16,6 +17,7 @@ export const QpuRegistryTab: React.FC<QpuRegistryTabProps> = ({
   isAdmin,
   onToggleQpu,
   onRegisterQpu,
+  onDeleteQpu,
 }) => {
   const [modalOpen, setModalOpen] = useState(false);
 
@@ -48,6 +50,7 @@ export const QpuRegistryTab: React.FC<QpuRegistryTabProps> = ({
             qpu={qpu}
             isAdmin={isAdmin}
             onToggle={onToggleQpu}
+            onDelete={onDeleteQpu}
           />
         ))}
       </div>
