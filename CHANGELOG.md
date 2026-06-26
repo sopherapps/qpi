@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project follows versions of format `{year}.{month}.{patch_number}`.
 
 ## [Unreleased]
+
+## [0.0.30] - 2026-06-26
 ### Added
 - Light mode support for the dashboard UI with a theme toggle. Dark mode remains the default.
 - Cross-tab authentication logout synchronization using `pb.authStore.onChange`.
