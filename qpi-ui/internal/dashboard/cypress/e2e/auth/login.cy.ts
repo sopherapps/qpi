@@ -160,7 +160,7 @@ describe("Auth — Login & Logout", () => {
 
     // 5. Simulate another tab logging back in
     cy.window().then((win) => {
-      expect(validAuthData).to.not.be.null;
+      expect(validAuthData).to.not.equal(null);
       win.localStorage.setItem("pocketbase_auth", validAuthData!);
       win.dispatchEvent(new StorageEvent("storage", {
         key: "pocketbase_auth",

@@ -75,9 +75,9 @@ func getCurrentUser(re *core.RequestEvent) (*db.User, error) {
 			if len(username) > 5 {
 				username = username[:5]
 			}
-			record.Set("username", "admin_" + username)
+			record.Set("username", "admin_"+username)
 			record.Set("qpu_seconds", 999999999.0)
-			
+
 			if err := re.App.SaveNoValidate(record); err != nil {
 				log.Printf("Failed to create proxy user: %v", err)
 				return nil, re.Error(http.StatusInternalServerError, "failed to provision proxy user", err)
