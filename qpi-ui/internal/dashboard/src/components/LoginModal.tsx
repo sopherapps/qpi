@@ -167,7 +167,9 @@ export const LoginModal: React.FC<LoginModalProps> = ({
             </div>
           )}
 
-        {(!authMethods || role === "admin" || authMethods.password?.enabled !== false) && (
+        {(!authMethods ||
+          role === "admin" ||
+          authMethods.password?.enabled !== false) && (
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
               <label className="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1.5 uppercase tracking-wider">

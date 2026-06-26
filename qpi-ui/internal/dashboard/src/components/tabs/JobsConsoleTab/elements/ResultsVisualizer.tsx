@@ -33,7 +33,9 @@ export function ResultsVisualizer({ viewedJob, activeTab }: Props) {
     const keys = Object.keys(counts);
     if (keys.length === 0) {
       return (
-        <div className="text-gray-400 dark:text-zinc-500 text-sm">No counts data available.</div>
+        <div className="text-gray-400 dark:text-zinc-500 text-sm">
+          No counts data available.
+        </div>
       );
     }
 
@@ -56,7 +58,9 @@ export function ResultsVisualizer({ viewedJob, activeTab }: Props) {
                   className="w-full bg-indigo-500 hover:bg-indigo-400 transition-colors rounded-t-sm"
                   style={{ height: `${percent * 0.8}%` }}
                 />
-                <span className="font-mono text-gray-900 dark:text-white text-xs mt-2">{k}</span>
+                <span className="font-mono text-gray-900 dark:text-white text-xs mt-2">
+                  {k}
+                </span>
               </div>
             );
           })}
@@ -155,7 +159,11 @@ export function ResultsVisualizer({ viewedJob, activeTab }: Props) {
     // Plot first qubit trace
     const qubitTrace = memory[0] || [];
     if (qubitTrace.length === 0) {
-      return <div className="text-gray-400 dark:text-zinc-500 text-sm">No trace points.</div>;
+      return (
+        <div className="text-gray-400 dark:text-zinc-500 text-sm">
+          No trace points.
+        </div>
+      );
     }
 
     let pathPoints = "";

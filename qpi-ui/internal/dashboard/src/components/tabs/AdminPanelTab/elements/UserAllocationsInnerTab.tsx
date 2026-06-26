@@ -28,7 +28,10 @@ export function UserAllocationsInnerTab({
           <tbody className="text-sm text-gray-600 dark:text-zinc-300 divide-y divide-zinc-800/50">
             {users.length === 0 ? (
               <tr>
-                <td colSpan={4} className="py-8 px-4 text-center text-gray-400 dark:text-zinc-500">
+                <td
+                  colSpan={4}
+                  className="py-8 px-4 text-center text-gray-400 dark:text-zinc-500"
+                >
                   Loading registered users...
                 </td>
               </tr>
@@ -41,7 +44,9 @@ export function UserAllocationsInnerTab({
                   <td className="py-3.5 px-4 font-mono text-xs text-gray-900 dark:text-white">
                     {u.id}
                   </td>
-                  <td className="py-3.5 px-4 text-gray-500 dark:text-zinc-400">{u.email}</td>
+                  <td className="py-3.5 px-4 text-gray-500 dark:text-zinc-400">
+                    {u.email}
+                  </td>
                   <td className="py-3.5 px-4 font-mono text-gray-600 dark:text-zinc-300">
                     {u.qpu_seconds}s
                   </td>

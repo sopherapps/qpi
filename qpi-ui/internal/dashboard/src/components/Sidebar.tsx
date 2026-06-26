@@ -77,7 +77,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div className="p-4 border-t border-gray-200 dark:border-zinc-800">
         <div className="bg-gray-50 dark:bg-zinc-950/40 border border-gray-200 dark:border-zinc-800 rounded p-3 space-y-2">
           <div className="flex justify-between items-center text-xs">
-            <span className="text-gray-500 dark:text-zinc-400">QPU Balance</span>
+            <span className="text-gray-500 dark:text-zinc-400">
+              QPU Balance
+            </span>
             <span className="font-mono text-gray-900 dark:text-white font-semibold">
               {qpuSeconds}s
             </span>

@@ -36,7 +36,9 @@ export function ProfileCard({
       <div className="space-y-4">
         <div className="flex justify-between items-center text-sm py-2 border-b border-gray-200 dark:border-zinc-800/50">
           <span className="text-gray-500 dark:text-zinc-400">Account ID</span>
-          <span className="font-mono text-gray-900 dark:text-white font-medium">{userId}</span>
+          <span className="font-mono text-gray-900 dark:text-white font-medium">
+            {userId}
+          </span>
         </div>
         <div className="flex justify-between items-center text-sm py-2 border-b border-gray-200 dark:border-zinc-800/50">
           <span className="text-gray-500 dark:text-zinc-400">Account Type</span>
@@ -45,7 +47,9 @@ export function ProfileCard({
           </span>
         </div>
         <div className="flex justify-between items-center text-sm py-2 border-b border-gray-200 dark:border-zinc-800/50">
-          <span className="text-gray-500 dark:text-zinc-400">Allocated QPU Seconds</span>
+          <span className="text-gray-500 dark:text-zinc-400">
+            Allocated QPU Seconds
+          </span>
           <span className="font-mono text-gray-900 dark:text-white font-medium">
             {qpuSeconds}s
           </span>

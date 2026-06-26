@@ -63,7 +63,9 @@ export function RecentJobsTable({ jobs, qpus }: Props) {
                       <td className="py-3.5 px-4 font-mono text-xs text-gray-900 dark:text-white">
                         {job.id}
                       </td>
-                      <td className="py-3.5 px-4 text-gray-500 dark:text-zinc-400">{targetQpu}</td>
+                      <td className="py-3.5 px-4 text-gray-500 dark:text-zinc-400">
+                        {targetQpu}
+                      </td>
                       <td className="py-3.5 px-4">
                         <span
                           className={`inline-flex px-2 py-0.5 rounded-full border text-[10px] uppercase font-semibold ${getStatusBadgeClass(

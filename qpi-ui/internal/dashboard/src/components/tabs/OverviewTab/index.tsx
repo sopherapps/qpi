@@ -28,7 +28,9 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
       {/* Title & Actions */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-geist text-gray-900 dark:text-white">Overview</h1>
+          <h1 className="text-3xl font-geist text-gray-900 dark:text-white">
+            Overview
+          </h1>
           <p className="text-sm text-gray-500 dark:text-zinc-400 mt-1">
             System status and resource consumption.
           </p>

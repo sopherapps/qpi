@@ -78,7 +78,9 @@ export const AdminPanelTab: React.FC<AdminPanelTabProps> = ({
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-geist text-gray-900 dark:text-white">Admin Panel</h1>
+        <h1 className="text-3xl font-geist text-gray-900 dark:text-white">
+          Admin Panel
+        </h1>
         <p className="text-sm text-gray-500 dark:text-zinc-400 mt-1">
           Superuser controls for quota management and broadcasts.
         </p>

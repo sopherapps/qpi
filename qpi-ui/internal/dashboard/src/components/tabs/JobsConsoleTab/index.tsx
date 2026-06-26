@@ -53,7 +53,9 @@ export const JobsConsoleTab: React.FC<JobsConsoleTabProps> = ({
   return (
     <div className="space-y-6 h-full flex flex-col">
       <div>
-        <h1 className="text-3xl font-geist text-gray-900 dark:text-white">Jobs Console</h1>
+        <h1 className="text-3xl font-geist text-gray-900 dark:text-white">
+          Jobs Console
+        </h1>
         <p className="text-sm text-gray-500 dark:text-zinc-400 mt-1">
           Configure, write QASM, and execute circuits.
         </p>

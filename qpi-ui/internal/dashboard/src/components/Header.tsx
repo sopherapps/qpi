@@ -24,7 +24,7 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  
+
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const profileDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -149,8 +149,13 @@ export const Header: React.FC<HeaderProps> = ({
         <ThemeToggle />
 
         {/* User menu */}
-        <div className="relative flex items-center gap-3" ref={profileDropdownRef}>
-          <span className="text-xs text-gray-500 dark:text-zinc-400 font-medium">{userEmail}</span>
+        <div
+          className="relative flex items-center gap-3"
+          ref={profileDropdownRef}
+        >
+          <span className="text-xs text-gray-500 dark:text-zinc-400 font-medium">
+            {userEmail}
+          </span>
           <button
             data-testid="user-avatar"
             onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}

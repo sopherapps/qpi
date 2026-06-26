@@ -28,7 +28,10 @@ export function TimeRequestsInnerTab({
           <tbody className="text-sm text-gray-600 dark:text-zinc-300 divide-y divide-zinc-800/50">
             {timeRequests.length === 0 ? (
               <tr>
-                <td colSpan={5} className="py-8 px-4 text-center text-gray-400 dark:text-zinc-500">
+                <td
+                  colSpan={5}
+                  className="py-8 px-4 text-center text-gray-400 dark:text-zinc-500"
+                >
                   No time requests found.
                 </td>
               </tr>
