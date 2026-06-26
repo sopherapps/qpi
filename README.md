@@ -334,8 +334,6 @@ make clean
 ## TODOs
 
 - [ ] Add a way of translating the configuration files (calib seed etc.) of tergite to the quantify.device.yml of this one
-- [ ] Fix "authentication required" on submitting job in the job console
-- [ ] On job console, clarify what load example button does
 
 ## License
 

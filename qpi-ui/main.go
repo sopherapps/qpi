@@ -20,7 +20,7 @@ import (
 //go:embed all:internal/dashboard/dist
 var dashboardFS embed.FS
 
-var Version = "v0.0.30"
+var Version = "v0.0.31"
 
 func main() {
 	app := pocketbase.New()

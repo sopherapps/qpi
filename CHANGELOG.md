@@ -7,6 +7,8 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 
 ## [Unreleased]
 
+## [0.0.31] - 2026-06-26
+
 ### Changed
 
 - `qpi-ui`: Made the metric cards on the Overview dashboard (Active QPUs, Queue Status, Next Booking) clickable so they quickly route to their respective tabs.
