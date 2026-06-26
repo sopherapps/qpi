@@ -45,22 +45,22 @@ export function BookSlotModal({ onClose, onBook }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/80 backdrop-blur-sm">
-      <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-lg shadow-2xl p-6 space-y-4">
-        <div className="flex justify-between items-center border-b border-zinc-800 pb-3">
-          <h3 className="text-lg font-semibold font-geist text-white">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-50 dark:bg-zinc-950/80 backdrop-blur-sm">
+      <div className="w-full max-w-md bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-lg shadow-2xl p-6 space-y-4">
+        <div className="flex justify-between items-center border-b border-gray-200 dark:border-zinc-800 pb-3">
+          <h3 className="text-lg font-semibold font-geist text-gray-900 dark:text-white">
             Book Time Slot
           </h3>
           <button
             onClick={onClose}
-            className="text-zinc-400 hover:text-white focus:outline-none"
+            className="text-gray-500 dark:text-zinc-400 hover:text-gray-900 dark:text-white focus:outline-none"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4 text-sm">
           <div>
-            <label className="block text-xs font-medium text-zinc-400 mb-1.5 uppercase tracking-wider">
+            <label className="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1.5 uppercase tracking-wider">
               Start Time
             </label>
             <input
@@ -68,11 +68,11 @@ export function BookSlotModal({ onClose, onBook }: Props) {
               required
               value={startTime}
               onChange={(e) => setStartTime(e.target.value)}
-              className="w-full bg-zinc-950 border border-zinc-800 rounded px-3 py-2 text-white focus:outline-none focus:border-zinc-500 transition-colors"
+              className="w-full bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-zinc-800 rounded px-3 py-2 text-gray-900 dark:text-white focus:outline-none focus:border-zinc-500 transition-colors"
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-zinc-400 mb-1.5 uppercase tracking-wider">
+            <label className="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1.5 uppercase tracking-wider">
               End Time
             </label>
             <input
@@ -80,7 +80,7 @@ export function BookSlotModal({ onClose, onBook }: Props) {
               required
               value={endTime}
               onChange={(e) => setEndTime(e.target.value)}
-              className="w-full bg-zinc-950 border border-zinc-800 rounded px-3 py-2 text-white focus:outline-none focus:border-zinc-500 transition-colors"
+              className="w-full bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-zinc-800 rounded px-3 py-2 text-gray-900 dark:text-white focus:outline-none focus:border-zinc-500 transition-colors"
             />
           </div>
 

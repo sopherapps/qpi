@@ -16,23 +16,23 @@ function getStatusBadgeClass(status: string) {
     case "failed":
       return "bg-red-500/10 border-red-500/20 text-red-400";
     case "cancelled":
-      return "bg-zinc-500/10 border-zinc-500/20 text-zinc-400";
+      return "bg-zinc-500/10 border-zinc-500/20 text-gray-500 dark:text-zinc-400";
     default:
-      return "bg-zinc-500/10 border-zinc-500/20 text-zinc-400";
+      return "bg-zinc-500/10 border-zinc-500/20 text-gray-500 dark:text-zinc-400";
   }
 }
 
 export function RecentJobsTable({ jobs, qpus }: Props) {
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold text-white font-geist">
+      <h3 className="text-lg font-semibold text-gray-900 dark:text-white font-geist">
         Recent Job Executions
       </h3>
-      <div className="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden">
+      <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-zinc-800 text-zinc-400 text-xs font-semibold uppercase tracking-wider bg-zinc-900/50">
+              <tr className="border-b border-gray-200 dark:border-zinc-800 text-gray-500 dark:text-zinc-400 text-xs font-semibold uppercase tracking-wider bg-white dark:bg-zinc-900/50">
                 <th className="py-3 px-4">Job ID</th>
                 <th className="py-3 px-4">QPU Target</th>
                 <th className="py-3 px-4">Status</th>
@@ -40,12 +40,12 @@ export function RecentJobsTable({ jobs, qpus }: Props) {
                 <th className="py-3 px-4 text-right">Finished</th>
               </tr>
             </thead>
-            <tbody className="text-sm text-zinc-300 divide-y divide-zinc-800/50">
+            <tbody className="text-sm text-gray-600 dark:text-zinc-300 divide-y divide-zinc-800/50">
               {jobs.length === 0 ? (
                 <tr>
                   <td
                     colSpan={5}
-                    className="py-8 px-4 text-center text-zinc-500"
+                    className="py-8 px-4 text-center text-gray-400 dark:text-zinc-500"
                   >
                     No jobs submitted yet.
                   </td>
@@ -58,12 +58,12 @@ export function RecentJobsTable({ jobs, qpus }: Props) {
                   return (
                     <tr
                       key={job.id}
-                      className="hover:bg-zinc-800/20 transition-colors"
+                      className="hover:bg-gray-100 dark:bg-zinc-800/20 transition-colors"
                     >
-                      <td className="py-3.5 px-4 font-mono text-xs text-white">
+                      <td className="py-3.5 px-4 font-mono text-xs text-gray-900 dark:text-white">
                         {job.id}
                       </td>
-                      <td className="py-3.5 px-4 text-zinc-400">{targetQpu}</td>
+                      <td className="py-3.5 px-4 text-gray-500 dark:text-zinc-400">{targetQpu}</td>
                       <td className="py-3.5 px-4">
                         <span
                           className={`inline-flex px-2 py-0.5 rounded-full border text-[10px] uppercase font-semibold ${getStatusBadgeClass(
@@ -73,10 +73,10 @@ export function RecentJobsTable({ jobs, qpus }: Props) {
                           {job.status}
                         </span>
                       </td>
-                      <td className="py-3.5 px-4 text-zinc-400 text-xs">
+                      <td className="py-3.5 px-4 text-gray-500 dark:text-zinc-400 text-xs">
                         {new Date(job.created).toLocaleString()}
                       </td>
-                      <td className="py-3.5 px-4 text-zinc-400 text-xs text-right">
+                      <td className="py-3.5 px-4 text-gray-500 dark:text-zinc-400 text-xs text-right">
                         {job.finished_at
                           ? new Date(job.finished_at).toLocaleString()
                           : "-"}

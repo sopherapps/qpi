@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project follows versions of format `{year}.{month}.{patch_number}`.
 
 ## [Unreleased]
+### Added
+- Light mode support for the dashboard UI with a theme toggle. Dark mode remains the default.
+- Cross-tab authentication logout synchronization using `pb.authStore.onChange`.
+- Ability for administrators to delete QPUs from the QPU Registry with a confirmation modal.
 
 ### Added
 

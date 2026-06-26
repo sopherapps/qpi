@@ -2,7 +2,7 @@ import { type PropsWithChildren } from "react";
 
 export function InnerTabBar({ onTabClick, currentTab }: Props) {
   return (
-    <div className="flex border-b border-zinc-800 mb-6">
+    <div className="flex border-b border-gray-200 dark:border-zinc-800 mb-6">
       <_TabBtn
         value="users"
         onClick={onTabClick}
@@ -39,8 +39,8 @@ function _TabBtn({
       onClick={() => onClick(value)}
       className={`px-4 py-2 font-geist text-sm transition-all -mb-[1px] ${
         isActive
-          ? "text-white border-b-2 border-white font-medium"
-          : "text-zinc-500 hover:text-zinc-300"
+          ? "text-gray-900 dark:text-white border-b-2 border-white font-medium"
+          : "text-gray-400 dark:text-zinc-500 hover:text-gray-600 dark:text-zinc-300"
       }`}
     >
       {children}

@@ -13,11 +13,11 @@ export function TimeRequestsInnerTab({
   onReject,
 }: Props) {
   return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden">
+    <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-lg overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="border-b border-zinc-800 text-zinc-400 text-xs font-semibold uppercase tracking-wider bg-zinc-900/50">
+            <tr className="border-b border-gray-200 dark:border-zinc-800 text-gray-500 dark:text-zinc-400 text-xs font-semibold uppercase tracking-wider bg-white dark:bg-zinc-900/50">
               <th className="py-3 px-4">User</th>
               <th className="py-3 px-4">Requested (seconds)</th>
               <th className="py-3 px-4">Reason</th>
@@ -25,10 +25,10 @@ export function TimeRequestsInnerTab({
               <th className="py-3 px-4 text-right">Actions</th>
             </tr>
           </thead>
-          <tbody className="text-sm text-zinc-300 divide-y divide-zinc-800/50">
+          <tbody className="text-sm text-gray-600 dark:text-zinc-300 divide-y divide-zinc-800/50">
             {timeRequests.length === 0 ? (
               <tr>
-                <td colSpan={5} className="py-8 px-4 text-center text-zinc-500">
+                <td colSpan={5} className="py-8 px-4 text-center text-gray-400 dark:text-zinc-500">
                   No time requests found.
                 </td>
               </tr>
@@ -40,15 +40,15 @@ export function TimeRequestsInnerTab({
                   <tr
                     key={req.id}
                     data-testid="time-request-row"
-                    className="hover:bg-zinc-800/20 transition-colors"
+                    className="hover:bg-gray-100 dark:bg-zinc-800/20 transition-colors"
                   >
-                    <td className="py-3.5 px-4 font-medium text-white">
+                    <td className="py-3.5 px-4 font-medium text-gray-900 dark:text-white">
                       {userName}
                     </td>
-                    <td className="py-3.5 px-4 font-mono text-zinc-300">
+                    <td className="py-3.5 px-4 font-mono text-gray-600 dark:text-zinc-300">
                       {req.seconds}s
                     </td>
-                    <td className="py-3.5 px-4 text-zinc-400 text-xs">
+                    <td className="py-3.5 px-4 text-gray-500 dark:text-zinc-400 text-xs">
                       {req.requested_reason}
                     </td>
                     <td className="py-3.5 px-4">
@@ -69,19 +69,19 @@ export function TimeRequestsInnerTab({
                         <div className="inline-flex gap-2">
                           <button
                             onClick={() => onApprove(req.id)}
-                            className="bg-green-600 hover:bg-green-500 text-white p-1 rounded transition-colors focus:outline-none"
+                            className="bg-green-600 hover:bg-green-500 text-gray-900 dark:text-white p-1 rounded transition-colors focus:outline-none"
                           >
                             <Check className="lucide-check w-4 h-4" />
                           </button>
                           <button
                             onClick={() => onReject(req.id)}
-                            className="bg-red-600 hover:bg-red-500 text-white p-1 rounded transition-colors focus:outline-none"
+                            className="bg-red-600 hover:bg-red-500 text-gray-900 dark:text-white p-1 rounded transition-colors focus:outline-none"
                           >
                             <X className="lucide-x w-4 h-4" />
                           </button>
                         </div>
                       ) : (
-                        <span className="text-xs text-zinc-500 font-medium">
+                        <span className="text-xs text-gray-400 dark:text-zinc-500 font-medium">
                           Processed
                         </span>
                       )}

@@ -71,39 +71,39 @@ export function RegisterQpuModal({ onClose, onRegister }: Props) {
     const systemdCommandText = getDriverSystemdCmd(createdQpu);
 
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/80 backdrop-blur-sm animate-fade-in">
-        <div className="w-full max-w-lg bg-zinc-900 border border-zinc-800 rounded-lg shadow-2xl p-6 space-y-5 max-h-[90vh] overflow-y-auto">
-          <div className="flex justify-between items-center border-b border-zinc-800 pb-3">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-50 dark:bg-zinc-950/80 backdrop-blur-sm animate-fade-in">
+        <div className="w-full max-w-lg bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-lg shadow-2xl p-6 space-y-5 max-h-[90vh] overflow-y-auto">
+          <div className="flex justify-between items-center border-b border-gray-200 dark:border-zinc-800 pb-3">
             <h3 className="text-lg font-semibold font-geist text-emerald-400">
               QPU Registered Successfully!
             </h3>
             <button
               onClick={onClose}
-              className="text-zinc-400 hover:text-white focus:outline-none"
+              className="text-gray-500 dark:text-zinc-400 hover:text-gray-900 dark:text-white focus:outline-none"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
 
-          <div className="space-y-4 text-sm text-zinc-300">
+          <div className="space-y-4 text-sm text-gray-600 dark:text-zinc-300">
             <p>
               Your QPU <strong>{createdQpu.name}</strong> has been registered.
               Copy the credentials below to configure your QPU driver.
             </p>
 
-            <div className="bg-zinc-950 border border-zinc-800 rounded p-4 space-y-4">
+            <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-zinc-800 rounded p-4 space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1">
+                <label className="block text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wider mb-1">
                   Access Token
                 </label>
                 <div className="flex items-center gap-2">
-                  <span className="flex-1 font-mono bg-zinc-900 border border-zinc-800 px-3 py-1.5 rounded text-white overflow-x-auto whitespace-nowrap">
+                  <span className="flex-1 font-mono bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 px-3 py-1.5 rounded text-gray-900 dark:text-white overflow-x-auto whitespace-nowrap">
                     {createdQpu.access_token}
                   </span>
                   <button
                     type="button"
                     onClick={handleCopyToken}
-                    className="p-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded transition-colors focus:outline-none flex items-center justify-center min-w-[36px]"
+                    className="p-2 bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 text-gray-900 dark:text-white rounded transition-colors focus:outline-none flex items-center justify-center min-w-[36px]"
                     title="Copy Token"
                   >
                     {copiedToken ? (
@@ -119,17 +119,17 @@ export function RegisterQpuModal({ onClose, onRegister }: Props) {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1">
+                <label className="block text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wider mb-1">
                   Connection Command
                 </label>
                 <div className="flex items-start gap-2">
-                  <pre className="flex-1 font-mono bg-zinc-900 border border-zinc-800 p-3 rounded text-zinc-200 text-xs overflow-x-auto whitespace-pre-wrap break-all leading-relaxed max-h-40">
+                  <pre className="flex-1 font-mono bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 p-3 rounded text-gray-700 dark:text-zinc-200 text-xs overflow-x-auto whitespace-pre-wrap break-all leading-relaxed max-h-40">
                     {commandText}
                   </pre>
                   <button
                     type="button"
                     onClick={handleCopyCommand}
-                    className="p-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded transition-colors focus:outline-none flex items-center justify-center min-w-[36px] mt-1"
+                    className="p-2 bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 text-gray-900 dark:text-white rounded transition-colors focus:outline-none flex items-center justify-center min-w-[36px] mt-1"
                     title="Copy Connection Command"
                   >
                     {copiedCommand ? (
@@ -142,17 +142,17 @@ export function RegisterQpuModal({ onClose, onRegister }: Props) {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1">
+                <label className="block text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wider mb-1">
                   Installation Command (Systemd)
                 </label>
                 <div className="flex items-start gap-2">
-                  <pre className="flex-1 font-mono bg-zinc-900 border border-zinc-800 p-3 rounded text-zinc-200 text-xs overflow-x-auto whitespace-pre-wrap break-all leading-relaxed max-h-40">
+                  <pre className="flex-1 font-mono bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 p-3 rounded text-gray-700 dark:text-zinc-200 text-xs overflow-x-auto whitespace-pre-wrap break-all leading-relaxed max-h-40">
                     {systemdCommandText}
                   </pre>
                   <button
                     type="button"
                     onClick={handleCopySystemdCommand}
-                    className="p-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded transition-colors focus:outline-none flex items-center justify-center min-w-[36px] mt-1"
+                    className="p-2 bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 text-gray-900 dark:text-white rounded transition-colors focus:outline-none flex items-center justify-center min-w-[36px] mt-1"
                     title="Copy Systemd Command"
                   >
                     {copiedSystemdCommand ? (
@@ -181,22 +181,22 @@ export function RegisterQpuModal({ onClose, onRegister }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/80 backdrop-blur-sm">
-      <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-lg shadow-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
-        <div className="flex justify-between items-center border-b border-zinc-800 pb-3">
-          <h3 className="text-lg font-semibold font-geist text-white">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-50 dark:bg-zinc-950/80 backdrop-blur-sm">
+      <div className="w-full max-w-md bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-lg shadow-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center border-b border-gray-200 dark:border-zinc-800 pb-3">
+          <h3 className="text-lg font-semibold font-geist text-gray-900 dark:text-white">
             Register QPU
           </h3>
           <button
             onClick={onClose}
-            className="text-zinc-400 hover:text-white focus:outline-none"
+            className="text-gray-500 dark:text-zinc-400 hover:text-gray-900 dark:text-white focus:outline-none"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4 text-sm">
           <div>
-            <label className="block text-xs font-medium text-zinc-400 mb-1.5 uppercase tracking-wider">
+            <label className="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1.5 uppercase tracking-wider">
               QPU ID/Name
             </label>
             <input
@@ -204,18 +204,18 @@ export function RegisterQpuModal({ onClose, onRegister }: Props) {
               required
               value={regName}
               onChange={(e) => setRegName(e.target.value)}
-              className="w-full bg-zinc-950 border border-zinc-800 rounded px-3 py-2 text-white focus:outline-none focus:border-zinc-500 transition-colors"
+              className="w-full bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-zinc-800 rounded px-3 py-2 text-gray-900 dark:text-white focus:outline-none focus:border-zinc-500 transition-colors"
               placeholder="rigetti-aspen-9"
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-zinc-400 mb-1.5 uppercase tracking-wider">
+            <label className="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1.5 uppercase tracking-wider">
               Executor Type
             </label>
             <select
               value={regExecutor}
               onChange={(e) => setRegExecutor(e.target.value)}
-              className="w-full bg-zinc-950 border border-zinc-800 text-white rounded px-3 py-2 focus:outline-none focus:border-zinc-500 transition-colors"
+              className="w-full bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-zinc-800 text-gray-900 dark:text-white rounded px-3 py-2 focus:outline-none focus:border-zinc-500 transition-colors"
             >
               <option value="mock">mock (Local Simulator)</option>
               <option value="qiskit_aer">qiskit_aer (Aer Simulator)</option>

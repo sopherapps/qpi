@@ -16,26 +16,26 @@ export function ReservationsTable({
 }: Props) {
   return (
     <>
-      <h3 className="text-lg font-semibold text-white font-geist">
+      <h3 className="text-lg font-semibold text-gray-900 dark:text-white font-geist">
         Scheduled Reservations
       </h3>
-      <div className="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden">
+      <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-zinc-800 text-zinc-400 text-xs font-semibold uppercase tracking-wider bg-zinc-900/50">
+              <tr className="border-b border-gray-200 dark:border-zinc-800 text-gray-500 dark:text-zinc-400 text-xs font-semibold uppercase tracking-wider bg-white dark:bg-zinc-900/50">
                 <th className="py-3 px-4">Booked By</th>
                 <th className="py-3 px-4">Start Time</th>
                 <th className="py-3 px-4">End Time</th>
                 <th className="py-3 px-4 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="text-sm text-zinc-300 divide-y divide-zinc-800/50">
+            <tbody className="text-sm text-gray-600 dark:text-zinc-300 divide-y divide-zinc-800/50">
               {bookings.length === 0 ? (
                 <tr>
                   <td
                     colSpan={4}
-                    className="py-8 px-4 text-center text-zinc-500 font-medium"
+                    className="py-8 px-4 text-center text-gray-400 dark:text-zinc-500 font-medium"
                   >
                     No booking slots scheduled yet.
                   </td>
@@ -48,15 +48,15 @@ export function ReservationsTable({
                   return (
                     <tr
                       key={slot.id}
-                      className="hover:bg-zinc-800/20 transition-colors"
+                      className="hover:bg-gray-100 dark:bg-zinc-800/20 transition-colors"
                     >
-                      <td className="py-3.5 px-4 font-medium text-white">
+                      <td className="py-3.5 px-4 font-medium text-gray-900 dark:text-white">
                         {bookedByName}
                       </td>
-                      <td className="py-3.5 px-4 text-zinc-400">
+                      <td className="py-3.5 px-4 text-gray-500 dark:text-zinc-400">
                         {new Date(slot.start_time).toLocaleString()}
                       </td>
-                      <td className="py-3.5 px-4 text-zinc-400">
+                      <td className="py-3.5 px-4 text-gray-500 dark:text-zinc-400">
                         {new Date(slot.end_time).toLocaleString()}
                       </td>
                       <td className="py-3.5 px-4 text-right">

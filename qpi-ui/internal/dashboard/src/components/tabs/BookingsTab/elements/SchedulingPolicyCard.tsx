@@ -1,10 +1,10 @@
 export function SchedulingPolicyCard() {
   return (
-    <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-lg space-y-4">
-      <h3 className="text-base font-bold text-white font-geist">
+    <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 p-6 rounded-lg space-y-4">
+      <h3 className="text-base font-bold text-gray-900 dark:text-white font-geist">
         Scheduling Policy
       </h3>
-      <div className="space-y-3 text-xs text-zinc-400 leading-relaxed">
+      <div className="space-y-3 text-xs text-gray-500 dark:text-zinc-400 leading-relaxed">
         <p>
           <strong>Dedicated Window:</strong> When you book a slot, you have
           exclusive priority to submit jobs to the active QPUs.

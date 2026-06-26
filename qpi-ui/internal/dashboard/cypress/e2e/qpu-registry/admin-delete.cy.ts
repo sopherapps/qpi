@@ -49,7 +49,7 @@ describe("QPU Registry — Admin: Delete QPU", () => {
 
     // Find the newly created QPU card by its name, and click its Delete button
     cy.contains("h3", qpuToDelete)
-      .parents("div.bg-zinc-900") // find the card container
+      .parents("div.bg-white") // find the card container
       .contains("button", "Delete")
       .click();
 

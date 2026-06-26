@@ -33,70 +33,70 @@ export function MetricsRow({ qpus, jobs, qpuSeconds, bookings }: Props) {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-      <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-lg flex flex-col justify-between">
+      <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 p-6 rounded-lg flex flex-col justify-between">
         <div className="flex justify-between items-start mb-4">
-          <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+          <span className="text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
             Active QPUs
           </span>
-          <Cpu className="w-5 h-5 text-zinc-500" />
+          <Cpu className="w-5 h-5 text-gray-400 dark:text-zinc-500" />
         </div>
         <div>
-          <div className="text-2xl font-geist font-bold text-white mb-1">
+          <div className="text-2xl font-geist font-bold text-gray-900 dark:text-white mb-1">
             {onlineQpus}/{qpus.length}
           </div>
-          <div className="flex items-center gap-2 text-xs text-zinc-400">
+          <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-zinc-400">
             <span className="w-2 h-2 rounded-full bg-green-500"></span> Online
             units
           </div>
         </div>
       </div>
 
-      <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-lg flex flex-col justify-between">
+      <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 p-6 rounded-lg flex flex-col justify-between">
         <div className="flex justify-between items-start mb-4">
-          <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+          <span className="text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
             Queue Status
           </span>
-          <RefreshCw className="w-5 h-5 text-zinc-500" />
+          <RefreshCw className="w-5 h-5 text-gray-400 dark:text-zinc-500" />
         </div>
         <div>
-          <div className="text-2xl font-geist font-bold text-white mb-1">
+          <div className="text-2xl font-geist font-bold text-gray-900 dark:text-white mb-1">
             {pendingJobs + runningJobs} jobs
           </div>
-          <div className="text-xs text-zinc-400">
+          <div className="text-xs text-gray-500 dark:text-zinc-400">
             {pendingJobs} pending, {runningJobs} running
           </div>
         </div>
       </div>
 
-      <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-lg flex flex-col justify-between">
+      <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 p-6 rounded-lg flex flex-col justify-between">
         <div className="flex justify-between items-start mb-4">
-          <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+          <span className="text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
             Time Credit
           </span>
-          <Timer className="w-5 h-5 text-zinc-500" />
+          <Timer className="w-5 h-5 text-gray-400 dark:text-zinc-500" />
         </div>
         <div>
-          <div className="text-2xl font-geist font-bold text-white mb-1">
+          <div className="text-2xl font-geist font-bold text-gray-900 dark:text-white mb-1">
             {qpuSeconds}s
           </div>
-          <div className="text-xs text-zinc-400">Remaining seconds</div>
+          <div className="text-xs text-gray-500 dark:text-zinc-400">Remaining seconds</div>
         </div>
       </div>
 
-      <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-lg flex flex-col justify-between">
+      <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 p-6 rounded-lg flex flex-col justify-between">
         <div className="flex justify-between items-start mb-4">
-          <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+          <span className="text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
             Next Booking
           </span>
-          <Calendar className="w-5 h-5 text-zinc-500" />
+          <Calendar className="w-5 h-5 text-gray-400 dark:text-zinc-500" />
         </div>
         <div>
-          <div className="text-lg font-geist font-bold text-white mb-1 truncate">
+          <div className="text-lg font-geist font-bold text-gray-900 dark:text-white mb-1 truncate">
             {nextBooking
               ? formatBookingTime(nextBooking.start_time)
               : "None Scheduled"}
           </div>
-          <div className="text-xs text-zinc-400">
+          <div className="text-xs text-gray-500 dark:text-zinc-400">
             {nextBooking ? "Dedicated Window" : "No active reservations"}
           </div>
         </div>

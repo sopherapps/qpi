@@ -26,8 +26,8 @@ export const QpuRegistryTab: React.FC<QpuRegistryTabProps> = ({
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-geist text-white">QPU Registry</h1>
-          <p className="text-sm text-zinc-400 mt-1">
+          <h1 className="text-3xl font-geist text-gray-900 dark:text-white">QPU Registry</h1>
+          <p className="text-sm text-gray-500 dark:text-zinc-400 mt-1">
             Manage and monitor physical/simulator processing units.
           </p>
         </div>

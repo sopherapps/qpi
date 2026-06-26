@@ -85,23 +85,23 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   return (
     <div
       data-testid="login-modal"
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-zinc-950/80 backdrop-blur-md"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-gray-50 dark:bg-zinc-950/80 backdrop-blur-md"
     >
-      <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-lg shadow-2xl p-8 space-y-6">
+      <div className="w-full max-w-md bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-lg shadow-2xl p-8 space-y-6">
         <div className="text-center">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-zinc-800 text-white mb-4 border border-zinc-700">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gray-100 dark:bg-zinc-800 text-gray-900 dark:text-white mb-4 border border-gray-300 dark:border-zinc-700">
             <Lock className="w-6 h-6" />
           </div>
-          <h2 className="text-2xl font-geist font-bold text-white">
+          <h2 className="text-2xl font-geist font-bold text-gray-900 dark:text-white">
             Sign in to QPI
           </h2>
-          <p className="text-sm text-zinc-400 mt-1">
+          <p className="text-sm text-gray-500 dark:text-zinc-400 mt-1">
             Access your quantum computing environment
           </p>
         </div>
 
         {/* Role tabs */}
-        <div className="flex border-b border-zinc-800">
+        <div className="flex border-b border-gray-200 dark:border-zinc-800">
           <button
             type="button"
             onClick={() => {
@@ -110,8 +110,8 @@ export const LoginModal: React.FC<LoginModalProps> = ({
             }}
             className={`flex-1 pb-2 font-geist text-sm text-center border-b-2 font-medium focus:outline-none transition-all ${
               role === "user"
-                ? "border-white text-white"
-                : "border-transparent text-zinc-400 hover:text-zinc-200"
+                ? "border-white text-gray-900 dark:text-white"
+                : "border-transparent text-gray-500 dark:text-zinc-400 hover:text-gray-700 dark:text-zinc-200"
             }`}
           >
             Regular User
@@ -124,8 +124,8 @@ export const LoginModal: React.FC<LoginModalProps> = ({
             }}
             className={`flex-1 pb-2 font-geist text-sm text-center border-b-2 font-medium focus:outline-none transition-all ${
               role === "admin"
-                ? "border-white text-white"
-                : "border-transparent text-zinc-400 hover:text-zinc-200"
+                ? "border-white text-gray-900 dark:text-white"
+                : "border-transparent text-gray-500 dark:text-zinc-400 hover:text-gray-700 dark:text-zinc-200"
             }`}
           >
             Administrator
@@ -143,7 +143,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                     type="button"
                     disabled={loading}
                     onClick={() => handleOAuth2Login(provider.name)}
-                    className="w-full bg-zinc-800 hover:bg-zinc-700 text-white font-medium py-2 px-4 rounded transition-colors flex items-center justify-center gap-2 border border-zinc-700 disabled:opacity-50"
+                    className="w-full bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 text-gray-900 dark:text-white font-medium py-2 px-4 rounded transition-colors flex items-center justify-center gap-2 border border-gray-300 dark:border-zinc-700 disabled:opacity-50"
                   >
                     <span className="capitalize">
                       Continue with {provider.name}
@@ -155,10 +155,10 @@ export const LoginModal: React.FC<LoginModalProps> = ({
               {(!authMethods || authMethods.password?.enabled !== false) && (
                 <div className="relative pt-4 pb-2">
                   <div className="absolute inset-0 flex items-center pt-2">
-                    <span className="w-full border-t border-zinc-800" />
+                    <span className="w-full border-t border-gray-200 dark:border-zinc-800" />
                   </div>
                   <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-zinc-900 px-2 text-zinc-500 font-medium tracking-wider">
+                    <span className="bg-white dark:bg-zinc-900 px-2 text-gray-400 dark:text-zinc-500 font-medium tracking-wider">
                       Or use credentials
                     </span>
                   </div>
@@ -170,7 +170,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
         {(!authMethods || role === "admin" || authMethods.password?.enabled !== false) && (
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="block text-xs font-medium text-zinc-400 mb-1.5 uppercase tracking-wider">
+              <label className="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1.5 uppercase tracking-wider">
                 Email or Username
               </label>
               <input
@@ -178,14 +178,14 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                 required
                 value={identity}
                 onChange={(e) => setIdentity(e.target.value)}
-                className="w-full bg-zinc-950 border border-zinc-800 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-zinc-500 transition-colors"
+                className="w-full bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-zinc-800 rounded px-3 py-2 text-gray-900 dark:text-white text-sm focus:outline-none focus:border-zinc-500 transition-colors"
                 placeholder={
                   role === "admin" ? "admin@example.com" : "user@example.com"
                 }
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-zinc-400 mb-1.5 uppercase tracking-wider">
+              <label className="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1.5 uppercase tracking-wider">
                 Password
               </label>
               <input
@@ -193,7 +193,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-zinc-950 border border-zinc-800 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-zinc-500 transition-colors"
+                className="w-full bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-zinc-800 rounded px-3 py-2 text-gray-900 dark:text-white text-sm focus:outline-none focus:border-zinc-500 transition-colors"
                 placeholder="••••••••"
               />
             </div>

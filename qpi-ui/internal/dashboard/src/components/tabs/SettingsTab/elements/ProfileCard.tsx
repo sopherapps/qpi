@@ -20,33 +20,33 @@ export function ProfileCard({
   onLogout,
 }: Props) {
   return (
-    <div className="max-w-xl bg-zinc-900 border border-zinc-800 rounded-lg p-6 space-y-6">
-      <div className="flex items-center gap-4 border-b border-zinc-800 pb-6">
-        <div className="w-16 h-16 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-white text-2xl font-semibold uppercase">
+    <div className="max-w-xl bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-lg p-6 space-y-6">
+      <div className="flex items-center gap-4 border-b border-gray-200 dark:border-zinc-800 pb-6">
+        <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 flex items-center justify-center text-gray-900 dark:text-white text-2xl font-semibold uppercase">
           {getInitials(email)}
         </div>
         <div>
-          <h3 className="text-lg font-bold text-white font-geist">
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white font-geist">
             {email.split("@")[0]}
           </h3>
-          <p className="text-sm text-zinc-400">{email}</p>
+          <p className="text-sm text-gray-500 dark:text-zinc-400">{email}</p>
         </div>
       </div>
 
       <div className="space-y-4">
-        <div className="flex justify-between items-center text-sm py-2 border-b border-zinc-800/50">
-          <span className="text-zinc-400">Account ID</span>
-          <span className="font-mono text-white font-medium">{userId}</span>
+        <div className="flex justify-between items-center text-sm py-2 border-b border-gray-200 dark:border-zinc-800/50">
+          <span className="text-gray-500 dark:text-zinc-400">Account ID</span>
+          <span className="font-mono text-gray-900 dark:text-white font-medium">{userId}</span>
         </div>
-        <div className="flex justify-between items-center text-sm py-2 border-b border-zinc-800/50">
-          <span className="text-zinc-400">Account Type</span>
-          <span className="text-white font-medium">
+        <div className="flex justify-between items-center text-sm py-2 border-b border-gray-200 dark:border-zinc-800/50">
+          <span className="text-gray-500 dark:text-zinc-400">Account Type</span>
+          <span className="text-gray-900 dark:text-white font-medium">
             {isAdmin ? "Administrator" : "Standard User"}
           </span>
         </div>
-        <div className="flex justify-between items-center text-sm py-2 border-b border-zinc-800/50">
-          <span className="text-zinc-400">Allocated QPU Seconds</span>
-          <span className="font-mono text-white font-medium">
+        <div className="flex justify-between items-center text-sm py-2 border-b border-gray-200 dark:border-zinc-800/50">
+          <span className="text-gray-500 dark:text-zinc-400">Allocated QPU Seconds</span>
+          <span className="font-mono text-gray-900 dark:text-white font-medium">
             {qpuSeconds}s
           </span>
         </div>

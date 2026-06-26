@@ -493,7 +493,7 @@ export const App: React.FC = () => {
             onRejectRequest={handleRejectRequest}
           />
         ) : (
-          <div className="text-zinc-500">Access Denied.</div>
+          <div className="text-gray-400 dark:text-zinc-500">Access Denied.</div>
         );
       case "settings":
         return (

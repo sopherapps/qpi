@@ -42,13 +42,13 @@ export function BroadcastAnnouncementInnerTab({ onBroadcast }: Props) {
   };
 
   return (
-    <div className="max-w-xl bg-zinc-900 border border-zinc-800 rounded-lg p-6 space-y-4">
-      <h3 className="text-lg font-semibold text-white font-geist">
+    <div className="max-w-xl bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-lg p-6 space-y-4">
+      <h3 className="text-lg font-semibold text-gray-900 dark:text-white font-geist">
         Compose Announcement
       </h3>
       <form onSubmit={handleSubmit} className="space-y-4 text-sm">
         <div>
-          <label className="block text-xs font-medium text-zinc-400 mb-1.5 uppercase tracking-wider">
+          <label className="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1.5 uppercase tracking-wider">
             Announcement Title
           </label>
           <input
@@ -56,43 +56,43 @@ export function BroadcastAnnouncementInnerTab({ onBroadcast }: Props) {
             required
             value={annTitle}
             onChange={(e) => setAnnTitle(e.target.value)}
-            className="w-full bg-zinc-950 border border-zinc-800 rounded px-3 py-2 text-white focus:outline-none focus:border-zinc-500 transition-colors"
+            className="w-full bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-zinc-800 rounded px-3 py-2 text-gray-900 dark:text-white focus:outline-none focus:border-zinc-500 transition-colors"
             placeholder="QPU Maintenance Schedule"
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-zinc-400 mb-1.5 uppercase tracking-wider">
+          <label className="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1.5 uppercase tracking-wider">
             Description
           </label>
           <textarea
             required
             value={annDesc}
             onChange={(e) => setAnnDesc(e.target.value)}
-            className="w-full bg-zinc-950 border border-zinc-800 rounded px-3 py-2 text-white focus:outline-none focus:border-zinc-500 transition-colors h-24"
+            className="w-full bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-zinc-800 rounded px-3 py-2 text-gray-900 dark:text-white focus:outline-none focus:border-zinc-500 transition-colors h-24"
             placeholder="Rigetti Aspen-9 will be offline for calibration tomorrow..."
           />
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-medium text-zinc-400 mb-1.5 uppercase tracking-wider">
+            <label className="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1.5 uppercase tracking-wider">
               Start Time
             </label>
             <input
               type="datetime-local"
               value={annStart}
               onChange={(e) => setAnnStart(e.target.value)}
-              className="w-full bg-zinc-950 border border-zinc-800 rounded px-3 py-2 text-white focus:outline-none focus:border-zinc-500 transition-colors"
+              className="w-full bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-zinc-800 rounded px-3 py-2 text-gray-900 dark:text-white focus:outline-none focus:border-zinc-500 transition-colors"
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-zinc-400 mb-1.5 uppercase tracking-wider">
+            <label className="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1.5 uppercase tracking-wider">
               End Time
             </label>
             <input
               type="datetime-local"
               value={annEnd}
               onChange={(e) => setAnnEnd(e.target.value)}
-              className="w-full bg-zinc-950 border border-zinc-800 rounded px-3 py-2 text-white focus:outline-none focus:border-zinc-500 transition-colors"
+              className="w-full bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-zinc-800 rounded px-3 py-2 text-gray-900 dark:text-white focus:outline-none focus:border-zinc-500 transition-colors"
             />
           </div>
         </div>

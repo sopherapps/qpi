@@ -19,8 +19,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-geist text-white">Profile Settings</h1>
-        <p className="text-sm text-zinc-400 mt-1">
+        <h1 className="text-3xl font-geist text-gray-900 dark:text-white">Profile Settings</h1>
+        <p className="text-sm text-gray-500 dark:text-zinc-400 mt-1">
           Configure your personal QPI user parameters.
         </p>
       </div>

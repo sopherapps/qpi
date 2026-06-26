@@ -38,8 +38,8 @@ export const BookingsTab: React.FC<BookingsTabProps> = ({
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-geist text-white">Bookings</h1>
-          <p className="text-sm text-zinc-400 mt-1">
+          <h1 className="text-3xl font-geist text-gray-900 dark:text-white">Bookings</h1>
+          <p className="text-sm text-gray-500 dark:text-zinc-400 mt-1">
             Reserve QPU execution blocks to run priority jobs.
           </p>
         </div>

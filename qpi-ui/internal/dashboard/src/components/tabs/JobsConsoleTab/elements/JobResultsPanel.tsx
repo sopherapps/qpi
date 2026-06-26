@@ -13,11 +13,11 @@ export function JobResultsPanel({ viewedJob, qpus }: Props) {
   );
 
   return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6 flex flex-col gap-6 h-[650px] overflow-hidden">
-      <div className="flex items-start justify-between border-b border-zinc-800 pb-4">
+    <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-lg p-6 flex flex-col gap-6 h-[650px] overflow-hidden">
+      <div className="flex items-start justify-between border-b border-gray-200 dark:border-zinc-800 pb-4">
         <div>
           <div className="flex items-center gap-3 mb-1">
-            <h3 className="text-xl font-bold font-geist text-white">
+            <h3 className="text-xl font-bold font-geist text-gray-900 dark:text-white">
               {viewedJob
                 ? `#${viewedJob.id.substring(0, 8)}`
                 : "Select or run a job"}
@@ -38,7 +38,7 @@ export function JobResultsPanel({ viewedJob, qpus }: Props) {
               </div>
             )}
           </div>
-          <p className="text-xs text-zinc-400">
+          <p className="text-xs text-gray-500 dark:text-zinc-400">
             {viewedJob
               ? `Executed on ${qpus.find((q) => q.id === viewedJob.qpu_target)?.name || viewedJob.qpu_target}`
               : "No active job selected"}
@@ -47,20 +47,20 @@ export function JobResultsPanel({ viewedJob, qpus }: Props) {
         {viewedJob && (
           <div className="flex gap-4 text-right">
             <div>
-              <span className="block text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">
+              <span className="block text-[10px] font-semibold text-gray-400 dark:text-zinc-500 uppercase tracking-wider">
                 Duration
               </span>
-              <span className="font-mono text-sm text-white font-semibold">
+              <span className="font-mono text-sm text-gray-900 dark:text-white font-semibold">
                 {viewedJob.duration !== undefined
                   ? `${viewedJob.duration}s`
                   : "--"}
               </span>
             </div>
             <div>
-              <span className="block text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">
+              <span className="block text-[10px] font-semibold text-gray-400 dark:text-zinc-500 uppercase tracking-wider">
                 Created
               </span>
-              <span className="font-mono text-sm text-white font-semibold">
+              <span className="font-mono text-sm text-gray-900 dark:text-white font-semibold">
                 {new Date(viewedJob.created).toLocaleTimeString()}
               </span>
             </div>
@@ -69,13 +69,13 @@ export function JobResultsPanel({ viewedJob, qpus }: Props) {
       </div>
 
       {/* Tab view options */}
-      <div className="flex border-b border-zinc-800">
+      <div className="flex border-b border-gray-200 dark:border-zinc-800">
         <button
           onClick={() => setActiveTab("counts")}
           className={`px-4 py-2 font-geist text-sm transition-all -mb-[1px] ${
             activeTab === "counts"
-              ? "text-white border-b-2 border-white"
-              : "text-zinc-500 hover:text-zinc-300"
+              ? "text-gray-900 dark:text-white border-b-2 border-white"
+              : "text-gray-400 dark:text-zinc-500 hover:text-gray-600 dark:text-zinc-300"
           }`}
         >
           Counts Histogram
@@ -84,8 +84,8 @@ export function JobResultsPanel({ viewedJob, qpus }: Props) {
           onClick={() => setActiveTab("iq")}
           className={`px-4 py-2 font-geist text-sm transition-all -mb-[1px] ${
             activeTab === "iq"
-              ? "text-white border-b-2 border-white"
-              : "text-zinc-500 hover:text-zinc-300"
+              ? "text-gray-900 dark:text-white border-b-2 border-white"
+              : "text-gray-400 dark:text-zinc-500 hover:text-gray-600 dark:text-zinc-300"
           }`}
         >
           IQ Clusters
@@ -94,8 +94,8 @@ export function JobResultsPanel({ viewedJob, qpus }: Props) {
           onClick={() => setActiveTab("trace")}
           className={`px-4 py-2 font-geist text-sm transition-all -mb-[1px] ${
             activeTab === "trace"
-              ? "text-white border-b-2 border-white"
-              : "text-zinc-500 hover:text-zinc-300"
+              ? "text-gray-900 dark:text-white border-b-2 border-white"
+              : "text-gray-400 dark:text-zinc-500 hover:text-gray-600 dark:text-zinc-300"
           }`}
         >
           Raw Trace
@@ -103,7 +103,7 @@ export function JobResultsPanel({ viewedJob, qpus }: Props) {
       </div>
 
       {/* Chart body */}
-      <div className="flex-1 bg-zinc-950 border border-zinc-800 rounded p-6 flex flex-col items-center justify-center relative overflow-hidden">
+      <div className="flex-1 bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-zinc-800 rounded p-6 flex flex-col items-center justify-center relative overflow-hidden">
         <ResultsVisualizer viewedJob={viewedJob} activeTab={activeTab} />
       </div>
     </div>

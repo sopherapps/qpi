@@ -34,7 +34,7 @@ sleep 2
 
 status=0
 echo "[e2e] Executing Cypress spec tests..."
-(cd "${PROJECT_ROOT}/qpi-ui/internal/dashboard" && npx cypress run) || status=$?
+(cd "${PROJECT_ROOT}/qpi-ui/internal/dashboard" && npx cypress run "$@") || status=$?
 
 stop_driver
 stop_pocketbase

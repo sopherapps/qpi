@@ -8,7 +8,7 @@ interface Props {
 export function ResultsVisualizer({ viewedJob, activeTab }: Props) {
   if (!viewedJob) {
     return (
-      <div className="text-zinc-500 text-sm">
+      <div className="text-gray-400 dark:text-zinc-500 text-sm">
         Select a completed job to view results visualization.
       </div>
     );
@@ -16,7 +16,7 @@ export function ResultsVisualizer({ viewedJob, activeTab }: Props) {
 
   if (viewedJob.status !== "completed") {
     return (
-      <div className="text-zinc-500 text-sm">
+      <div className="text-gray-400 dark:text-zinc-500 text-sm">
         Job status is currently{" "}
         <span className="text-warning capitalize font-semibold">
           {viewedJob.status}
@@ -33,7 +33,7 @@ export function ResultsVisualizer({ viewedJob, activeTab }: Props) {
     const keys = Object.keys(counts);
     if (keys.length === 0) {
       return (
-        <div className="text-zinc-500 text-sm">No counts data available.</div>
+        <div className="text-gray-400 dark:text-zinc-500 text-sm">No counts data available.</div>
       );
     }
 
@@ -49,14 +49,14 @@ export function ResultsVisualizer({ viewedJob, activeTab }: Props) {
                 key={k}
                 className="w-full max-w-[60px] flex flex-col items-center gap-2 group h-full justify-end"
               >
-                <span className="font-mono text-zinc-400 opacity-0 group-hover:opacity-100 transition-opacity text-[10px]">
+                <span className="font-mono text-gray-500 dark:text-zinc-400 opacity-0 group-hover:opacity-100 transition-opacity text-[10px]">
                   {count}
                 </span>
                 <div
                   className="w-full bg-indigo-500 hover:bg-indigo-400 transition-colors rounded-t-sm"
                   style={{ height: `${percent * 0.8}%` }}
                 />
-                <span className="font-mono text-white text-xs mt-2">{k}</span>
+                <span className="font-mono text-gray-900 dark:text-white text-xs mt-2">{k}</span>
               </div>
             );
           })}
@@ -78,7 +78,7 @@ export function ResultsVisualizer({ viewedJob, activeTab }: Props) {
     const memory = results?.memory || [];
     if (memory.length === 0) {
       return (
-        <div className="text-zinc-500 text-sm text-center">
+        <div className="text-gray-400 dark:text-zinc-500 text-sm text-center">
           No IQ memory data available. <br />
           <span className="text-xs text-zinc-600 mt-1 block">
             (Must submit with Meas Level = 1)
@@ -112,7 +112,7 @@ export function ResultsVisualizer({ viewedJob, activeTab }: Props) {
       <div className="flex flex-col items-center justify-center">
         <svg
           viewBox="0 0 200 200"
-          className="w-64 h-64 border border-zinc-800 rounded bg-zinc-950/50"
+          className="w-64 h-64 border border-gray-200 dark:border-zinc-800 rounded bg-gray-50 dark:bg-zinc-950/50"
         >
           <line
             x1="0"
@@ -132,7 +132,7 @@ export function ResultsVisualizer({ viewedJob, activeTab }: Props) {
           />
           {points}
         </svg>
-        <div className="text-[10px] text-zinc-500 mt-2 font-mono">
+        <div className="text-[10px] text-gray-400 dark:text-zinc-500 mt-2 font-mono">
           I component vs Q component scatter plot
         </div>
       </div>
@@ -143,7 +143,7 @@ export function ResultsVisualizer({ viewedJob, activeTab }: Props) {
     const memory = results?.memory || [];
     if (memory.length === 0) {
       return (
-        <div className="text-zinc-500 text-sm text-center">
+        <div className="text-gray-400 dark:text-zinc-500 text-sm text-center">
           No raw trace data available. <br />
           <span className="text-xs text-zinc-600 mt-1 block">
             (Must submit with Meas Level = 0)
@@ -155,7 +155,7 @@ export function ResultsVisualizer({ viewedJob, activeTab }: Props) {
     // Plot first qubit trace
     const qubitTrace = memory[0] || [];
     if (qubitTrace.length === 0) {
-      return <div className="text-zinc-500 text-sm">No trace points.</div>;
+      return <div className="text-gray-400 dark:text-zinc-500 text-sm">No trace points.</div>;
     }
 
     let pathPoints = "";
@@ -171,7 +171,7 @@ export function ResultsVisualizer({ viewedJob, activeTab }: Props) {
       <div className="w-full flex flex-col items-center px-4">
         <svg
           viewBox="0 0 200 100"
-          className="w-full h-48 border border-zinc-800 rounded bg-zinc-950/50 px-2"
+          className="w-full h-48 border border-gray-200 dark:border-zinc-800 rounded bg-gray-50 dark:bg-zinc-950/50 px-2"
         >
           <line
             x1="0"
@@ -183,7 +183,7 @@ export function ResultsVisualizer({ viewedJob, activeTab }: Props) {
           />
           <path d={pathPoints} fill="none" stroke="#6366f1" strokeWidth="1.5" />
         </svg>
-        <div className="text-[10px] text-zinc-500 mt-2 font-mono">
+        <div className="text-[10px] text-gray-400 dark:text-zinc-500 mt-2 font-mono">
           Voltage signal trace vs time
         </div>
       </div>

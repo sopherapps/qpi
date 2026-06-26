@@ -73,15 +73,15 @@ export const JobSubmissionPanel: React.FC<Props> = ({
   };
 
   return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6 flex flex-col gap-6 h-[650px] overflow-y-auto">
+    <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-lg p-6 flex flex-col gap-6 h-[650px] overflow-y-auto">
       <div>
-        <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">
+        <label className="block text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wider mb-2">
           Target QPU
         </label>
         <select
           value={targetQpu}
           onChange={(e) => setTargetQpu(e.target.value)}
-          className="w-full bg-zinc-950 border border-zinc-800 text-white rounded px-3 py-2 focus:outline-none focus:border-indigo-500 transition-colors"
+          className="w-full bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-zinc-800 text-gray-900 dark:text-white rounded px-3 py-2 focus:outline-none focus:border-indigo-500 transition-colors"
         >
           {activeQpus.length === 0 ? (
             <option value="">No online QPUs available</option>
@@ -96,13 +96,13 @@ export const JobSubmissionPanel: React.FC<Props> = ({
       </div>
 
       <div className="flex-1 flex flex-col min-h-[220px]">
-        <div className="flex justify-between items-center bg-zinc-800/30 border border-zinc-800 border-b-0 rounded-t px-4 py-2">
-          <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+        <div className="flex justify-between items-center bg-gray-100 dark:bg-zinc-800/30 border border-gray-200 dark:border-zinc-800 border-b-0 rounded-t px-4 py-2">
+          <span className="text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
             OpenQASM 3.0
           </span>
           <button
             onClick={loadExample}
-            className="text-zinc-500 hover:text-white text-xs transition-colors flex items-center gap-1 focus:outline-none"
+            className="text-gray-400 dark:text-zinc-500 hover:text-gray-900 dark:text-white text-xs transition-colors flex items-center gap-1 focus:outline-none"
           >
             <Copy className="w-3.5 h-3.5" /> Load Example
           </button>
@@ -110,24 +110,24 @@ export const JobSubmissionPanel: React.FC<Props> = ({
         <textarea
           value={qasmCode}
           onChange={(e) => setQasmCode(e.target.value)}
-          className="flex-1 w-full bg-zinc-950 border border-zinc-800 rounded-b p-4 text-white font-mono text-xs focus:outline-none focus:border-indigo-500 transition-all resize-none"
+          className="flex-1 w-full bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-zinc-800 rounded-b p-4 text-gray-900 dark:text-white font-mono text-xs focus:outline-none focus:border-indigo-500 transition-all resize-none"
         />
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">
+          <label className="block text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wider mb-2">
             Shots Count
           </label>
           <input
             type="number"
             value={shots}
             onChange={(e) => setShots(parseInt(e.target.value) || 1)}
-            className="w-full bg-zinc-950 border border-zinc-800 text-white rounded px-3 py-2 focus:outline-none focus:border-indigo-500 transition-colors font-mono text-sm"
+            className="w-full bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-zinc-800 text-gray-900 dark:text-white rounded px-3 py-2 focus:outline-none focus:border-indigo-500 transition-colors font-mono text-sm"
           />
         </div>
         <div>
-          <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2 flex justify-between">
+          <label className="block text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wider mb-2 flex justify-between">
             Meas Level
             <span className="text-indigo-400 font-medium">
               {getMeasLevelLabel(measLevel)}
@@ -139,7 +139,7 @@ export const JobSubmissionPanel: React.FC<Props> = ({
             max="2"
             value={measLevel}
             onChange={(e) => setMeasLevel(parseInt(e.target.value))}
-            className="w-full h-2 bg-zinc-800 rounded-lg appearance-none cursor-pointer mt-3"
+            className="w-full h-2 bg-gray-100 dark:bg-zinc-800 rounded-lg appearance-none cursor-pointer mt-3"
           />
         </div>
       </div>
