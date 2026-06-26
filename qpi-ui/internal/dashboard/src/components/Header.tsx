@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Bell, X, Info, AlertTriangle } from "lucide-react";
+import { Bell, X, Info, AlertTriangle, Settings, LogOut } from "lucide-react";
 import type { Notification } from "../types";
 
 interface HeaderProps {
@@ -8,6 +8,8 @@ interface HeaderProps {
   notifications: Notification[];
   onDismissNotification: (id: string) => void;
   onDismissAllNotifications: () => void;
+  onLogout: () => void;
+  onGoToSettings: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -16,9 +18,14 @@ export const Header: React.FC<HeaderProps> = ({
   notifications,
   onDismissNotification,
   onDismissAllNotifications,
+  onLogout,
+  onGoToSettings,
 }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  
+  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+  const profileDropdownRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown on click outside
   useEffect(() => {
@@ -28,6 +35,12 @@ export const Header: React.FC<HeaderProps> = ({
         !dropdownRef.current.contains(event.target as Node)
       ) {
         setDropdownOpen(false);
+      }
+      if (
+        profileDropdownRef.current &&
+        !profileDropdownRef.current.contains(event.target as Node)
+      ) {
+        setProfileDropdownOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -132,11 +145,40 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         {/* User menu */}
-        <div className="flex items-center gap-3">
+        <div className="relative flex items-center gap-3" ref={profileDropdownRef}>
           <span className="text-xs text-zinc-400 font-medium">{userEmail}</span>
-          <div className="w-8 h-8 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-white font-semibold uppercase text-xs">
+          <button
+            data-testid="user-avatar"
+            onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+            className="w-8 h-8 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-white font-semibold uppercase text-xs hover:border-zinc-500 transition-colors focus:outline-none"
+          >
             {getInitials(userEmail)}
-          </div>
+          </button>
+
+          {profileDropdownOpen && (
+            <div className="absolute right-0 top-12 mt-2 w-48 bg-zinc-900 border border-zinc-800 rounded-lg shadow-2xl p-2 space-y-1 z-[100]">
+              <button
+                onClick={() => {
+                  setProfileDropdownOpen(false);
+                  onGoToSettings();
+                }}
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-zinc-300 hover:text-white hover:bg-zinc-800 rounded transition-colors focus:outline-none"
+              >
+                <Settings className="w-4 h-4" />
+                Settings
+              </button>
+              <button
+                onClick={() => {
+                  setProfileDropdownOpen(false);
+                  onLogout();
+                }}
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded transition-colors focus:outline-none"
+              >
+                <LogOut className="w-4 h-4" />
+                Sign Out
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </header>

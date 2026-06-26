@@ -35,8 +35,13 @@ describe("Auth — Login & Logout", () => {
     // Dashboard loads
     cy.contains("h1", "QPI Interface").should("be.visible");
 
-    // Navigate to settings and sign out
-    cy.contains("button", "Profile Settings").click();
+    // Use the avatar dropdown to navigate to settings and sign out
+    cy.get('[data-testid="user-avatar"]').click();
+    cy.contains("button", "Settings").click();
+    cy.hash().should("eq", "#settings");
+
+    // Click avatar again to sign out
+    cy.get('[data-testid="user-avatar"]').click();
     cy.contains("button", "Sign Out").click();
 
     // Back at login
@@ -88,7 +93,7 @@ describe("Auth — Login & Logout", () => {
     });
 
     // 3. Logout
-    cy.contains("button", "Profile Settings").click();
+    cy.get('[data-testid="user-avatar"]').click();
     cy.contains("button", "Sign Out").click();
 
     // 4. Verify regular user doesn't see username/password form
@@ -119,7 +124,7 @@ describe("Auth — Login & Logout", () => {
     });
 
     // 3. Logout
-    cy.contains("button", "Profile Settings").click();
+    cy.get('[data-testid="user-avatar"]').click();
     cy.contains("button", "Sign Out").click();
 
     // 4. Verify regular user DOES see the form

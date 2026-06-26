@@ -533,6 +533,8 @@ export const App: React.FC = () => {
               notifications={notifications}
               onDismissNotification={handleDismissNotification}
               onDismissAllNotifications={handleDismissAllNotifications}
+              onLogout={handleLogout}
+              onGoToSettings={() => changeTab("settings")}
             />
 
             <main className="flex-1 overflow-y-auto p-8 bg-background">
