@@ -8,13 +8,10 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 ## [Unreleased]
 
 ## [0.0.30] - 2026-06-26
-### Added
-- Light mode support for the dashboard UI with a theme toggle. Dark mode remains the default.
-- Cross-tab authentication logout synchronization using `pb.authStore.onChange`.
-- Ability for administrators to delete QPUs from the QPU Registry with a confirmation modal.
 
 ### Added
 
+- `qpi-ui`: Light mode support for the dashboard UI with a theme toggle. Dark mode remains the default.
 - `qpi-ui`: Added an admin option to delete QPUs from the QPU Registry, complete with a confirmation modal.
 - `qpi-ui`: Added a user profile dropdown menu in the dashboard top bar for quick access to settings and signing out.
 - `qpi-ui`: Synchronized auth sessions across tabs and between the `/_/` admin UI and `/dashboard`, automatically signing users in/out when state changes globally.
