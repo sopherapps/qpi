@@ -133,5 +133,43 @@ describe("Auth — Login & Logout", () => {
     cy.get('input[type="password"]').should("be.visible");
     cy.contains("button", "Sign In").should("be.visible");
   });
-});
+  it("synchronizes auth session across tabs", () => {
+    // 1. Log in via UI first to get a valid token
+    cy.contains("button", "Administrator").click();
+    cy.get('input[type="text"]').clear().type("admin@example.com");
+    cy.get('input[type="password"]').clear().type("supersecretpassword1234");
+    cy.get('button[type="submit"]').click();
+    cy.contains("h1", "QPI Interface").should("be.visible");
 
+    // 2. Grab the valid auth data
+    let validAuthData: string | null = null;
+    cy.window().then((win) => {
+      validAuthData = win.localStorage.getItem("pocketbase_auth");
+      
+      // 3. Simulate another tab logging out
+      win.localStorage.removeItem("pocketbase_auth");
+      win.dispatchEvent(new StorageEvent("storage", {
+        key: "pocketbase_auth",
+        newValue: null,
+        storageArea: win.localStorage,
+      }));
+    });
+
+    // 4. Verify the dashboard automatically logged out
+    cy.get('[data-testid="login-modal"]').should("be.visible");
+
+    // 5. Simulate another tab logging back in
+    cy.window().then((win) => {
+      expect(validAuthData).to.not.be.null;
+      win.localStorage.setItem("pocketbase_auth", validAuthData!);
+      win.dispatchEvent(new StorageEvent("storage", {
+        key: "pocketbase_auth",
+        newValue: validAuthData,
+        storageArea: win.localStorage,
+      }));
+    });
+
+    // 6. Verify the dashboard automatically logged back in without refresh
+    cy.contains("h1", "QPI Interface").should("be.visible");
+  });
+});

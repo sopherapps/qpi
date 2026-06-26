@@ -249,15 +249,29 @@ export const App: React.FC = () => {
     loadTimeRequests,
   ]);
 
-  // Initialize auth credentials from session storage
+  // Synchronize auth sessions across tabs (e.g. from /_/)
   useEffect(() => {
-    if (pb.authStore.isValid && pb.authStore.model) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setUserEmail(pb.authStore.model.email || "admin@qpi.org");
-      setUserId(pb.authStore.model.id);
-      setIsAdmin(pb.authStore.model.collectionName === "_superusers");
-      setAuthValid(true);
-    }
+    return pb.authStore.onChange((_token, model) => {
+      const isValid = pb.authStore.isValid;
+      if (isValid && model) {
+        setUserEmail(model.email || "admin@qpi.org");
+        setUserId(model.id);
+        setIsAdmin(model.collectionName === "_superusers");
+        setAuthValid(true);
+      } else {
+        setUserEmail("");
+        setUserId("");
+        setIsAdmin(false);
+        setAuthValid(false);
+        setSelectedJobId(null);
+        setQpus([]);
+        setJobs([]);
+        setBookings([]);
+        setNotifications([]);
+        setUsersList([]);
+        setTimeRequests([]);
+      }
+    }, true);
   }, []);
 
   const handleLoginSuccess = () => {
@@ -270,18 +284,7 @@ export const App: React.FC = () => {
   };
 
   const handleLogout = () => {
-    pb.authStore.clear();
-    setUserEmail("");
-    setUserId("");
-    setIsAdmin(false);
-    setAuthValid(false);
-    setSelectedJobId(null);
-    setQpus([]);
-    setJobs([]);
-    setBookings([]);
-    setNotifications([]);
-    setUsersList([]);
-    setTimeRequests([]);
+    pb.authStore.clear(); // This will trigger the onChange listener to clean up the state
   };
 
   // Actions & Custom Endpoints handlers

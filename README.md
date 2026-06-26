@@ -335,7 +335,6 @@ make clean
 
 - [ ] Implement a light mode in the dashboard and improve the overall dark mode UI.
 - [ ] Fix authentication routing: ensure super users can sign in at the `/dashboard` (especially when `passwordAuth` is disabled in `qpi.config.yml`), rather than being restricted to the default PocketBase `/_/` dashboard.
-- [ ] Synchronize auth sessions: automatically sign users into the `/dashboard` if they are already signed into `/_/`, and vice versa.
 - [ ] Add a way of translating the configuration files (calib seed etc.) of tergite to the quantify.device.yml of this one
 - [ ] Share this library in quantum journals, Euro projects, etc.  
 - [ ] On the QPU Registry screen for admins, we probably need an option to delete any of the QPUs (with a confirmation modal first of course)

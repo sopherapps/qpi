@@ -11,6 +11,7 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 
 - `qpi-ui`: Added an admin option to delete QPUs from the QPU Registry, complete with a confirmation modal.
 - `qpi-ui`: Added a user profile dropdown menu in the dashboard top bar for quick access to settings and signing out.
+- `qpi-ui`: Synchronized auth sessions across tabs and between the `/_/` admin UI and `/dashboard`, automatically signing users in/out when state changes globally.
 
 ### Changed
 
