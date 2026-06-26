@@ -33,7 +33,7 @@ export function MetricsRow({ qpus, jobs, qpuSeconds, bookings }: Props) {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-      <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 p-6 rounded-lg flex flex-col justify-between">
+      <a href="#qpus" className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 p-6 rounded-lg flex flex-col justify-between hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors block cursor-pointer">
         <div className="flex justify-between items-start mb-4">
           <span className="text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
             Active QPUs
@@ -49,9 +49,9 @@ export function MetricsRow({ qpus, jobs, qpuSeconds, bookings }: Props) {
             units
           </div>
         </div>
-      </div>
+      </a>
 
-      <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 p-6 rounded-lg flex flex-col justify-between">
+      <a href="#jobs" className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 p-6 rounded-lg flex flex-col justify-between hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors block cursor-pointer">
         <div className="flex justify-between items-start mb-4">
           <span className="text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
             Queue Status
@@ -66,7 +66,7 @@ export function MetricsRow({ qpus, jobs, qpuSeconds, bookings }: Props) {
             {pendingJobs} pending, {runningJobs} running
           </div>
         </div>
-      </div>
+      </a>
 
       <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 p-6 rounded-lg flex flex-col justify-between">
         <div className="flex justify-between items-start mb-4">
@@ -83,7 +83,7 @@ export function MetricsRow({ qpus, jobs, qpuSeconds, bookings }: Props) {
         </div>
       </div>
 
-      <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 p-6 rounded-lg flex flex-col justify-between">
+      <a href="#bookings" className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 p-6 rounded-lg flex flex-col justify-between hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors block cursor-pointer">
         <div className="flex justify-between items-start mb-4">
           <span className="text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
             Next Booking
@@ -100,7 +100,7 @@ export function MetricsRow({ qpus, jobs, qpuSeconds, bookings }: Props) {
             {nextBooking ? "Dedicated Window" : "No active reservations"}
           </div>
         </div>
-      </div>
+      </a>
     </div>
   );
 }

@@ -333,10 +333,9 @@ make clean
 
 ## TODOs
 
-- [x] Implement a light mode in the dashboard and improve the overall dark mode UI.
 - [ ] Add a way of translating the configuration files (calib seed etc.) of tergite to the quantify.device.yml of this one
-- [ ] Share this library in quantum journals, Euro projects, etc.  
-- [ ] On the QPU Registry screen for admins, we probably need an option to delete any of the QPUs (with a confirmation modal first of course)
+- [ ] Fix "authentication required" on submitting job in the job console
+- [ ] On job console, clarify what load example button does
 
 ## License
 
