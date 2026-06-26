@@ -10,6 +10,11 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 ### Changed
 
 - `qpi-ui`: Made the metric cards on the Overview dashboard (Active QPUs, Queue Status, Next Booking) clickable so they quickly route to their respective tabs.
+- `qpi-ui`: Clarified the "Load Example" button text and icon in the Jobs Console to read "Load Bell State Example".
+
+### Fixed
+
+- `qpi-ui`: Fixed "authentication required" error that occurred when superusers attempted to submit a quantum job. Superusers are now transparently issued a proxy `users` record with unlimited QPU seconds to satisfy relational constraints.
 
 ## [0.0.30] - 2026-06-26
 

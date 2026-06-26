@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"qpi/internal/config"
@@ -53,6 +54,50 @@ func getCurrentUser(re *core.RequestEvent) (*db.User, error) {
 		err := user.RefreshFromRecord(re.Auth)
 		if err != nil {
 			return nil, re.Error(http.StatusUnauthorized, "authentication required", err)
+		}
+
+		return &user, nil
+	}
+
+	if re.HasSuperuserAuth() && re.Auth != nil {
+		usersCol, err := re.App.FindCollectionByNameOrId("users")
+		if err != nil {
+			return nil, re.Error(http.StatusInternalServerError, "users collection not found", err)
+		}
+
+		record, err := re.App.FindFirstRecordByData("users", "email", re.Auth.Email())
+		if err != nil {
+			// Proxy user does not exist, so create one for superuser
+			record = core.NewRecord(usersCol)
+			// Let PocketBase auto-generate the ID
+			record.Set("email", re.Auth.Email())
+			username := re.Auth.Id
+			if len(username) > 5 {
+				username = username[:5]
+			}
+			record.Set("username", "admin_" + username)
+			record.Set("qpu_seconds", 999999999.0)
+			
+			if err := re.App.SaveNoValidate(record); err != nil {
+				log.Printf("Failed to create proxy user: %v", err)
+				return nil, re.Error(http.StatusInternalServerError, "failed to provision proxy user", err)
+			}
+		}
+
+		var user db.User
+		err = user.RefreshFromRecord(record)
+		if err != nil {
+			return nil, err
+		}
+
+		// Ensure superuser has practically infinite QPU seconds
+		if user.QPUSeconds < 999999999.0 {
+			record.Set("qpu_seconds", 999999999.0)
+			if err := re.App.SaveNoValidate(record); err != nil {
+				log.Printf("Failed to update proxy user quota: %v", err)
+				return nil, re.Error(http.StatusInternalServerError, "failed to update proxy user quota", err)
+			}
+			user.QPUSeconds = 999999999.0
 		}
 
 		return &user, nil

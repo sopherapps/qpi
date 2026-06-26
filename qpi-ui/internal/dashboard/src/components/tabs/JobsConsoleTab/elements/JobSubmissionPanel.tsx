@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Copy, Play, Loader2 } from "lucide-react";
+import { FileCode, Play, Loader2 } from "lucide-react";
 import type { QPU } from "@/types";
 
 interface Props {
@@ -102,9 +102,10 @@ export const JobSubmissionPanel: React.FC<Props> = ({
           </span>
           <button
             onClick={loadExample}
-            className="text-gray-400 dark:text-zinc-500 hover:text-gray-900 dark:text-white text-xs transition-colors flex items-center gap-1 focus:outline-none"
+            title="Load a simple Bell State entanglement circuit"
+            className="text-gray-400 dark:text-zinc-500 hover:text-gray-900 dark:text-white text-xs transition-colors flex items-center gap-1.5 focus:outline-none"
           >
-            <Copy className="w-3.5 h-3.5" /> Load Example
+            <FileCode className="w-3.5 h-3.5" /> Load Bell State Example
           </button>
         </div>
         <textarea
