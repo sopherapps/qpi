@@ -128,17 +128,20 @@ export const App: React.FC = () => {
       const records = await pb.collection("notifications").getFullList({
         sort: "-created",
       });
-      
-      let filterId = pb.authStore.model?.id;
-      const isSuper = pb.authStore.model?.collectionName === "_superusers";
+
+      let filterId = pb.authStore.record?.id;
+      const isSuper = pb.authStore.record?.collectionName === "_superusers";
       if (isSuper) {
         try {
-          const proxyUser = await pb.collection("users").getFirstListItem(`email="${pb.authStore.model?.email}"`);
+          const proxyUser = await pb
+            .collection("users")
+            .getFirstListItem(`email="${pb.authStore.record?.email}"`);
           if (proxyUser) {
             filterId = proxyUser.id;
           }
         } catch (e) {
           // Proxy user might not exist yet, which is fine
+          console.warn(e)
         }
       }
 

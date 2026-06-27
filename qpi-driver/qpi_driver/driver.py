@@ -8,17 +8,14 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
 
 import pynng
 import requests
-from pynng import TLSConfig, tls
+from pynng import TLSConfig
 
 from qpi_driver.executors import Executor, JobPayload
 
 # Setup logging for the main process.
-# We stick with the standard Python logging library instead of introducing logurus
-# to avoid bloating the package with external dependencies and to keep integration simple.
 logging.basicConfig(
     level=logging.INFO,
     format="[MainProcess] %(levelname)s %(message)s",
@@ -44,20 +41,160 @@ class HandshakeInfo:
     nng_host: str
 
 
-def _normalize_qpi_addr(qpi_addr: str) -> str:
-    """Ensure *qpi_addr* has a scheme so :func:`urlparse` works correctly.
+def run_driver(
+    qpi_addr: str = "http://127.0.0.1:8090",
+    token: str = "",
+    name: str = "qpu_sim_01",
+    executor: str | type[Executor] | Executor = "mock",
+    custom_executors: dict[str, type[Executor]] | None = None,
+    data_dir: Path = Path("bin/data"),
+    ca_fingerprint: str = "",
+    ca_file_path: Path = Path("./bin/qpi.ca.pem"),
+    **executor_options: Any,
+) -> None:
+    """Run the QPI Python QPU driver.
 
-    If the caller passes a bare ``host:port`` pair (e.g. ``"127.0.0.1:8090"``),
-    we prepend ``http://`` so downstream code can parse it uniformly.
+    Args:
+        qpi_addr: Full URL of the QPI server
+            (e.g. ``"http://localhost:8090"`` or ``"https://qpi.example.com"``).
+        token: QPU access token.
+        name: Human-readable name for this QPU.
+        executor: Executor specification (string key, class, or instance).
+        custom_executors: Optional dict of custom executors for resolving string keys.
+        data_dir: Directory for executor working data.
+        ca_fingerprint: the fingerprint to verify that the downloaded CA file is the right one
+        ca_file_path: Path to the CA certificate file for TLS connections.
+        executor_options: other options to pass to the executor.
     """
-    if "://" not in qpi_addr:
-        qpi_addr = f"http://{qpi_addr}"
-    return qpi_addr.rstrip("/")
+    qpi_addr = _normalize_qpi_addr(qpi_addr)
 
+    # Determine executor type string for registration
+    executor_type_str = ""
+    if isinstance(executor, str):
+        executor_type_str = executor
+    elif hasattr(executor, "name"):
+        executor_type_str = f"{executor.name}"
+    elif hasattr(executor, "__name__"):
+        executor_type_str = executor.__name__
 
-def _extract_host(qpi_addr: str) -> str:
-    """Extract the hostname (no port, no scheme) from a normalised QPI address."""
-    return urlparse(qpi_addr).hostname or "127.0.0.1"
+    # Extract device config from executor options if present
+    device_config = executor_options.get("device_config")
+    if device_config is None:
+        # Try to build a minimal config from known options
+        cfg: dict[str, Any] = {}
+        for key in ("quantify_hardware_config", "quantify_device_config", "is_dummy"):
+            if key in executor_options:
+                val = executor_options[key]
+                if hasattr(val, "__fspath__"):
+                    cfg[key] = str(val)
+                else:
+                    cfg[key] = val
+        if cfg:
+            device_config = cfg
+
+    # do_handshake returns strongly typed dataclass
+    info = do_handshake(
+        qpi_addr,
+        token,
+        name,
+        executor_type=executor_type_str,
+        device_config=device_config,
+    )
+    nng_host = info.nng_host
+    cmd_port = info.nng_command_port
+    res_port = info.nng_result_port
+
+    # download the certificate authority certificate
+    ca_file_path_str = _download_root_ca_cert(qpi_addr, ca_fingerprint, ca_file_path)
+
+    # Create queues
+    job_queue = multiprocessing.Queue()
+    result_queue = multiprocessing.Queue()
+
+    # add extra args to be passed to the executor
+    executor_options.update(dict(name=name))
+
+    # Start Worker Process
+    worker = multiprocessing.Process(
+        target=execute_job,
+        kwargs={
+            "job_queue": job_queue,
+            "result_queue": result_queue,
+            "executor": executor,
+            "custom_executors": custom_executors,
+            "data_dir": data_dir,
+            **executor_options,
+        },
+        name="QPI-Worker",
+        daemon=True,
+    )
+    worker.start()
+
+    # Start Result Sender Process
+    result_sender = multiprocessing.Process(
+        target=send_results,
+        kwargs={
+            "result_queue": result_queue,
+            "res_port": res_port,
+            "nng_host": nng_host,
+            "ca_file": ca_file_path_str,
+        },
+        name="QPI-ResultSender",
+        daemon=True,
+    )
+    result_sender.start()
+
+    tls_config = TLSConfig(
+        TLSConfig.MODE_CLIENT,
+        server_name=nng_host,
+        ca_files=ca_file_path_str,
+    )
+    addr = f"tls+tcp://{nng_host}:{cmd_port}"
+    log.info("Connecting NNG PULL → %s", addr)
+
+    try:
+        with pynng.Pull0(tls_config=tls_config) as sock:
+            sock.dial(addr, block=True)
+            log.info("NNG PULL connected to %s", addr)
+            while True:
+                try:
+                    raw = sock.recv()
+                    job = json.loads(raw)
+                    log.info("Received job %s", job.get("job_id"))
+                    job_queue.put(job)
+                except Exception as exc:
+                    log.error("PULL error: %s", exc)
+                    # Retry with 0.2s delay for faster reconnection times
+                    time.sleep(0.2)
+    except KeyboardInterrupt:
+        log.info("Shutdown signal received")
+    finally:
+        log.info("Shutting down worker and result sender processes...")
+        # Note: We use poison pills (None sentinel values) to cleanly and instantly unblock
+        # queue get() calls in the worker and result sender processes without wasteful CPU polling.
+        try:
+            job_queue.put(None)
+        except Exception:
+            pass
+        try:
+            result_queue.put(None)
+        except Exception:
+            pass
+
+        # Give processes time to shut down cleanly, or terminate them
+        worker.join(timeout=2)
+        if worker.is_alive():
+            log.warning("Terminating worker process...")
+            worker.terminate()
+            worker.join()
+
+        result_sender.join(timeout=2)
+        if result_sender.is_alive():
+            log.warning("Terminating result sender process...")
+            result_sender.terminate()
+            result_sender.join()
+
+        log.info("Shutdown complete.")
 
 
 def do_handshake(
@@ -108,7 +245,7 @@ def do_handshake(
         nng_command_port=int(data["nng_command_port"]),
         nng_result_port=int(data["nng_result_port"]),
         auth_token=data.get("auth_token", ""),
-        nng_host=data.get("nng_host") or _extract_host(qpi_addr),
+        nng_host=data.get("nng_host"),
     )
 
 
@@ -198,9 +335,7 @@ def send_results(
     result_queue: multiprocessing.Queue,
     res_port: int,
     nng_host: str,
-    qpi_addr: str,
-    ca_fingerprint: str,
-    ca_file_path: Path,
+    ca_file: str,
 ) -> None:
     """Result sender process: reads Qiskit-format result dicts from result_queue
     and pushes them to the Go server via NNG PUSH.
@@ -209,9 +344,7 @@ def send_results(
         result_queue: Queue used to receive result dicts from the worker.
         res_port: Port allocated for the NNG PUSH socket to return results.
         nng_host: Hostname or IP of the Go PocketBase server (for NNG TCP connections).
-        qpi_addr: Full URL of the QPI server.
-        ca_fingerprint: the fingerprint to verify that the downloaded CA file is the right one
-        ca_file_path: Path to the CA certificate file for TLS connections.
+        ca_file: Path as string to the CA certificate file for TLS connections.
     """
     logging.basicConfig(
         level=logging.INFO,
@@ -224,7 +357,11 @@ def send_results(
     addr = f"tls+tcp://{nng_host}:{res_port}"
     rs_log.info("Connecting NNG PUSH → %s", addr)
 
-    tls_config = _get_tls_config(qpi_addr, ca_fingerprint, ca_file_path)
+    tls_config = TLSConfig(
+        TLSConfig.MODE_CLIENT,
+        server_name=nng_host,
+        ca_files=ca_file,
+    )
 
     with pynng.Push0(tls_config=tls_config) as sock:
         sock.dial(addr, block=True)
@@ -255,195 +392,9 @@ def send_results(
                 rs_log.error("Result sender process exception: %s", exc)
 
 
-def run_driver(
-    qpi_addr: str = "http://127.0.0.1:8090",
-    token: str = "",
-    name: str = "qpu_sim_01",
-    executor: str | type[Executor] | Executor = "mock",
-    custom_executors: dict[str, type[Executor]] | None = None,
-    data_dir: Path = Path("bin/data"),
-    ca_fingerprint: str = "",
-    ca_file_path: Path = Path("./bin/qpi.ca.pem"),
-    **executor_options: Any,
-) -> None:
-    """Run the QPI Python QPU driver.
-
-    Args:
-        qpi_addr: Full URL of the QPI server
-            (e.g. ``"http://localhost:8090"`` or ``"https://qpi.example.com"``).
-        token: QPU access token.
-        name: Human-readable name for this QPU.
-        executor: Executor specification (string key, class, or instance).
-        custom_executors: Optional dict of custom executors for resolving string keys.
-        data_dir: Directory for executor working data.
-        ca_fingerprint: the fingerprint to verify that the downloaded CA file is the right one
-        ca_file_path: Path to the CA certificate file for TLS connections.
-        executor_options: other options to pass to the executor.
-    """
-    qpi_addr = _normalize_qpi_addr(qpi_addr)
-
-    # Determine executor type string for registration
-    executor_type_str = ""
-    if isinstance(executor, str):
-        executor_type_str = executor
-    elif hasattr(executor, "name"):
-        executor_type_str = f"{executor.name}"
-    elif hasattr(executor, "__name__"):
-        executor_type_str = executor.__name__
-
-    # Extract device config from executor options if present
-    device_config = executor_options.get("device_config")
-    if device_config is None:
-        # Try to build a minimal config from known options
-        cfg: dict[str, Any] = {}
-        for key in ("quantify_hardware_config", "quantify_device_config", "is_dummy"):
-            if key in executor_options:
-                val = executor_options[key]
-                if hasattr(val, "__fspath__"):
-                    cfg[key] = str(val)
-                else:
-                    cfg[key] = val
-        if cfg:
-            device_config = cfg
-
-    # do_handshake returns strongly typed dataclass
-    info = do_handshake(
-        qpi_addr,
-        token,
-        name,
-        executor_type=executor_type_str,
-        device_config=device_config,
-    )
-    nng_host = info.nng_host
-    cmd_port = info.nng_command_port
-    res_port = info.nng_result_port
-
-    # Create queues
-    job_queue = multiprocessing.Queue()
-    result_queue = multiprocessing.Queue()
-
-    # add extra args to be passed to the executor
-    executor_options.update(dict(name=name))
-
-    # Start Worker Process
-    worker = multiprocessing.Process(
-        target=execute_job,
-        kwargs={
-            "job_queue": job_queue,
-            "result_queue": result_queue,
-            "executor": executor,
-            "custom_executors": custom_executors,
-            "data_dir": data_dir,
-            **executor_options,
-        },
-        name="QPI-Worker",
-        daemon=True,
-    )
-    worker.start()
-
-    # Start Result Sender Process
-    result_sender = multiprocessing.Process(
-        target=send_results,
-        kwargs={
-            "result_queue": result_queue,
-            "res_port": res_port,
-            "nng_host": nng_host,
-            "qpi_addr": qpi_addr,
-            "ca_fingerprint": ca_fingerprint,
-            "ca_file_path": ca_file_path,
-        },
-        name="QPI-ResultSender",
-        daemon=True,
-    )
-    result_sender.start()
-
-    tls_config = _get_tls_config(
-        qpi_addr, ca_fingerprint=ca_fingerprint, ca_file_path=ca_file_path
-    )
-
-    addr = f"tls+tcp://{nng_host}:{cmd_port}"
-    log.info("Connecting NNG PULL → %s", addr)
-
-    try:
-        with pynng.Pull0(tls_config=tls_config) as sock:
-            sock.dial(addr, block=True)
-            log.info("NNG PULL connected to %s", addr)
-            while True:
-                try:
-                    raw = sock.recv()
-                    job = json.loads(raw)
-                    log.info("Received job %s", job.get("job_id"))
-                    job_queue.put(job)
-                except Exception as exc:
-                    log.error("PULL error: %s", exc)
-                    # Retry with 0.2s delay for faster reconnection times
-                    time.sleep(0.2)
-    except KeyboardInterrupt:
-        log.info("Shutdown signal received")
-    finally:
-        log.info("Shutting down worker and result sender processes...")
-        # Note: We use poison pills (None sentinel values) to cleanly and instantly unblock
-        # queue get() calls in the worker and result sender processes without wasteful CPU polling.
-        try:
-            job_queue.put(None)
-        except Exception:
-            pass
-        try:
-            result_queue.put(None)
-        except Exception:
-            pass
-
-        # Give processes time to shut down cleanly, or terminate them
-        worker.join(timeout=2)
-        if worker.is_alive():
-            log.warning("Terminating worker process...")
-            worker.terminate()
-            worker.join()
-
-        result_sender.join(timeout=2)
-        if result_sender.is_alive():
-            log.warning("Terminating result sender process...")
-            result_sender.terminate()
-            result_sender.join()
-
-        log.info("Shutdown complete.")
-
-
-def _get_tls_config(
-    qpi_addr: str, ca_fingerprint: str, ca_file_path: Path
-) -> tls.TLSConfig:
-    """Gets the proper TLS config from the given address.
-
-    Args:
-        qpi_addr: IP address of the server.
-        ca_fingerprint: the expected hash fingerprint of the TLS certificate of the server
-        ca_file_path: Path where the CA certificate is stored.
-
-    Returns:
-        TLSConfig: The TLS config from the given address.
-
-    Raises:
-        ValueError: If the given address is not a valid URL.
-        RuntimeError: if the tls_hash does not match with the downloaded one
-    """
-    parsed_url = urlparse(qpi_addr)
-    hostname = parsed_url.hostname
-
-    if not hostname:
-        raise ValueError(f"Invalid URL: Could not extract hostname from {qpi_addr}.")
-
-    ca_file_path_str = ca_file_path.as_posix()
-    _download_root_ca_cert(qpi_addr, ca_fingerprint, ca_file_path_str)
-    return TLSConfig(
-        TLSConfig.MODE_CLIENT,
-        server_name=hostname,
-        ca_files=ca_file_path_str,
-    )
-
-
 def _download_root_ca_cert(
-    qpi_addr: str, expected_hash: str, dst: str, timeout: float = 10
-):
+    qpi_addr: str, expected_hash: str, dst: Path, timeout: float = 10
+) -> str:
     """Downloads the TLS certificate from the server.
 
     Args:
@@ -451,6 +402,12 @@ def _download_root_ca_cert(
         expected_hash: Expected hash of the certificate.
         dst: Destination path where the certificate will be stored.
         timeout: Timeout in seconds for the download.
+
+    Returns:
+        the path to the certificate file as a string
+
+    Raises:
+        RuntimeError: if the expected_hash does not match with the downloaded one
     """
     url = f"{qpi_addr}/api/pub/root-ca.pem"
     response = requests.get(url, timeout=timeout)
@@ -470,7 +427,18 @@ def _download_root_ca_cert(
             f"the expected configuration signature ({expected_hash}).\n"
             f"The download channel may be compromised!"
         )
-    tmp_dst = f"{dst}.{os.getpid()}.tmp"
-    with open(tmp_dst, "w") as f:
+    with open(dst, "w") as f:
         f.write(pem_text)
-    os.replace(tmp_dst, dst)
+
+    return dst.as_posix()
+
+
+def _normalize_qpi_addr(qpi_addr: str) -> str:
+    """Ensure *qpi_addr* has a scheme so :func:`urlparse` works correctly.
+
+    If the caller passes a bare ``host:port`` pair (e.g. ``"127.0.0.1:8090"``),
+    we prepend ``http://`` so downstream code can parse it uniformly.
+    """
+    if "://" not in qpi_addr:
+        qpi_addr = f"http://{qpi_addr}"
+    return qpi_addr.rstrip("/")
