@@ -3,7 +3,7 @@ import importlib.metadata
 try:
     __version__ = importlib.metadata.version("qpi-driver")
 except importlib.metadata.PackageNotFoundError:
-    __version__ = "0.0.32"
+    __version__ = "0.0.33"
 
 from qpi_driver.driver import run_driver
 from qpi_driver.executors.base import Executor

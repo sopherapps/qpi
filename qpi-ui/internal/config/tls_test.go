@@ -402,7 +402,6 @@ func TestIsCertUpForRenewal(t *testing.T) {
 		t.Fatalf("generateCA failed: %v", err)
 	}
 
-
 	err = generateCertAndKeyFiles("localhost", certPath, keyPath, caPair, "127.0.0.1")
 	if err != nil {
 		t.Fatalf("generateCertAndKeyFiles failed: %v", err)

@@ -129,13 +129,19 @@ start_pocketbase() {
 
     echo "[e2e] Initializing database and creating superuser..."
     rm -rf "${PROJECT_ROOT}/bin/pb_data" "${PROJECT_ROOT}/bin/data"
-    "${PROJECT_ROOT}/bin/qpi" superuser upsert admin@example.com supersecretpassword1234 --dir "${PROJECT_ROOT}/bin/pb_data"
+    
+    # Create a unique temp directory for this test run to isolate TLS certificates
+    local tmp_dir
+    tmp_dir="$(mktemp -d)"
+
+    # Run from the temp directory to prevent polluting PROJECT_ROOT with .qpi.* certs
+    (cd "$tmp_dir" && "${PROJECT_ROOT}/bin/qpi" superuser upsert admin@example.com supersecretpassword1234 --dir "${PROJECT_ROOT}/bin/pb_data")
 
     echo "[e2e] Starting PocketBase server..."
     mkdir -p "${DATA_DIR}"
 
-    # Run from a temp directory to avoid picking up qpi.config.yml from project root
-    (cd "$(mktemp -d)" && "${PROJECT_ROOT}/bin/qpi" serve --dir "${PROJECT_ROOT}/bin/pb_data" --dev > "${DATA_DIR}/pocketbase.log" 2>&1) &
+    # Run from the same temp directory so it reuses the newly generated certs
+    (cd "$tmp_dir" && "${PROJECT_ROOT}/bin/qpi" serve --dir "${PROJECT_ROOT}/bin/pb_data" --dev > "${DATA_DIR}/pocketbase.log" 2>&1) &
     PB_PID=$!
 
     echo "[e2e] Waiting for PocketBase to be ready..."

@@ -7,6 +7,8 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 
 ## [Unreleased]
 
+## [0.0.33] - 2026-06-27
+
 ### Added
 
 - `qpi-ui`: Added `--ip-addr` (or `QPI_IP_ADDR`, or `ipAddr` in config) to explicitly specify the public IP for binding TLS sockets. The provided IP is now properly encoded in the X509 certificate's SAN IP block.

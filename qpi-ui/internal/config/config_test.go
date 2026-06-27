@@ -388,7 +388,7 @@ func TestNewFromFlags_TlsReuseExisting(t *testing.T) {
 	if err != nil {
 		t.Fatalf("generateCA failed: %v", err)
 	}
-	err = generateCertAndKeyFiles("test.local", certFile, keyFile, caPair, "127.0.0.1" )
+	err = generateCertAndKeyFiles("test.local", certFile, keyFile, caPair, "127.0.0.1")
 	if err != nil {
 		t.Fatalf("generateCertAndKeyFiles failed: %v", err)
 	}

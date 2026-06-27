@@ -23,7 +23,7 @@ def test_cli_version():
     try:
         expected_version = importlib.metadata.version("qpi-driver")
     except importlib.metadata.PackageNotFoundError:
-        expected_version = "0.0.32"
+        expected_version = "0.0.33"
     assert expected_version in result.stdout
 
 
