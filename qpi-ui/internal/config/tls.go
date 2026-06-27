@@ -140,7 +140,12 @@ func generateCA(caCertPath, caKeyPath string) (*certKeyPair, error) {
 		return nil, err
 	}
 
-	return &certKeyPair{template, rootKey}, nil
+	cert, err := x509.ParseCertificate(derBytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse generated root certificate: %w", err)
+	}
+
+	return &certKeyPair{cert, rootKey}, nil
 }
 
 // generateCertAndKeyFiles generates a certificate and key PEM files for use in TLS handshakes

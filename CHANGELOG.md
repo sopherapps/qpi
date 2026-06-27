@@ -10,6 +10,7 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 ### Fixed
 
 - `qpi-ui`: Fixed a race condition where a driver failing to dial the NNG socket would incorrectly leave the QPU marked as `online`. QPU online status is now strictly determined by the NNG socket attachment lifecycle.
+- `qpi-ui`: Fixed an issue where regenerating root CA certificates returned an empty fingerprint, causing authentication failures for new driver connections.
 
 ## [0.0.34] - 2026-06-27
 

@@ -113,6 +113,16 @@ func TestGenerateCAAndReadBack(t *testing.T) {
 	if readPair.Certificate.SerialNumber.Cmp(caPair.Certificate.SerialNumber) != 0 {
 		t.Fatal("read CA serial number mismatch")
 	}
+
+	// Test CA Hash generation from freshly generated CA ensures Raw is populated
+	hash, err := getCaCertHash(caPair)
+	if err != nil {
+		t.Fatalf("getCaCertHash failed: %v", err)
+	}
+	// e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 is SHA-256 of empty string
+	if hash == "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" {
+		t.Fatal("getCaCertHash returned the hash of an empty string, Raw bytes must be populated")
+	}
 }
 
 // TestGetCA_ExistingValid verifies getCA returns existing valid CA without regenerating.
