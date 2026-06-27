@@ -470,5 +470,7 @@ def _download_root_ca_cert(
             f"the expected configuration signature ({expected_hash}).\n"
             f"The download channel may be compromised!"
         )
-    with open(dst, "w") as f:
+    tmp_dst = f"{dst}.{os.getpid()}.tmp"
+    with open(tmp_dst, "w") as f:
         f.write(pem_text)
+    os.replace(tmp_dst, dst)
