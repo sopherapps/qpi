@@ -1703,7 +1703,7 @@ wheels = [
 
 [[package]]
 name = "qpi-driver"
-version = "0.0.34"
+version = "0.0.35"
 source = { editable = "." }
 dependencies = [
     { name = "numpy" },
