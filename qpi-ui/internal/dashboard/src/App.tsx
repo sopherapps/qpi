@@ -141,7 +141,7 @@ export const App: React.FC = () => {
           }
         } catch (e) {
           // Proxy user might not exist yet, which is fine
-          console.warn(e)
+          console.warn(e);
         }
       }
 
