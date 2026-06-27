@@ -22,6 +22,7 @@ jobsCollection: "yaml_quantum_jobs"
 portRangeStart: 6005
 portRangeEnd: 7005
 idleThreshold: "12s"
+ipAddr: "127.0.0.1"
 disableEmailPasswordAuth: true
 tlsCertFile: "` + tmpDir + `/test.cert.pem"
 tlsKeyFile: "` + tmpDir + `/test.key"
@@ -104,6 +105,7 @@ func TestNewFromFlags_Json(t *testing.T) {
 	jsonContent := `{
 		"jobsCollection": "json_quantum_jobs",
 		"portRangeStart": 8000,
+		"ipAddr": "127.0.0.1",
 		"tlsCertFile": "` + tmpDir + `/test.cert.pem",
 		"tlsKeyFile": "` + tmpDir + `/test.key",
 		"tlsCaCertFile": "` + tmpDir + `/test.ca.pem",
@@ -172,6 +174,7 @@ tlsCertFile: "` + certFile + `"
 tlsKeyFile: "` + keyFile + `"
 tlsCaCertFile: "` + caCertFile + `"
 tlsCaKeyFile: "` + caKeyFile + `"
+ipAddr: "127.0.0.1"
 serverPort: 8443
 `
 	if err := os.WriteFile(configFile, []byte(yamlContent), 0644); err != nil {
@@ -225,6 +228,7 @@ func TestNewFromFlags_TlsFromEnv(t *testing.T) {
 	t.Setenv("QPI_TLS_CA_CERT_FILE", caCertFile)
 	t.Setenv("QPI_TLS_CA_KEY_FILE", caKeyFile)
 	t.Setenv("QPI_SERVER_PORT", "9443")
+	t.Setenv("QPI_IP_ADDR", "127.0.0.1")
 	t.Setenv("QPI_CONFIG_FILE", emptyConfig)
 
 	cmd := &cobra.Command{}
@@ -279,6 +283,9 @@ func TestNewFromFlags_TlsFromFlags(t *testing.T) {
 	if err := cmd.PersistentFlags().Set("server-port", "10443"); err != nil {
 		t.Fatalf("failed to set server-port flag: %v", err)
 	}
+	if err := cmd.PersistentFlags().Set("ip-addr", "127.0.0.1"); err != nil {
+		t.Fatalf("failed to set ip-addr flag: %v", err)
+	}
 
 	cfg, err := NewFromFlags(cmd)
 	if err != nil {
@@ -324,6 +331,9 @@ func TestNewFromFlags_TlsAutoGenerate(t *testing.T) {
 	}
 	if err := cmd.PersistentFlags().Set("tls-ca-key-file", caKeyFile); err != nil {
 		t.Fatalf("failed to set tls-ca-key-file flag: %v", err)
+	}
+	if err := cmd.PersistentFlags().Set("ip-addr", "127.0.0.1"); err != nil {
+		t.Fatalf("failed to set ip-addr flag: %v", err)
 	}
 	if err := cmd.PersistentFlags().Set("domain", "test.local"); err != nil {
 		t.Fatalf("failed to set domain flag: %v", err)
@@ -378,7 +388,7 @@ func TestNewFromFlags_TlsReuseExisting(t *testing.T) {
 	if err != nil {
 		t.Fatalf("generateCA failed: %v", err)
 	}
-	err = generateCertAndKeyFiles("test.local", certFile, keyFile, caPair)
+	err = generateCertAndKeyFiles("test.local", certFile, keyFile, caPair, "127.0.0.1" )
 	if err != nil {
 		t.Fatalf("generateCertAndKeyFiles failed: %v", err)
 	}
@@ -401,6 +411,9 @@ func TestNewFromFlags_TlsReuseExisting(t *testing.T) {
 	}
 	if err := cmd.PersistentFlags().Set("tls-ca-key-file", caKeyFile); err != nil {
 		t.Fatalf("failed to set tls-ca-key-file flag: %v", err)
+	}
+	if err := cmd.PersistentFlags().Set("ip-addr", "127.0.0.1"); err != nil {
+		t.Fatalf("failed to set ip-addr flag: %v", err)
 	}
 
 	cfg, err := NewFromFlags(cmd)

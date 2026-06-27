@@ -35,11 +35,13 @@ class HandshakeInfo:
         nng_command_port: Port allocated for NNG command dispatch.
         nng_result_port: Port allocated for NNG result collection.
         auth_token: Static authorization token assigned to the QPU.
+        nng_host: Hostname or IP for NNG connections.
     """
 
     nng_command_port: int
     nng_result_port: int
     auth_token: str
+    nng_host: str
 
 
 def _normalize_qpi_addr(qpi_addr: str) -> str:
@@ -106,6 +108,7 @@ def do_handshake(
         nng_command_port=int(data["nng_command_port"]),
         nng_result_port=int(data["nng_result_port"]),
         auth_token=data.get("auth_token", ""),
+        nng_host=data.get("nng_host") or _extract_host(qpi_addr),
     )
 
 
@@ -195,8 +198,6 @@ def send_results(
     result_queue: multiprocessing.Queue,
     res_port: int,
     nng_host: str,
-    qpi_addr: str,
-    ca_fingerprint: str,
     ca_file_path: Path,
 ) -> None:
     """Result sender process: reads Qiskit-format result dicts from result_queue
@@ -206,8 +207,6 @@ def send_results(
         result_queue: Queue used to receive result dicts from the worker.
         res_port: Port allocated for the NNG PUSH socket to return results.
         nng_host: Hostname or IP of the Go PocketBase server (for NNG TCP connections).
-        qpi_addr: The address of the QPI server to download the Certificate authority from
-        ca_fingerprint: The fingerprint of the CA file for verification of the download
         ca_file_path: Path to the CA certificate file for TLS connections.
     """
     logging.basicConfig(
@@ -221,8 +220,10 @@ def send_results(
     addr = f"tls+tcp://{nng_host}:{res_port}"
     rs_log.info("Connecting NNG PUSH → %s", addr)
 
-    tls_config = _get_tls_config(
-        qpi_addr, ca_fingerprint=ca_fingerprint, ca_file_path=ca_file_path
+    tls_config = TLSConfig(
+        TLSConfig.MODE_CLIENT,
+        server_name=nng_host,
+        ca_files=ca_file_path.as_posix(),
     )
 
     with pynng.Push0(tls_config=tls_config) as sock:
@@ -313,7 +314,7 @@ def run_driver(
         executor_type=executor_type_str,
         device_config=device_config,
     )
-    nng_host = _extract_host(qpi_addr)
+    nng_host = info.nng_host
     cmd_port = info.nng_command_port
     res_port = info.nng_result_port
 
@@ -340,6 +341,11 @@ def run_driver(
     )
     worker.start()
 
+    # 4. Ensure TLS CA cert is downloaded before starting the result sender process
+    tls_config = _get_tls_config(
+        qpi_addr, ca_fingerprint=ca_fingerprint, ca_file_path=ca_file_path
+    )
+
     # Start Result Sender Process
     result_sender = multiprocessing.Process(
         target=send_results,
@@ -347,8 +353,6 @@ def run_driver(
             "result_queue": result_queue,
             "res_port": res_port,
             "nng_host": nng_host,
-            "qpi_addr": qpi_addr,
-            "ca_fingerprint": ca_fingerprint,
             "ca_file_path": ca_file_path,
         },
         name="QPI-ResultSender",
@@ -356,12 +360,8 @@ def run_driver(
     )
     result_sender.start()
 
-    # 4. Start NNG PULL (commands) in Main Process
     addr = f"tls+tcp://{nng_host}:{cmd_port}"
     log.info("Connecting NNG PULL → %s", addr)
-    tls_config = _get_tls_config(
-        qpi_addr, ca_fingerprint=ca_fingerprint, ca_file_path=ca_file_path
-    )
 
     try:
         with pynng.Pull0(tls_config=tls_config) as sock:

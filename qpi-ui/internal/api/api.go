@@ -591,6 +591,7 @@ func handleQPUConnect(re *core.RequestEvent) error {
 		NNGResultPort:  qpu.NNGResultPort,
 		TLSHash:        cfg.GetTlsCaHash(),
 		AuthToken:      token,
+		NNGHost:        cfg.IpAddr,
 	}
 	return re.JSON(http.StatusOK, resp)
 }

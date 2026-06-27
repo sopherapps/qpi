@@ -136,6 +136,7 @@ The Go server can be configured via CLI flags, environment variables, or a confi
 |---|---|---|---|
 | `--config-file` | `QPI_CONFIG_FILE` | `qpi.config.yml` | Path to JSON or YAML configuration file. |
 | `--domain` | `QPI_DOMAIN` | | The domain name this server is running on. |
+| `--ip-addr` | `QPI_IP_ADDR` | "127.0.0.1" | The public IP address to include in the generated TLS certificates. |
 | `--server-port` | `QPI_SERVER_PORT` | `8090` | The port this server should run on. |
 | `--tls-ca-cert-file` | `QPI_TLS_CA_CERT_FILE` | `.qpi.ca.pem` | Path to TLS root CA certificate file. |
 | `--tls-ca-key-file` | `QPI_TLS_CA_KEY_FILE` | `.qpi.ca.key` | Path to TLS root CA key file. |

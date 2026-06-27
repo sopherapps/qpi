@@ -43,6 +43,7 @@ type ConnectResponse struct {
 	NNGResultPort  int    `json:"nng_result_port"`
 	TLSHash        string `json:"tls_hash"`
 	AuthToken      string `json:"auth_token"`
+	NNGHost        string `json:"nng_host"`
 }
 
 func (cr *ConnectResponse) SetDefaults() {
@@ -54,6 +55,7 @@ func (cr *ConnectResponse) ToMap() map[string]any {
 		"nng_command_port": cr.NNGCommandPort,
 		"nng_result_port":  cr.NNGResultPort,
 		"auth_token":       cr.AuthToken,
+		"nng_host":         cr.NNGHost,
 	}
 }
 

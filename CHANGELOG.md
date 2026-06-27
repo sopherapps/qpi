@@ -7,6 +7,19 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 
 ## [Unreleased]
 
+### Added
+
+- `qpi-ui`: Added `--ip-addr` (or `QPI_IP_ADDR`, or `ipAddr` in config) to explicitly specify the public IP for binding TLS sockets. The provided IP is now properly encoded in the X509 certificate's SAN IP block.
+
+### Changed
+
+- `qpi-driver`: Updated NNG setup logic. The driver now establishes connections using the explicit NNG IP address returned by the server via `ConnectResponse`, decoupling it from the HTTP QPI address.
+
+### Fixed
+
+- `qpi-ui`: Removed the `fetchHostIPs()` autodiscovery logic which caused unintended behavior when deployed behind proxies.
+- `qpi-driver`: Fixed a race condition where the result sender process could attempt to read the CA certificate from disk before the main process had downloaded it.
+
 ## [0.0.32] - 2026-06-26
 
 ### Fixed

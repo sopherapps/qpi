@@ -36,6 +36,10 @@ dispatchPollInterval: "5s"
 # Disable email/password authentication on the users collection (forcing OAuth2 usage only)
 # disableEmailPasswordAuth: false
 
+# The explicit IP address of the QPI server. Optional. Defaults to 127.0.0.1.
+# Useful for strictly binding external TLS socket interfaces.
+# ipAddr: "192.168.1.100"
+
 # Path to the TLS certificate to use to secure the socket connections to the driver
 tlsCertFile: "/var/qpi/.qpi.cert.pem"
 

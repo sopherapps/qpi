@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"strconv"
 	"strings"
@@ -60,6 +61,7 @@ var (
 	flagTLSCaKeyFile             string
 	flagDomainName               string
 	flagServerPort               int
+	flagIpAddr                   string
 )
 
 // AppConfig stores application-wide configuration parameters for the QPI server.
@@ -85,6 +87,7 @@ type AppConfig struct {
 	TlsCaKeyFile              string
 	DomainName                string
 	ServerPort                int
+	IpAddr                    string
 	tlsConfig                 *certKeyPair
 	parsedTlsConfig           *tls.Config
 	tlsCaConfig               *certKeyPair
@@ -191,13 +194,13 @@ func (cfg *AppConfig) StartTlsRenewalWorker(ctx context.Context) {
 				}
 
 				// regenerate certificate with new CA
-				err = generateCertAndKeyFiles(cfg.DomainName, cfg.TlsCertFile, cfg.TlsKeyFile, cfg.tlsCaConfig)
+				err = generateCertAndKeyFiles(cfg.DomainName, cfg.TlsCertFile, cfg.TlsKeyFile, cfg.tlsCaConfig, cfg.IpAddr)
 				if err != nil {
 					log.Printf("[Config] Error regenerating TLS cert and key: %v\n", err)
 					continue
 				}
 
-				cfg.tlsConfig, err = getTlsCertKeyPair(cfg.TlsCertFile, cfg.TlsKeyFile, cfg.DomainName, cfg.tlsCaConfig)
+				cfg.tlsConfig, err = getTlsCertKeyPair(cfg.TlsCertFile, cfg.TlsKeyFile, cfg.DomainName, cfg.tlsCaConfig, cfg.IpAddr)
 				if err != nil {
 					log.Printf("[Config] Error getting TLS config: %v\n", err)
 					continue
@@ -224,7 +227,7 @@ func (cfg *AppConfig) StartTlsRenewalWorker(ctx context.Context) {
 			if isCertUpForRenewal(cfg.tlsConfig, certBuffer) {
 				log.Println("[Config] TLS certificate regenerating...")
 
-				err := generateCertAndKeyFiles(cfg.DomainName, cfg.TlsCertFile, cfg.TlsKeyFile, cfg.tlsCaConfig)
+				err := generateCertAndKeyFiles(cfg.DomainName, cfg.TlsCertFile, cfg.TlsKeyFile, cfg.tlsCaConfig, cfg.IpAddr)
 				if err != nil {
 					log.Printf("[Config] Error regenerating TLS cert and key: %v\n", err)
 					continue
@@ -236,7 +239,7 @@ func (cfg *AppConfig) StartTlsRenewalWorker(ctx context.Context) {
 					continue
 				}
 
-				cfg.tlsConfig, err = getTlsCertKeyPair(cfg.TlsCertFile, cfg.TlsKeyFile, cfg.DomainName, cfg.tlsCaConfig)
+				cfg.tlsConfig, err = getTlsCertKeyPair(cfg.TlsCertFile, cfg.TlsKeyFile, cfg.DomainName, cfg.tlsCaConfig, cfg.IpAddr)
 				if err != nil {
 					log.Printf("[Config] Error loading TLS config: %v\n", err)
 					continue
@@ -314,6 +317,7 @@ func BindFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().StringVar(&flagTLSCaCertFile, "tls-ca-cert-file", DefaultTLSCaCertFile, "Path to QPI TLS certificate authority CA cert file")
 	cmd.PersistentFlags().StringVar(&flagTLSCaKeyFile, "tls-ca-key-file", DefaultTLSCaKeyFile, "Path to QPI TLS certificate authority CA key file")
 	cmd.PersistentFlags().StringVar(&flagDomainName, "domain", "", "The domain name this server is running on")
+	cmd.PersistentFlags().StringVar(&flagIpAddr, "ip-addr", "127.0.0.1", "The public IP address to include in the generated TLS certificates")
 	cmd.PersistentFlags().IntVar(&flagServerPort, "server-port", 8090, "The port this server should run on")
 	cmd.PersistentFlags().StringVar(&flagCollectionQPUs, "qpus-collection", DefaultQpusCollection, "Collection name for QPUs")
 	cmd.PersistentFlags().StringVar(&flagCollectionTimeSlots, "timeslots-collection", DefaultTimeSlotsCollection, "Collection name for Time Slots")
@@ -363,6 +367,7 @@ func NewFromFlags(cmd *cobra.Command) (*AppConfig, error) {
 	cfg.TlsKeyFile = DefaultTLSKeyFile
 	cfg.TlsCaCertFile = DefaultTLSCaCertFile
 	cfg.TlsCaKeyFile = DefaultTLSCaKeyFile
+	cfg.IpAddr = "127.0.0.1"
 
 	// Overlay Config File (if specified via env or flag)
 	configFile := flagConfigFile
@@ -393,6 +398,7 @@ func NewFromFlags(cmd *cobra.Command) (*AppConfig, error) {
 			TlsCaCertFile            *string                     `json:"tlsCaCertFile" yaml:"tlsCaCertFile"`
 			TlsCaKeyFile             *string                     `json:"tlsCaKeyFile" yaml:"tlsCaKeyFile"`
 			ServerPort               *int                        `json:"serverPort" yaml:"serverPort"`
+			IpAddr                   *string                     `json:"ipAddr" yaml:"ipAddr"`
 			CollectionTimeSlots      *string                     `json:"timeslotsCollection" yaml:"timeslotsCollection"`
 			CollectionQuantumJobs    *string                     `json:"jobsCollection" yaml:"jobsCollection"`
 			CollectionAPITokens      *string                     `json:"apiTokensCollection" yaml:"apiTokensCollection"`
@@ -433,6 +439,11 @@ func NewFromFlags(cmd *cobra.Command) (*AppConfig, error) {
 		}
 		if fileCfg.ServerPort != nil {
 			cfg.ServerPort = *fileCfg.ServerPort
+		}
+		if fileCfg.IpAddr != nil {
+			if _, err := parseIpOrErr(*fileCfg.IpAddr); err == nil {
+				cfg.IpAddr = *fileCfg.IpAddr
+			}
 		}
 		if fileCfg.CollectionQPUs != nil {
 			cfg.CollectionQPUs = *fileCfg.CollectionQPUs
@@ -554,6 +565,7 @@ func NewFromFlags(cmd *cobra.Command) (*AppConfig, error) {
 	cfg.TlsCaCertFile = resolveString("tls-ca-cert-file", "QPI_TLS_CA_CERT_FILE", cfg.TlsCaCertFile)
 	cfg.TlsCaKeyFile = resolveString("tls-ca-key-file", "QPI_TLS_CA_KEY_FILE", cfg.TlsCaKeyFile)
 	cfg.ServerPort = resolveInt("server-port", "QPI_SERVER_PORT", cfg.ServerPort)
+	cfg.IpAddr = resolveString("ip-addr", "QPI_IP_ADDR", cfg.IpAddr)
 	cfg.CollectionQPUs = resolveString("qpus-collection", "QPI_QPUS_COLLECTION", cfg.CollectionQPUs)
 	cfg.CollectionTimeSlots = resolveString("timeslots-collection", "QPI_TIMESLOTS_COLLECTION", cfg.CollectionTimeSlots)
 	cfg.CollectionQuantumJobs = resolveString("jobs-collection", "QPI_JOBS_COLLECTION", cfg.CollectionQuantumJobs)
@@ -606,7 +618,7 @@ func NewFromFlags(cmd *cobra.Command) (*AppConfig, error) {
 	}
 
 	// Load the TLS
-	cfg.tlsConfig, err = getTlsCertKeyPair(cfg.TlsCertFile, cfg.TlsKeyFile, cfg.DomainName, cfg.tlsCaConfig)
+	cfg.tlsConfig, err = getTlsCertKeyPair(cfg.TlsCertFile, cfg.TlsKeyFile, cfg.DomainName, cfg.tlsCaConfig, cfg.IpAddr)
 	if err != nil {
 		return nil, fmt.Errorf("[Config] NewFromFlags error: %w", err)
 	}
@@ -646,4 +658,14 @@ func fileExists(path string) bool {
 	}
 
 	return true
+}
+
+// parseIp parsed the IP string, returning an error if invalid
+func parseIpOrErr(value string) (net.IP, error) {
+	parsedIP := net.ParseIP(value)
+	if parsedIP == nil {
+		return nil, fmt.Errorf("invalid IP address: %s", value)
+	}
+
+	return parsedIP, nil
 }

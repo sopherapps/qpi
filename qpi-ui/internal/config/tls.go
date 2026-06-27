@@ -57,7 +57,7 @@ func loadTLS(certFile string, keyFile string) (*tls.Config, error) {
 }
 
 // getTlsCertKeyPair gets the parsed TLS certificate file and key file or generates them if they are invalid
-func getTlsCertKeyPair(certFile string, keyFile string, domain string, ca *certKeyPair) (*certKeyPair, error) {
+func getTlsCertKeyPair(certFile string, keyFile string, domain string, ca *certKeyPair, ipAddr string) (*certKeyPair, error) {
 	isValidCert, err := isValidPemOfType(certFile, certificatePemHeader)
 	if err != nil {
 		return nil, fmt.Errorf("error validating certificate file '%s': %w", certFile, err)
@@ -69,7 +69,7 @@ func getTlsCertKeyPair(certFile string, keyFile string, domain string, ca *certK
 	}
 
 	if !isValidCert || !isValidKey {
-		err = generateCertAndKeyFiles(domain, certFile, keyFile, ca)
+		err = generateCertAndKeyFiles(domain, certFile, keyFile, ca, ipAddr)
 		if err != nil {
 			return nil, err
 		}
@@ -145,7 +145,12 @@ func generateCA(caCertPath, caKeyPath string) (*certKeyPair, error) {
 
 // generateCertAndKeyFiles generates a certificate and key PEM files for use in TLS handshakes
 // and all that and saves them to the given locations.
-func generateCertAndKeyFiles(domain string, certFile string, keyFile string, ca *certKeyPair) error {
+func generateCertAndKeyFiles(domain string, certFile string, keyFile string, ca *certKeyPair, ipAddr string) error {
+	parsedIP, err := parseIpOrErr(ipAddr)
+	if err != nil {
+		return err
+	}
+
 	privateKey, err := rsa.GenerateKey(rand.Reader, 4096)
 	if err != nil {
 		return fmt.Errorf("failed to generate private key: %w", err)
@@ -157,12 +162,7 @@ func generateCertAndKeyFiles(domain string, certFile string, keyFile string, ca 
 		dnsNames = append(dnsNames, domain)
 	}
 
-	hostIPs, err := fetchHostIPs()
-	if err != nil {
-		return fmt.Errorf("failed auto-detecting host IPs: %w", err)
-	}
-
-	ipAddresses := append([]net.IP{net.ParseIP("127.0.0.1"), net.ParseIP("::1")}, hostIPs...)
+	ipAddresses := []net.IP{net.ParseIP("127.0.0.1"), net.ParseIP("::1"), parsedIP}
 
 	// Build the x509 Template Constraints
 	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
@@ -270,25 +270,6 @@ func writePEMToFile(filename string, blockType string, derBytes []byte, perm os.
 	}
 
 	return nil
-}
-
-// Internal helper to scrape non-loopback network interfaces for valid IPs
-func fetchHostIPs() ([]net.IP, error) {
-	var ips []net.IP
-	addresses, err := net.InterfaceAddrs()
-	if err != nil {
-		return nil, err
-	}
-
-	for _, addr := range addresses {
-		// Check if network address is not a loopback interface
-		if ipNet, ok := addr.(*net.IPNet); ok && !ipNet.IP.IsLoopback() {
-			if ipNet.IP.To4() != nil || ipNet.IP.To16() != nil {
-				ips = append(ips, ipNet.IP)
-			}
-		}
-	}
-	return ips, nil
 }
 
 // isValidPemOfType checks if a file is a PEM file with the given header.

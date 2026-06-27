@@ -167,7 +167,8 @@ func TestGenerateCertAndKeyFiles(t *testing.T) {
 	}
 
 	domain := "test.example.com"
-	err = generateCertAndKeyFiles(domain, certPath, keyPath, caPair)
+	customIp := "192.0.0.0"
+	err = generateCertAndKeyFiles(domain, certPath, keyPath, caPair, customIp)
 	if err != nil {
 		t.Fatalf("generateCertAndKeyFiles failed: %v", err)
 	}
@@ -210,14 +211,22 @@ func TestGenerateCertAndKeyFiles(t *testing.T) {
 
 	// Verify IP addresses include loopback
 	hasLoopback := false
+	hasCustomIp := false
 	for _, ip := range pair.Certificate.IPAddresses {
 		if ip.String() == "127.0.0.1" {
 			hasLoopback = true
-			break
+		}
+		if ip.String() == customIp {
+			hasCustomIp = true
 		}
 	}
+
 	if !hasLoopback {
 		t.Fatal("expected IPAddresses to include 127.0.0.1")
+	}
+
+	if !hasCustomIp {
+		t.Fatalf("expected IPAddresses to include %s", customIp)
 	}
 }
 
@@ -234,7 +243,7 @@ func TestGetTlsCertKeyPair_GeneratesWhenMissing(t *testing.T) {
 		t.Fatalf("generateCA failed: %v", err)
 	}
 
-	pair, err := getTlsCertKeyPair(certPath, keyPath, "localhost", caPair)
+	pair, err := getTlsCertKeyPair(certPath, keyPath, "localhost", caPair, "127.0.0.1")
 	if err != nil {
 		t.Fatalf("getTlsCertKeyPair failed: %v", err)
 	}
@@ -257,13 +266,13 @@ func TestGetTlsCertKeyPair_ReusesExisting(t *testing.T) {
 	}
 
 	// Generate first time
-	firstPair, err := getTlsCertKeyPair(certPath, keyPath, "localhost", caPair)
+	firstPair, err := getTlsCertKeyPair(certPath, keyPath, "localhost", caPair, "127.0.0.1")
 	if err != nil {
 		t.Fatalf("first getTlsCertKeyPair failed: %v", err)
 	}
 
 	// Get again — should reuse
-	secondPair, err := getTlsCertKeyPair(certPath, keyPath, "localhost", caPair)
+	secondPair, err := getTlsCertKeyPair(certPath, keyPath, "localhost", caPair, "127.0.0.1")
 	if err != nil {
 		t.Fatalf("second getTlsCertKeyPair failed: %v", err)
 	}
@@ -286,7 +295,7 @@ func TestLoadTLS_ValidPair(t *testing.T) {
 		t.Fatalf("generateCA failed: %v", err)
 	}
 
-	err = generateCertAndKeyFiles("localhost", certPath, keyPath, caPair)
+	err = generateCertAndKeyFiles("localhost", certPath, keyPath, caPair, "127.0.0.1")
 	if err != nil {
 		t.Fatalf("generateCertAndKeyFiles failed: %v", err)
 	}
@@ -393,7 +402,8 @@ func TestIsCertUpForRenewal(t *testing.T) {
 		t.Fatalf("generateCA failed: %v", err)
 	}
 
-	err = generateCertAndKeyFiles("localhost", certPath, keyPath, caPair)
+
+	err = generateCertAndKeyFiles("localhost", certPath, keyPath, caPair, "127.0.0.1")
 	if err != nil {
 		t.Fatalf("generateCertAndKeyFiles failed: %v", err)
 	}
@@ -441,18 +451,6 @@ func TestWritePEMToFile(t *testing.T) {
 	}
 }
 
-// TestFetchHostIPs verifies fetchHostIPs doesn't error and returns at least loopback-like results.
-func TestFetchHostIPs(t *testing.T) {
-	ips, err := fetchHostIPs()
-	if err != nil {
-		t.Fatalf("fetchHostIPs failed: %v", err)
-	}
-	// Should return a slice (may be empty on some CI environments)
-	if ips == nil {
-		t.Fatal("expected non-nil slice")
-	}
-}
-
 // TestGenerateCertAndKeyFiles_DefaultDomain verifies default domain handling.
 func TestGenerateCertAndKeyFiles_DefaultDomain(t *testing.T) {
 	tmpDir := t.TempDir()
@@ -467,7 +465,7 @@ func TestGenerateCertAndKeyFiles_DefaultDomain(t *testing.T) {
 	}
 
 	// Empty domain should still work and default to localhost-only SANs
-	err = generateCertAndKeyFiles("", certPath, keyPath, caPair)
+	err = generateCertAndKeyFiles("", certPath, keyPath, caPair, "127.0.0.1")
 	if err != nil {
 		t.Fatalf("generateCertAndKeyFiles with empty domain failed: %v", err)
 	}
@@ -486,7 +484,44 @@ func TestGenerateCertAndKeyFiles_DefaultDomain(t *testing.T) {
 		}
 	}
 	if !hasLocalhost {
-		t.Fatal("expected DNSNames to include localhost for empty domain")
+		t.Fatal("expected localhost in DNSNames for empty domain fallback")
+	}
+}
+
+// TestGenerateCertAndKeyFiles_ValidIPAddress verifies that a passed IP address is included in the certificate.
+func TestGenerateCertAndKeyFiles_ValidIPAddress(t *testing.T) {
+	tmpDir := t.TempDir()
+	caCertPath := filepath.Join(tmpDir, "ca.pem")
+	caKeyPath := filepath.Join(tmpDir, "ca.key")
+	certPath := filepath.Join(tmpDir, "cert.pem")
+	keyPath := filepath.Join(tmpDir, "key.pem")
+
+	caPair, err := generateCA(caCertPath, caKeyPath)
+	if err != nil {
+		t.Fatalf("generateCA failed: %v", err)
+	}
+
+	testIP := "192.168.1.100"
+	err = generateCertAndKeyFiles("localhost", certPath, keyPath, caPair, testIP)
+	if err != nil {
+		t.Fatalf("generateCertAndKeyFiles with valid IP failed: %v", err)
+	}
+
+	pair, err := readCertKeyPair(certPath, keyPath)
+	if err != nil {
+		t.Fatalf("readCertKeyPair failed: %v", err)
+	}
+
+	hasTestIP := false
+	for _, ip := range pair.Certificate.IPAddresses {
+		if ip.String() == testIP {
+			hasTestIP = true
+			break
+		}
+	}
+
+	if !hasTestIP {
+		t.Fatalf("expected IP address %s to be in certificate's IPAddresses, got %v", testIP, pair.Certificate.IPAddresses)
 	}
 }
 
@@ -503,7 +538,7 @@ func TestGenerateCertAndKeyFiles_LocalhostDomain(t *testing.T) {
 		t.Fatalf("generateCA failed: %v", err)
 	}
 
-	err = generateCertAndKeyFiles("localhost", certPath, keyPath, caPair)
+	err = generateCertAndKeyFiles("localhost", certPath, keyPath, caPair, "127.0.0.1")
 	if err != nil {
 		t.Fatalf("generateCertAndKeyFiles failed: %v", err)
 	}
