@@ -220,7 +220,7 @@ func (cfg *AppConfig) StartTlsRenewalWorker(ctx context.Context) {
 					continue
 				}
 
-				log.Println("Root CA successfully renewed!")
+				log.Printf("Root CA successfully renewed! Fingerprint: %s\n", cfg.tlsCaHash)
 			}
 
 			// Check if certificate is up for renewal
@@ -252,7 +252,7 @@ func (cfg *AppConfig) StartTlsRenewalWorker(ctx context.Context) {
 					continue
 				}
 
-				log.Println("Certificate successfully renewed!")
+				log.Printf("Certificate successfully renewed! Fingerprint: %s\n", cfg.tlsCaHash)
 			}
 		}
 	}()
@@ -634,6 +634,7 @@ func NewFromFlags(cmd *cobra.Command) (*AppConfig, error) {
 	if err != nil {
 		return nil, fmt.Errorf("[Config] NewFromFlags error: %w", err)
 	}
+	log.Printf("[Config] Active CA Fingerprint: %s\n", cfg.tlsCaHash)
 
 	return cfg, nil
 }
