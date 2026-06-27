@@ -559,7 +559,6 @@ func handleQPUConnect(re *core.RequestEvent) error {
 		qpu.NNGResultPort = ports[1]
 	}
 
-	qpu.Status = "online"
 	if req.ExecutorType != "" {
 		qpu.ExecutorType = req.ExecutorType
 	}

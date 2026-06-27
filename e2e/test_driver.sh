@@ -33,7 +33,22 @@ run_driver_e2e() {
     local status=0
     run_verify --driver || status=$?
 
-    stop_driver
+    if [ "$status" -eq 0 ]; then
+        echo "[e2e] Testing QPU offline transition on connection drop..."
+        stop_driver
+        sleep 2
+        local online_count
+        online_count=$(curl -s "http://127.0.0.1:8090/api/qpus" | grep -o "online" | wc -l || true)
+        if [ "$online_count" -ne 0 ]; then
+            echo "[e2e] ✗ FAILED: QPU is still online after driver was stopped!"
+            status=1
+        else
+            echo "[e2e] ✓ QPU successfully transitioned to offline when driver stopped."
+        fi
+    else
+        stop_driver
+    fi
+
     stop_pocketbase
 
     if [ "$status" -ne 0 ]; then

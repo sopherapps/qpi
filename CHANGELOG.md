@@ -7,6 +7,10 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 
 ## [Unreleased]
 
+### Fixed
+
+- `qpi-ui`: Fixed a race condition where a driver failing to dial the NNG socket would incorrectly leave the QPU marked as `online`. QPU online status is now strictly determined by the NNG socket attachment lifecycle.
+
 ## [0.0.34] - 2026-06-27
 
 ### Fixed

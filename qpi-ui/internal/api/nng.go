@@ -44,6 +44,27 @@ func runDispatcher(ctx context.Context, app core.App, qpuID string, cmdPort int)
 		return
 	}
 
+	sock.SetPipeEventHook(func(event mangos.PipeEvent, pipe mangos.Pipe) {
+		switch event {
+		case mangos.PipeEventAttached:
+			log.Printf("[Dispatcher %s] Driver attached: %s", qpuID, pipe.Address())
+			updateData := map[string]any{"status": "online"}
+			var qpu db.QPU
+			if err := db.FindAndUpdateOne(app, cfg.CollectionQPUs, qpuID, &qpu, updateData); err != nil {
+				log.Printf("[Dispatcher %s] failed to mark online: %v", qpuID, err)
+			}
+		case mangos.PipeEventDetached:
+			log.Printf("[Dispatcher %s] Driver disconnected: %s", qpuID, pipe.Address())
+			updateData := map[string]any{"status": "offline"}
+			var qpu db.QPU
+			if err := db.FindAndUpdateOne(app, cfg.CollectionQPUs, qpuID, &qpu, updateData); err != nil {
+				log.Printf("[Dispatcher %s] failed to mark offline: %v", qpuID, err)
+			} else {
+				log.Printf("[Dispatcher %s] QPU marked offline due to connection drop", qpuID)
+			}
+		}
+	})
+
 	addr := l.Address()
 	if err := l.Listen(); err != nil {
 		log.Printf("[Dispatcher %s] listen error on %s: %v", qpuID, addr, err)

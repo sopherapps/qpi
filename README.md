@@ -334,7 +334,6 @@ make clean
 
 ## TODOs
 
-
 ## License
 
 Copyright (c) 2026 [Martin Ahindura](https://github.com/Tinitto)
