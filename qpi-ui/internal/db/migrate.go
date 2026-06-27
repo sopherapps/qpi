@@ -230,7 +230,7 @@ func ensureNotificationsCollection(app core.App, cfg *config.AppConfig) error {
 		"(@request.auth.id ?= target_users.id || target_users:length = 0) && " +
 		"(start_time = '' || start_time <= @now) && " +
 		"(end_time = '' || end_time >= @now) && " +
-		"(dismissed_by:length = 0 || dismissed_by.id ?!= @request.auth.id)"
+		"(dismissed_by:length = 0 || !(dismissed_by.id ?= @request.auth.id))"
 
 	col.ListRule = types.Pointer(visibilityRule)
 	col.ViewRule = types.Pointer(visibilityRule)

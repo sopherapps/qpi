@@ -128,7 +128,26 @@ export const App: React.FC = () => {
       const records = await pb.collection("notifications").getFullList({
         sort: "-created",
       });
-      setNotifications(records as unknown as Notification[]);
+      
+      let filterId = pb.authStore.model?.id;
+      const isSuper = pb.authStore.model?.collectionName === "_superusers";
+      if (isSuper) {
+        try {
+          const proxyUser = await pb.collection("users").getFirstListItem(`email="${pb.authStore.model?.email}"`);
+          if (proxyUser) {
+            filterId = proxyUser.id;
+          }
+        } catch (e) {
+          // Proxy user might not exist yet, which is fine
+        }
+      }
+
+      const filtered = (records as unknown as Notification[]).filter((n) => {
+        if (!filterId) return true;
+        return !n.dismissed_by?.includes(filterId);
+      });
+
+      setNotifications(filtered);
     } catch (err) {
       console.error("Failed to load notifications:", err);
     }
@@ -291,12 +310,6 @@ export const App: React.FC = () => {
   const handleDismissNotification = async (id: string) => {
     if (!userId) return;
     try {
-      const isSuper = pb.authStore.model?.collectionName === "_superusers";
-      if (isSuper) {
-        setNotifications((prev) => prev.filter((n) => n.id !== id));
-        return;
-      }
-
       await pb.send(`/api/notifications/${encodeURIComponent(id)}/dismiss`, {
         method: "POST",
       });
@@ -309,12 +322,6 @@ export const App: React.FC = () => {
   const handleDismissAllNotifications = async () => {
     if (!userId) return;
     try {
-      const isSuper = pb.authStore.model?.collectionName === "_superusers";
-      if (isSuper) {
-        setNotifications([]);
-        return;
-      }
-
       await Promise.all(
         notifications.map(async (ann) => {
           return pb.send(
