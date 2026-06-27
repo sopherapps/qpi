@@ -334,9 +334,6 @@ make clean
 
 ## TODOs
 
-- [ ] Add a way of translating the configuration files (calib seed etc.) of tergite to the quantify.device.yml of this one
-- [ ] Dismissed notices got from the header and the notice banner disappear only on client but reappear on refresh. (Is this a regression? Didn't the tests catch it?)
-- [ ] Jobs remain running but never complete/fail (maybe could it be disconnected drivers when the QPI server restarts?)
 
 ## License
 
