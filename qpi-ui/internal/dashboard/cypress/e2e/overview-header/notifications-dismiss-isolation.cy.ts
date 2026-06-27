@@ -95,5 +95,36 @@ describe("Overview & Header — Notification Dismiss Isolation", () => {
       .within(() => {
         cy.contains(uniqueTitle).scrollIntoView().should("be.visible");
       });
+    // 4. Admin dismisses the notification
+    cy.contains("h3", "System Announcements")
+      .parent()
+      .within(() => {
+        cy.contains(uniqueTitle)
+          .parent()
+          .parent()
+          .parent()
+          .trigger("mouseover")
+          .within(() => {
+            cy.get('button svg.lucide-x').parent().click({ force: true });
+          });
+      });
+
+    // Verify it's gone for admin immediately
+    cy.contains("h3", "System Announcements")
+      .parent()
+      .within(() => {
+        cy.contains(uniqueTitle).should("not.exist");
+      });
+
+    // 5. Admin reloads the page
+    cy.reload();
+    cy.visit("/#overview");
+
+    // Verify the notification stays hidden after refresh
+    cy.contains("h3", "System Announcements")
+      .parent()
+      .within(() => {
+        cy.contains(uniqueTitle).should("not.exist");
+      });
   });
 });
