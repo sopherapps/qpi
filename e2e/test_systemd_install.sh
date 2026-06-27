@@ -33,7 +33,7 @@ docker exec -e QPI_TOKEN="mock_token" \
             $CONTAINER_ID bash -c "/install-systemd.sh || true"
 
 echo "Checking if service file was generated..."
-if docker exec $CONTAINER_ID cat /etc/systemd/system/qpi-driver.service | grep -q "QPI Driver Service"; then
+if docker exec $CONTAINER_ID cat /etc/systemd/system/mock_qpu.qpi-driver.service | grep -q "QPI Driver Service"; then
     echo "SUCCESS: systemd service file generated correctly!"
 else
     echo "FAILED: systemd service file not found or incorrect."
@@ -42,16 +42,16 @@ fi
 
 echo "Checking if service can start..."
 docker exec $CONTAINER_ID systemctl daemon-reload
-docker exec $CONTAINER_ID systemctl start qpi-driver
+docker exec $CONTAINER_ID systemctl start mock_qpu.qpi-driver
 
 # We give it a moment to fail if it's going to
 sleep 2
 
-if docker exec $CONTAINER_ID systemctl status qpi-driver | grep -q "active (running)"; then
+if docker exec $CONTAINER_ID systemctl status mock_qpu.qpi-driver | grep -q "active (running)"; then
     echo "SUCCESS: systemd service started successfully!"
 else
     echo "FAILED: systemd service failed to start."
-    docker exec $CONTAINER_ID systemctl status qpi-driver || true
-    docker exec $CONTAINER_ID journalctl -u qpi-driver --no-pager || true
+    docker exec $CONTAINER_ID systemctl status mock_qpu.qpi-driver || true
+    docker exec $CONTAINER_ID journalctl -u mock_qpu.qpi-driver --no-pager || true
     exit 1
 fi
