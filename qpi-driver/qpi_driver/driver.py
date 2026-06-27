@@ -198,6 +198,8 @@ def send_results(
     result_queue: multiprocessing.Queue,
     res_port: int,
     nng_host: str,
+    qpi_addr: str,
+    ca_fingerprint: str,
     ca_file_path: Path,
 ) -> None:
     """Result sender process: reads Qiskit-format result dicts from result_queue
@@ -207,6 +209,8 @@ def send_results(
         result_queue: Queue used to receive result dicts from the worker.
         res_port: Port allocated for the NNG PUSH socket to return results.
         nng_host: Hostname or IP of the Go PocketBase server (for NNG TCP connections).
+        qpi_addr: Full URL of the QPI server.
+        ca_fingerprint: the fingerprint to verify that the downloaded CA file is the right one
         ca_file_path: Path to the CA certificate file for TLS connections.
     """
     logging.basicConfig(
@@ -220,11 +224,7 @@ def send_results(
     addr = f"tls+tcp://{nng_host}:{res_port}"
     rs_log.info("Connecting NNG PUSH → %s", addr)
 
-    tls_config = TLSConfig(
-        TLSConfig.MODE_CLIENT,
-        server_name=nng_host,
-        ca_files=ca_file_path.as_posix(),
-    )
+    tls_config = _get_tls_config(qpi_addr, ca_fingerprint, ca_file_path)
 
     with pynng.Push0(tls_config=tls_config) as sock:
         sock.dial(addr, block=True)
@@ -341,11 +341,6 @@ def run_driver(
     )
     worker.start()
 
-    # 4. Ensure TLS CA cert is downloaded before starting the result sender process
-    tls_config = _get_tls_config(
-        qpi_addr, ca_fingerprint=ca_fingerprint, ca_file_path=ca_file_path
-    )
-
     # Start Result Sender Process
     result_sender = multiprocessing.Process(
         target=send_results,
@@ -353,12 +348,18 @@ def run_driver(
             "result_queue": result_queue,
             "res_port": res_port,
             "nng_host": nng_host,
+            "qpi_addr": qpi_addr,
+            "ca_fingerprint": ca_fingerprint,
             "ca_file_path": ca_file_path,
         },
         name="QPI-ResultSender",
         daemon=True,
     )
     result_sender.start()
+
+    tls_config = _get_tls_config(
+        qpi_addr, ca_fingerprint=ca_fingerprint, ca_file_path=ca_file_path
+    )
 
     addr = f"tls+tcp://{nng_host}:{cmd_port}"
     log.info("Connecting NNG PULL → %s", addr)

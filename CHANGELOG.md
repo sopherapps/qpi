@@ -10,6 +10,7 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 ### Fixed
 
 - `qpi-ui`: Fixed an issue in the admin dashboard where dismissed system notifications reappeared on page refresh. Dismissals are now correctly persisted via proxy user API requests.
+- `qpi-driver`: Fixed a `panic: nng is not fork-reentrant safe` error in multiprocessing environments by deferring the NNG TLSConfig initialization until after the worker processes have forked.
 
 ## [0.0.33] - 2026-06-27
 
