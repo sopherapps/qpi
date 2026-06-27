@@ -111,9 +111,9 @@ If you prefer to configure it manually, follow these exact steps:
 3. **Create the systemd unit file**:
    Replace the placeholder `<values>` with your actual configuration.
    ```bash
-   sudo bash -c 'cat > /etc/systemd/system/qpi-driver.service <<EOF
+   sudo bash -c 'cat > /etc/systemd/system/rigetti-aspen-1.qpi-driver.service <<EOF
    [Unit]
-   Description=QPI Driver Service
+   Description=QPI Driver Service (rigetti-aspen-1)
    After=network.target
 
    [Service]
@@ -125,7 +125,7 @@ If you prefer to configure it manually, follow these exact steps:
    ExecStart=/home/<user>/.local/bin/qpi-driver start \
            --ca-fingerprint <your-fingerprint> \
            --qpi-addr <your-qpi-server-address> \
-           --name "<your-qpu-name>" \
+           --name "rigetti-aspen-1" \
            --executor "qblox"
 
    Restart=on-failure
@@ -133,7 +133,7 @@ If you prefer to configure it manually, follow these exact steps:
 
    StandardOutput=journal
    StandardError=journal
-   SyslogIdentifier=qpi-driver
+   SyslogIdentifier=rigetti-aspen-1.qpi-driver
 
    [Install]
    WantedBy=multi-user.target
@@ -143,9 +143,9 @@ If you prefer to configure it manually, follow these exact steps:
 4. **Start and enable the service**:
    ```bash
    sudo systemctl daemon-reload
-   sudo systemctl enable qpi-driver.service
-   sudo systemctl start qpi-driver.service
-   sudo systemctl status qpi-driver.service
+   sudo systemctl enable rigetti-aspen-1.qpi-driver.service
+   sudo systemctl start rigetti-aspen-1.qpi-driver.service
+   sudo systemctl status rigetti-aspen-1.qpi-driver.service
    ```
 
 ### Python API

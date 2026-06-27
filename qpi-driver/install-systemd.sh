@@ -63,7 +63,7 @@ else
 fi
 
 # 4. Create systemd unit file
-SERVICE_FILE="/etc/systemd/system/qpi-driver.service"
+SERVICE_FILE="/etc/systemd/system/${QPU_NAME}.qpi-driver.service"
 echo "Creating systemd service at $SERVICE_FILE..."
 
 cat > "$SERVICE_FILE" <<EOF
@@ -90,7 +90,7 @@ User=$REAL_USER
 # Journalctl logging configuration
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=qpi-driver
+SyslogIdentifier=${QPU_NAME}.qpi-driver
 
 [Install]
 WantedBy=multi-user.target
@@ -100,13 +100,13 @@ EOF
 echo "Reloading systemd daemon..."
 systemctl daemon-reload
 
-echo "Enabling and starting qpi-driver.service..."
-systemctl enable qpi-driver.service
-systemctl start qpi-driver.service
+echo "Enabling and starting ${QPU_NAME}.qpi-driver.service..."
+systemctl enable "${QPU_NAME}.qpi-driver.service"
+systemctl start "${QPU_NAME}.qpi-driver.service"
 
 echo "=========================================="
 echo "Installation complete!"
 echo "Service status:"
-systemctl status qpi-driver.service --no-pager || true
+systemctl status "${QPU_NAME}.qpi-driver.service" --no-pager || true
 echo "=========================================="
-echo "To view logs in the future, run: journalctl -fu qpi-driver"
+echo "To view logs, run: journalctl -u ${QPU_NAME}.qpi-driver.service -f"
