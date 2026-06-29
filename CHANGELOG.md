@@ -7,6 +7,10 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 
 ## [Unreleased]
 
+### Changed
+
+- `qpi-ui/dashboard`: Moved the React dashboard path from `/dashboard/` to the root path `/` to improve user experience.
+
 ## [0.0.35] - 2026-06-27
 
 ### Fixed

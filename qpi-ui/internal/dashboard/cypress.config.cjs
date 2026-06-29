@@ -8,7 +8,7 @@ module.exports = defineConfig({
     },
   },
   e2e: {
-    baseUrl: "http://127.0.0.1:8090/dashboard/",
+    baseUrl: "http://127.0.0.1:8090/",
     supportFile: "cypress/support/e2e.ts",
     specPattern: "cypress/e2e/**/*.cy.{js,jsx,ts,tsx}",
   },

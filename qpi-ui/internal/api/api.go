@@ -62,7 +62,7 @@ func RegisterRoutes(e *core.ServeEvent, dashboardFS fs.FS) {
 	if err != nil {
 		log.Panicf("[RegisterRoutes] failed to sub dashboardFS: %v", err)
 	}
-	e.Router.GET("/dashboard/{path...}", apis.Static(subFS, true))
+	e.Router.GET("/{path...}", apis.Static(subFS, true))
 
 	// general public data
 	e.Router.GET("/api/pub/root-ca.pem", handleRootCaDownload)

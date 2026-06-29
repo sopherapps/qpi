@@ -53,7 +53,7 @@ Compile and run the PocketBase Go server (this automatically builds the React da
 make build
 ./bin/qpi serve
 ```
-*The dashboard is now available at `http://127.0.0.1:8090/dashboard/`. You can log in using the PocketBase Admin UI at `http://127.0.0.1:8090/_/` to create your initial superuser account.*
+*The dashboard is now available at `http://127.0.0.1:8090/`. You can log in using the PocketBase Admin UI at `http://127.0.0.1:8090/_/` to create your initial superuser account.*
 
 ### 2. Connect a QPU Driver
 Open a new terminal. In the dashboard, navigate to **QPU Registry** and register a new QPU. You will receive an access token and a `ca-fingerprint`. Use them to start the Python driver (using the `mock` executor for local testing):
@@ -86,7 +86,7 @@ print(job)
 
 The architecture consists of four primary components under the hood:
 1. **PocketBase Go Server (`qpi-ui/main.go`):** Extends PocketBase with Go, handling job queues, session-based bookings, and real-time job dispatching. Actively listens for LAN connections on dynamically allocated network ports.
-2. **React SPA Dashboard (`qpi-ui/internal/dashboard`):** Single-page application built with Vite, React 19, TypeScript, and Tailwind CSS. It is served directly from the server (via `//go:embed`) at `/dashboard/` for viewing jobs, allocating QPU time, scheduling announcements, managing bookings, and observing calibration telemetry.
+2. **React SPA Dashboard (`qpi-ui/internal/dashboard`):** Single-page application built with Vite, React 19, TypeScript, and Tailwind CSS. It is served directly from the server (via `//go:embed`) at `/` for viewing jobs, allocating QPU time, scheduling announcements, managing bookings, and observing calibration telemetry.
 3. **Python QPU Driver (`qpi-driver`):** Runs on isolated hardware nodes controlling the QPU. Uses Python's `multiprocessing` library to isolate network handling, quantum circuit compilation/simulation, and translation into separate processes.
 4. **QPI Clients (Python, JavaScript, Go):** SDKs for submitting jobs to the quantum computer using OpenQASM specification (and Qiskit circuits if one uses the Python client)
 
