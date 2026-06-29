@@ -7,6 +7,10 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 
 ## [Unreleased]
 
+### Fixed
+
+- `docs`: Enabled mermaid diagram rendering in mkdocs material theme by adding the `pymdownx.superfences` markdown extension in `mkdocs.yml`.
+
 ## [0.0.36] - 2026-06-29
 
 ### Changed

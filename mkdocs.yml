@@ -48,3 +48,10 @@ nav:
       - Go Client: clients/go.md
       - JavaScript Client: clients/javascript.md
   - Changelog: changelog.md
+
+markdown_extensions:
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
