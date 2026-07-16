@@ -3,7 +3,7 @@ from typing import Any
 
 import xarray as xr
 
-from .dtos import CircuitPayload, JobPayload
+from .dtos import JobPayload
 
 
 class Executor(ABC):
