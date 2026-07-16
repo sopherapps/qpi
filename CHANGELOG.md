@@ -7,10 +7,13 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 
 ## [Unreleased]
 
+## [0.0.38] - 2026-07-17
+
 ### Added
 
 - `qpi-driver`: Added safe-path validation for `--data-dir` and `--ca-file` to prevent writing to unsafe/unauthorized locations.
 - `qpi-driver`: Added environment variable defaults for `QPI_DATA_DIR`, `QPI_CA_FILE`, `QPI_QUANTIFY_DEVICE_CONFIG`, and `QPI_QUANTIFY_HARDWARE_CONFIG` to the systemd service installer.
+- `qpi-driver`: Added the FluxTunableCoupler as a CompositeSquareEdge for qblox and quantify executors
 
 ### Changed
 
@@ -20,6 +23,7 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 
 ### Fixed
 
+- `qpi-driver`: Fixed permissions/directory creation bugs and improved `uv` location detection in `install-systemd.sh`.
 - `qpi-driver`: Fixed standard Python test output teardown issues by gracefully unregistering the default QCoDeS instrument closing handler from `atexit` and closing them in a test session fixture while logging is still active.
 - `qpi-driver`: Ensured the target parent directory for the CA certificate exists before saving the file.
 - `qpi-driver`: Fixed minor code linting errors.

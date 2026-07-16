@@ -3,7 +3,9 @@ from typing import Any
 
 import xarray as xr
 
-from .dtos import JobPayload
+from .dtos import CircuitPayload, JobPayload
+
+__all__ = ["Executor", "CircuitPayload", "JobPayload"]
 
 
 class Executor(ABC):
