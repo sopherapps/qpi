@@ -1,0 +1,154 @@
+import copy
+from pathlib import Path
+from typing import Any
+
+import yaml
+
+from qpi_driver.compat.qblox import (
+    BaseModel,
+    DeviceElement,
+    Edge,
+    ImportString,
+    QbloxHardwareCompilationConfig,
+    QuantumDevice,
+    field_validator,
+)
+
+
+class _ElementType(BaseModel):
+    """The config for each element defined in the device-layer config"""
+
+    path: ImportString
+    args: tuple = ()
+    kwargs: dict = {}
+
+    @field_validator("args", mode="before")
+    @classmethod
+    def conv_none_to_empty_tuple(cls, value: Any):
+        """Ensures None values become empty tuple"""
+        if value is None:
+            return ()
+        return value
+
+    @field_validator("kwargs", mode="before")
+    @classmethod
+    def conv_none_to_empty_dict(cls, value: Any):
+        """Ensures None values become empty tuple"""
+        if value is None:
+            return {}
+        return value
+
+    @field_validator("path", mode="before")
+    @classmethod
+    def ensure_qblox(cls, value: Any):
+        """Ensures that the import paths are for qblox-scheduler not quantify-scheduler"""
+        if isinstance(value, str):
+            value = value.replace("quantify_scheduler.", "qblox_scheduler.")
+            value = value.replace(
+                "qpi_driver.executors.quantify.", "qpi_driver.executors.qblox."
+            )
+        return value
+
+    def instantiate(self) -> Any:
+        """Instantiates the class"""
+        return self.path(*self.args, **self.kwargs)
+
+
+def load_quantify_hardware_config(
+    data: QbloxHardwareCompilationConfig | Path | dict,
+) -> QbloxHardwareCompilationConfig:
+    """Load quantify hardware-layer config from the given data and convert it for qblox-scheduler."""
+    if isinstance(data, Path):
+        with open(data, "r") as file:
+            data = yaml.safe_load(file)
+    else:
+        data = copy.deepcopy(data)
+
+    if isinstance(data, dict):
+        if "quantify_scheduler" in data.get("config_type", ""):
+            data["config_type"] = "QbloxHardwareCompilationConfig"
+        return QbloxHardwareCompilationConfig.model_validate(data)
+
+    return data
+
+
+def load_quantum_device(name: str, config: Path | dict) -> QuantumDevice:
+    """Load quantify device-layer config from the given data and returns a QuantumDevice"""
+    if isinstance(config, Path):
+        with open(config, "r") as file:
+            config = yaml.safe_load(file)
+    else:
+        config = copy.deepcopy(config)
+
+    quantum_device = QuantumDevice(name=name)
+
+    for element_name, element_data in config.items():  # type: str, dict
+        element_type = element_data.pop("element_type", None)
+        if not element_type:
+            raise ValueError(
+                f"Element '{element_name}' is missing a 'element_type' specification."
+            )
+
+        element_type_conf = _ElementType.model_validate(element_type)
+
+        try:
+            element_instance = element_type_conf.instantiate()
+            _apply_parameters(element_instance, element_data)
+            if isinstance(element_instance, DeviceElement):
+                quantum_device.add_element(element_instance)
+            elif isinstance(element_instance, Edge):
+                quantum_device.add_edge(element_instance)
+            else:
+                raise TypeError(
+                    f"Element '{element_name}' is has an unsupported type {type(element_instance)}."
+                )
+        except Exception as exp:
+            raise ValueError(
+                f"Failed to add element '{element_name}' from <{element_type_conf}> to quantum device, {exp}"
+            ) from exp
+
+    return quantum_device
+
+
+def _to_num(value: Any) -> Any:
+    """Convert a string value to float or int if it represents a number."""
+    if isinstance(value, str):
+        try:
+            val = float(value)
+            return int(val) if val.is_integer() else val
+        except ValueError:
+            pass
+    return value
+
+
+def _apply_parameters(obj: Any, data: dict):
+    """Helper to recursively map dictionaries onto submodules/parameters/attributes"""
+    for key, value in data.items():
+        lookup_key = (
+            "beta"
+            if key == "motzoi" and not hasattr(obj, "motzoi") and hasattr(obj, "beta")
+            else key
+        )
+        try:
+            attribute = getattr(obj, lookup_key)
+        except AttributeError as exp:
+            raise AttributeError(f"{obj} has no attribute '{key}'") from exp
+
+        if isinstance(value, dict):
+            _apply_parameters(attribute, value)
+        else:
+            value = _to_num(value)
+            if (
+                callable(attribute)
+                and not hasattr(attribute, "__class__")
+                or (
+                    hasattr(attribute, "__call__")
+                    and not isinstance(attribute, (int, float, str, bool))
+                )
+            ):
+                try:
+                    attribute(value)
+                except TypeError:
+                    setattr(obj, lookup_key, value)
+            else:
+                setattr(obj, lookup_key, value)

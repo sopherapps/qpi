@@ -45,3 +45,32 @@ q0_q1:
   cz:
     square_amp: 0.5
     square_duration: 20e-9
+
+q2:
+  element_type:
+    path: "quantify_scheduler.device_under_test.transmon_element.BasicTransmonElement"
+    kwargs:
+      name: q2
+  rxy:
+    amp180: 0.1
+    motzoi: 0
+  clock_freqs:
+    f01: 5e9
+    f12: 4.8e9
+    readout: 6.020e9
+  measure:
+    pulse_amp: 0.25
+    pulse_duration: 300e-9
+    acq_delay: 100e-9
+    integration_time: 1e-6
+
+q1_q2:
+  element_type:
+    path: "qpi_driver.executors.quantify.elements.flux_tunable_coupler.FluxTunableCoupler"
+    args:
+    kwargs:
+      parent_element_name: q1
+      child_element_name: q2
+  cz:
+    square_amp: 0.5
+    square_duration: 20e-9

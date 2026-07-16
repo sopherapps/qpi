@@ -2,20 +2,26 @@ from typing import Any
 
 import xarray as xr
 from qiskit import transpile
-from qiskit.providers.basic_provider import BasicSimulator
 
-from qpi_driver.executors.base import Executor, JobPayload
+from qpi_driver.compat.qiskit_aer import IS_AER_INSTALLED, AerSimulator
+from qpi_driver.executors import JobPayload
+from qpi_driver.executors.base import Executor
 from qpi_driver.executors.utils.qiskit import load_qasm, memory_to_dataset
 from qpi_driver.executors.utils.result import build_qiskit_result, iq_memory_avg
 
 
-class MockExecutor(Executor):
-    def __init__(self, name: str = "mock", **kwargs: Any):
+class QiskitAerExecutor(Executor):
+    def __init__(self, name: str = "qiskit_aer", **kwargs: Any):
+        if not IS_AER_INSTALLED:
+            raise ImportError(
+                "qiskit-aer is not installed. Install the [aer] extra to use QiskitAerExecutor."
+            )
+
         super().__init__(name, **kwargs)
-        self._simulator = BasicSimulator()
+        self._simulator = AerSimulator()
 
     def execute(self, payload: JobPayload) -> xr.Dataset:
-        """Execute quantum circuit simulation using Qiskit BasicSimulator.
+        """Run quantum circuit simulation using Qiskit Aer backend.
 
         For multi-circuit payloads, results are concatenated along a ``circuit_index``
         dimension.  A single-circuit payload without parameter bindings returns the
@@ -25,7 +31,11 @@ class MockExecutor(Executor):
             payload: JobPayload specifying shots and circuits.
 
         Returns:
-            xr.Dataset: Dataset containing measured state outcomes.
+            xr.Dataset: Dataset containing measured state outcomes, counts, and frequencies.
+
+        Raises:
+            ImportError: If qiskit-aer is not installed.
+            ValueError: If the provided QASM circuit cannot be loaded.
         """
         sub_datasets: list[xr.Dataset] = []
 
