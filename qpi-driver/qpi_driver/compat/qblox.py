@@ -10,6 +10,9 @@ try:
     from pydantic import BaseModel, ImportString, field_validator
     from qblox_instruments import Cluster, ClusterType, InstrumentType  # noqa: F401
     from qblox_scheduler import HardwareAgent, Schedule  # noqa: F401
+    from qblox_scheduler.device_under_test.composite_square_edge import (
+        CompositeSquareEdge,
+    )
     from qblox_scheduler.device_under_test.quantum_device import (
         DeviceElement,
         Edge,
@@ -63,6 +66,8 @@ except ImportError as exp:
     class Edge(BasicCompatClass): ...
 
     class BaseModel(BasicCompatClass): ...
+
+    class CompositeSquareEdge(BasicCompatClass): ...
 
     class CNOT(BasicCompatClass): ...
 

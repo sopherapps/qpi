@@ -168,3 +168,31 @@ measure q[0] -> c[0];"""
 
     res = executor.process_result(dataset, "job-rotation-threshold")
     assert "counts" in res
+
+
+def test_quantify_executor_flux_tunable_coupler():
+    """Verify that QuantifyExecutor compiles a CZ gate on qubits with a flux tunable coupler, overriding the port."""
+    executor = resolve_executor(
+        "quantify",
+        is_dummy=True,
+        quantify_hardware_config=_QUANTIFY_HARDWARE_CONFIG,
+        quantify_device_config=_QUANTIFY_DEVICE_CONFIG,
+    )
+    assert isinstance(executor, QuantifyExecutor)
+
+    qasm = """OPENQASM 2.0;
+include "qelib1.inc";
+qreg q[3];
+creg c[3];
+cz q[1], q[2];
+measure q[1] -> c[1];
+measure q[2] -> c[2];"""
+
+    payload = JobPayload(circuits=[CircuitPayload(circuit=qasm)], shots=10)
+    dataset = executor.execute(payload)
+    assert dataset is not None
+
+    device_config = executor._device.generate_device_config()
+    edge_config = device_config.edges["q1_q2"]
+    cz_config = edge_config["CZ"]
+    assert cz_config.factory_kwargs["square_port"] == "q1_q2:fl"

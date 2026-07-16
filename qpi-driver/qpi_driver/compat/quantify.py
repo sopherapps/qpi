@@ -19,6 +19,9 @@ try:
         QbloxHardwareCompilationConfig,
     )
     from quantify_scheduler.backends.types.qblox import ClusterDescription
+    from quantify_scheduler.device_under_test.composite_square_edge import (
+        CompositeSquareEdge,
+    )
     from quantify_scheduler.device_under_test.quantum_device import (
         DeviceElement,
         Edge,
@@ -114,6 +117,8 @@ except ImportError as exp:
     class ParameterBase(BasicCompatClass): ...
 
     class ClusterDescription(BasicCompatClass): ...
+
+    class CompositeSquareEdge(BasicCompatClass): ...
 
     class InstrumentType(Enum): ...
 
