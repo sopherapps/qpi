@@ -1,4 +1,5 @@
 import importlib.metadata
+import os
 from pathlib import Path
 from typing import Annotated
 
@@ -126,6 +127,9 @@ if typer.IS_TYPER_INSTALLED:
             )
             raise typer.Exit(code=1)
 
+        _validate_safe_path(data_dir, "--data-dir")
+        _validate_safe_path(ca_file, "--ca-file")
+
         typer.rich_print(_banner())
 
         run_driver(
@@ -175,6 +179,33 @@ if typer.IS_TYPER_INSTALLED:
             border_style="bright_cyan",
             padding=(1, 2),
         )
+
+    def _validate_safe_path(path: Path, name: str) -> None:
+        """Checks that a given path is not in an unsafe location."""
+        resolved_path_str = path.resolve().as_posix()
+        permitted_folders = (
+            Path("/var/qpi-driver").resolve().as_posix(),
+            Path("/etc/qpi-driver").resolve().as_posix(),
+        )
+        permitted_parent_dirs = (
+            Path.home().resolve().as_posix(),
+            Path("/tmp").resolve().as_posix(),
+            Path("/var/tmp").resolve().as_posix(),
+        )
+
+        for folder in permitted_folders:
+            if resolved_path_str.startswith(folder):
+                return
+
+        for folder in permitted_parent_dirs:
+            if resolved_path_str != folder and resolved_path_str.startswith(folder):
+                return
+
+        typer.echo(
+            f"Error: path for {name} ({path}) is not in a safe location.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
 
     if __name__ == "__main__":
         app()
