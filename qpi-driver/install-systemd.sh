@@ -53,7 +53,7 @@ fi
 
 # Ensure the correct extras are added based on the executor
 if [ "$EXECUTOR" = "qblox" ]; then
-    sudo -u "$REAL_USER" "$REAL_HOME/.local/bin/uv" tool install --python 3.12 "qpi-driver[cli,qblox]${VERSION_SUFFIX}"
+    sudo -u "$REAL_USER" "$REAL_HOME/.local/bin/uv" tool install --python 3.12 --prerelease allow "qpi-driver[cli,qblox]${VERSION_SUFFIX}"
 elif [ "$EXECUTOR" = "quantify" ]; then
     sudo -u "$REAL_USER" "$REAL_HOME/.local/bin/uv" tool install --python 3.12 "qpi-driver[cli,quantify]${VERSION_SUFFIX}"
 elif [ "$EXECUTOR" = "qiskit_aer" ]; then
