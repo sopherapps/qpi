@@ -67,6 +67,7 @@ def run_driver(
         executor_options: other options to pass to the executor.
     """
     qpi_addr = _normalize_qpi_addr(qpi_addr)
+    name = _sanitize_name(name)
 
     # Determine executor type string for registration
     executor_type_str = ""
@@ -442,3 +443,7 @@ def _normalize_qpi_addr(qpi_addr: str) -> str:
     if "://" not in qpi_addr:
         qpi_addr = f"http://{qpi_addr}"
     return qpi_addr.rstrip("/")
+
+def _sanitize_name(name: str) -> str:
+    """Sanitizes the name to be the kind that executors can use"""
+    return name.replace("-", "_")
