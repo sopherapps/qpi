@@ -16,6 +16,9 @@ fi
 if [ -n "$SUDO_USER" ]; then
     REAL_USER="$SUDO_USER"
     REAL_HOME=$(getent passwd "$SUDO_USER" | cut -d: -f6)
+    if [ -z "$REAL_HOME" ]; then
+        REAL_HOME=$(eval echo "~$SUDO_USER")
+    fi
 else
     REAL_USER=$(whoami)
     REAL_HOME=$HOME
@@ -42,12 +45,22 @@ QPI_CA_FILE="${QPI_CA_FILE:-"${QPI_DATA_DIR}/qpi.ca.pem"}"
 QPI_QUANTIFY_DEVICE_CONFIG="${QPI_QUANTIFY_DEVICE_CONFIG:-"${QPI_DATA_DIR}/quantify.device.yml"}"
 QPI_QUANTIFY_HARDWARE_CONFIG="${QPI_QUANTIFY_HARDWARE_CONFIG:-"${QPI_DATA_DIR}/quantify.hardware.json"}"
 
-# 2. Install uv if not present
-if ! sudo -u "$REAL_USER" command -v uv >/dev/null 2>&1; then
+# 2. Locate or install uv
+if sudo -u "$REAL_USER" command -v uv >/dev/null 2>&1; then
+    UV_PATH=$(sudo -u "$REAL_USER" command -v uv)
+elif [ -f "$REAL_HOME/.local/bin/uv" ]; then
+    UV_PATH="$REAL_HOME/.local/bin/uv"
+else
     echo "Installing 'uv' for fast python package management..."
     sudo -u "$REAL_USER" bash -c "curl -LsSf https://astral.sh/uv/install.sh | sh"
-    source "$REAL_HOME/.local/bin/env"
+    UV_PATH="$REAL_HOME/.local/bin/uv"
+    [ -f "$REAL_HOME/.local/bin/env" ] && source "$REAL_HOME/.local/bin/env" || true
 fi
+
+# Ensure data directory exists and is owned by the real user
+echo "Creating data directory at $QPI_DATA_DIR..."
+mkdir -p "$QPI_DATA_DIR"
+chown -R "$REAL_USER" "$QPI_DATA_DIR"
 
 # 3. Install qpi-driver using uv tool
 echo "Installing qpi-driver via uv tool..."
@@ -60,13 +73,13 @@ fi
 
 # Ensure the correct extras are added based on the executor
 if [ "$EXECUTOR" = "qblox" ]; then
-    sudo -u "$REAL_USER" "$REAL_HOME/.local/bin/uv" tool install --python 3.12 --prerelease allow "qpi-driver[cli,qblox]${VERSION_SUFFIX}"
+    sudo -u "$REAL_USER" "$UV_PATH" tool install --python 3.12 --prerelease allow "qpi-driver[cli,qblox]${VERSION_SUFFIX}"
 elif [ "$EXECUTOR" = "quantify" ]; then
-    sudo -u "$REAL_USER" "$REAL_HOME/.local/bin/uv" tool install --python 3.12 "qpi-driver[cli,quantify]${VERSION_SUFFIX}"
+    sudo -u "$REAL_USER" "$UV_PATH" tool install --python 3.12 "qpi-driver[cli,quantify]${VERSION_SUFFIX}"
 elif [ "$EXECUTOR" = "qiskit_aer" ]; then
-    sudo -u "$REAL_USER" "$REAL_HOME/.local/bin/uv" tool install --python 3.12 "qpi-driver[cli,aer]${VERSION_SUFFIX}"
+    sudo -u "$REAL_USER" "$UV_PATH" tool install --python 3.12 "qpi-driver[cli,aer]${VERSION_SUFFIX}"
 else
-    sudo -u "$REAL_USER" "$REAL_HOME/.local/bin/uv" tool install --python 3.12 "qpi-driver[cli]${VERSION_SUFFIX}"
+    sudo -u "$REAL_USER" "$UV_PATH" tool install --python 3.12 "qpi-driver[cli]${VERSION_SUFFIX}"
 fi
 
 # 4. Create systemd unit file
