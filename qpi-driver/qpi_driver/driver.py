@@ -428,6 +428,10 @@ def _download_root_ca_cert(
             f"the expected configuration signature ({expected_hash}).\n"
             f"The download channel may be compromised!"
         )
+
+    # ensure the directory where dst is exists
+    os.makedirs(dst.parent, exist_ok=True)
+
     with open(dst, "w") as f:
         f.write(pem_text)
 
