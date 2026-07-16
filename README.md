@@ -38,37 +38,84 @@ flowchart LR
     Driver2 -->|Control| Hardware2[Simulated QPU]
 ```
 
-## Quick Start
+## Installation & Quick Start
 
-### Prerequisites
-* **Go**: `>= 1.25` (tested up to `1.26`)
-* **Python**: `~= 3.12`
-* **Nodejs**: `>= 20.x` (tested up to `22.x`)
+QPI is distributed as pre-compiled binaries and OS-specific packages for the server, and a Python package for the drivers and clients.
 
-### 1. Start the Server
+### 1. Install & Start the Server (`qpi`)
 
-Compile and run the PocketBase Go server (this automatically builds the React dashboard if you use `make`):
+The server is available as a single executable binary, as well as native OS packages (`.deb`, `.rpm`, `.apk`) for Linux distributions.
 
+#### Standalone Binary (macOS & Linux)
+Download the binary for your platform, make it executable, and run:
 ```bash
-make build
-./bin/qpi serve
+# macOS (replace 0.0.37 with the version you wish to install)
+curl -LO https://github.com/sopherapps/qpi/releases/download/v0.0.37/qpi-0.0.37-darwin-amd64
+chmod +x qpi-0.0.37-darwin-amd64 && mv qpi-0.0.37-darwin-amd64 qpi
+
+# Linux (standalone binary)
+curl -L https://github.com/sopherapps/qpi/releases/download/v0.0.37/qpi-0.0.37-linux-amd64.tar.gz | tar -xz
+
+# Start the server
+./qpi serve
 ```
-*The dashboard is now available at `http://127.0.0.1:8090/`. You can log in using the PocketBase Admin UI at `http://127.0.0.1:8090/_/` to create your initial superuser account.*
 
-### 2. Connect a QPU Driver
-Open a new terminal. In the dashboard, navigate to **QPU Registry** and register a new QPU. You will receive an access token and a `ca-fingerprint`. Use them to start the Python driver (using the `mock` executor for local testing):
+#### Native Linux Packages (Ubuntu, Debian, Fedora, Alpine)
+For Debian/Ubuntu, download and install the `.deb` package:
+```bash
+wget https://github.com/sopherapps/qpi/releases/download/v0.0.37/qpi_0.0.37_amd64.deb
+sudo apt install ./qpi_0.0.37_amd64.deb
+```
+*(Note: Installing the package automatically registers and starts `qpi.service` under systemd (or OpenRC on Alpine) to run the server in the background on port `8090`)*
+
+#### Windows
+Download the `qpi-windows-amd64.zip` from [GitHub Releases](https://github.com/sopherapps/qpi/releases), unzip it, and run `qpi.exe serve`.
+
+*Once the server is running, the web dashboard is available at `http://127.0.0.1:8090/`. You can log in using the PocketBase Admin UI at `http://127.0.0.1:8090/_/` to create your initial superuser account.*
+
+---
+
+### 2. Connect a QPU Driver (`qpi-driver`)
+
+The driver runs alongside the QPU hardware (or simulation backend) to process jobs from the server.
+
+#### systemd Service (Linux - Recommended)
+To install the driver as a persistent background systemd service (mimicking Astral's installation workflow), run the interactive script:
 
 ```bash
-# Install the python driver CLI (using uv for speed)
-uv tool install ./qpi-driver[cli]
+sudo bash -c "$(curl -LsSf https://raw.githubusercontent.com/sopherapps/qpi/main/qpi-driver/install-systemd.sh)"
+```
+
+Alternatively, you can run the installer non-interactively by specifying the variables directly:
+```bash
+curl -LsSf https://raw.githubusercontent.com/sopherapps/qpi/main/qpi-driver/install-systemd.sh | sudo \
+  QPI_TOKEN="<your-qpu-token>" \
+  QPI_ADDR="http://127.0.0.1:8090" \
+  CA_FINGERPRINT="<fingerprint>" \
+  QPU_NAME="qpu-1" \
+  EXECUTOR="mock" \
+  bash
+```
+
+#### Standalone CLI (macOS, Linux, Windows)
+Ensure Python 3.12 is installed, then install using `pip` or `uv`:
+```bash
+# Install qpi-driver using uv tool (recommended)
+uv tool install "qpi-driver[cli]"
 
 # Start the driver daemon
-qpi-driver start --qpi-addr http://127.0.0.1:8090                  --token "<YOUR_ACCESS_TOKEN>"                  --ca-fingerprint "<YOUR_CA_FINGERPRINT>"                  --name "local_mock_qpu"                  --executor "mock"
+qpi-driver start \
+  --qpi-addr http://127.0.0.1:8090 \
+  --token "<YOUR_ACCESS_TOKEN>" \
+  --ca-fingerprint "<YOUR_CA_FINGERPRINT>" \
+  --name "qpu-1" \
+  --executor "mock"
 ```
-*(Note: For production deployments, the dashboard will provide a convenient systemd script to install this driver as a background service.)*
+
+---
 
 ### 3. Submit a Job
-Users can now submit quantum jobs via the Python client!
+Users can submit quantum jobs via the Python client:
 ```bash
 pip install qpi-client
 ```

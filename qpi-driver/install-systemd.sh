@@ -37,10 +37,10 @@ EXECUTOR=${EXECUTOR:-mock}
 # The version of qpi-driver to install.
 # This should match the qpi-ui version if provided via environment variable.
 QPI_DRIVER_VERSION="${QPI_DRIVER_VERSION:-}"
-QPI_DATA_DIR="${QPI_DATA_DIR:-"/var/qpi-driver/${$QPU_NAME}"}"
-QPI_CA_FILE="${$QPI_CA_FILE:-"${QPI_DATA_DIR}/qpi.ca.pem"}"
-QPI_QUANTIFY_DEVICE_CONFIG="${$QPI_QUANTIFY_DEVICE_CONFIG:-"${QPI_DATA_DIR}/quantify.device.yml"}"
-QPI_QUANTIFY_HARDWARE_CONFIG="${$QPI_QUANTIFY_HARDWARE_CONFIG:-"${QPI_DATA_DIR}/quantify.hardware.json"}"
+QPI_DATA_DIR="${QPI_DATA_DIR:-"/var/qpi-driver/${QPU_NAME}"}"
+QPI_CA_FILE="${QPI_CA_FILE:-"${QPI_DATA_DIR}/qpi.ca.pem"}"
+QPI_QUANTIFY_DEVICE_CONFIG="${QPI_QUANTIFY_DEVICE_CONFIG:-"${QPI_DATA_DIR}/quantify.device.yml"}"
+QPI_QUANTIFY_HARDWARE_CONFIG="${QPI_QUANTIFY_HARDWARE_CONFIG:-"${QPI_DATA_DIR}/quantify.hardware.json"}"
 
 # 2. Install uv if not present
 if ! sudo -u "$REAL_USER" command -v uv >/dev/null 2>&1; then

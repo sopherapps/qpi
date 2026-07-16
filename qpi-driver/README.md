@@ -87,14 +87,26 @@ qpi-driver start
 
 To run `qpi-driver` persistently on a Linux machine in the background, you can use `systemd`. 
 
-We have provided an interactive bash installer that will automate this entire process for you (installing `uv`, installing the `qpi-driver` tool, prompting for your tokens, and registering the systemd service):
+We have provided a standalone interactive bash installer that automates the entire process (installing `uv`, installing the `qpi-driver` tool, prompting for your tokens/addresses, and registering the systemd service):
+
 ```bash
-# Run the interactive systemd installer script (requires sudo to create the service)
-sudo ./install-systemd.sh
+# Run the interactive systemd installer script directly via curl
+sudo bash -c "$(curl -LsSf https://raw.githubusercontent.com/sopherapps/qpi/main/qpi-driver/install-systemd.sh)"
+```
+
+Alternatively, you can run the installer non-interactively by specifying all environment variables:
+```bash
+curl -LsSf https://raw.githubusercontent.com/sopherapps/qpi/main/qpi-driver/install-systemd.sh | sudo \
+  QPI_TOKEN="<your-qpi-access-token>" \
+  QPI_ADDR="http://127.0.0.1:8090" \
+  CA_FINGERPRINT="<fingerprint>" \
+  QPU_NAME="rigetti-aspen-1" \
+  EXECUTOR="qblox" \
+  bash
 ```
 
 #### Manual systemd Installation
-If you prefer to configure it manually, follow these exact steps:
+If you prefer to configure it manually, follow these steps:
 
 1. **Install `uv`** (a fast Python package installer):
    ```bash
@@ -120,6 +132,10 @@ If you prefer to configure it manually, follow these exact steps:
    Type=simple
 
    Environment="QPI_ACCESS_TOKEN=<your-qpi-access-token>"
+   Environment="QPI_DATA_DIR=/var/qpi-driver/rigetti-aspen-1"
+   Environment="QPI_CA_FILE=/var/qpi-driver/rigetti-aspen-1/qpi.ca.pem"
+   Environment="QPI_QUANTIFY_DEVICE_CONFIG=/var/qpi-driver/rigetti-aspen-1/quantify.device.yml"
+   Environment="QPI_QUANTIFY_HARDWARE_CONFIG=/var/qpi-driver/rigetti-aspen-1/quantify.hardware.json"
    Environment=PYTHONUNBUFFERED=1
 
    ExecStart=/home/<user>/.local/bin/qpi-driver start \
