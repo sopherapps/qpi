@@ -196,3 +196,4 @@ measure q[2] -> c[2];"""
     edge_config = device_config.edges["q1_q2"]
     cz_config = edge_config["CZ"]
     assert cz_config.factory_kwargs["square_port"] == "q1_q2:fl"
+    assert cz_config.factory_kwargs["square_clock"] == "q1_q2.cz"

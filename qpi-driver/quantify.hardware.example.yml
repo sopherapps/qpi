@@ -30,6 +30,8 @@ hardware_options:
       interm_freq: 60000000.0
     q2:res-q2.ro:
       interm_freq: 70000000.0
+    q1_q2:fl-q1_q2.cz:
+      lo_freq: 3900000000
 
 connectivity:
   graph:
@@ -49,5 +51,5 @@ connectivity:
       - q0:fl
     - - cluster.module4.real_output_1
       - q1:fl
-    - - cluster.module4.real_output_2
+    - - cluster.module4.complex_output_0
       - q1_q2:fl
