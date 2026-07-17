@@ -12,6 +12,7 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 ## Fixed
 
 - `qpi-driver`: Fixed 'Frequency settings underconstrained for freqs.clock=0. Neither LO nor IF supplied (freqs.LO=None, freqs.IF=None).'
+- `qpi-driver`: Fixed 'ValueError: Operation 'CZ(qC='q1',qT='q2')' contains an unknown clock 'q1_q2.cz''
 
 ## [0.0.39] - 2026-07-17
 

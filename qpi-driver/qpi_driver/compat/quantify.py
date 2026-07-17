@@ -11,6 +11,8 @@ try:
     from qblox_instruments import Cluster, ClusterType, InstrumentType
     from qcodes.instrument import InstrumentModule
     from qcodes.instrument.base import Instrument
+    from qcodes.instrument.channel import InstrumentChannel
+    from qcodes.instrument.parameter import ManualParameter
     from qcodes.parameters import ParameterBase
     from quantify_core.data.handling import set_datadir
     from quantify_scheduler import Operation, Schedule
@@ -30,6 +32,7 @@ try:
     from quantify_scheduler.device_under_test.transmon_element import (
         BasicTransmonElement,
     )
+    from quantify_scheduler.helpers.validators import Numbers
     from quantify_scheduler.instrument_coordinator import InstrumentCoordinator
     from quantify_scheduler.operations.gate_library import (
         CNOT,
@@ -47,8 +50,13 @@ try:
         Y,
         Z,
     )
-    from quantify_scheduler.operations.pulse_library import IdlePulse
+    from quantify_scheduler.operations.pulse_library import (
+        IdlePulse,
+        ShiftClockPhase,
+        SquarePulse,
+    )
     from quantify_scheduler.qblox import ClusterComponent
+    from quantify_scheduler.resources import ClockResource
     from quantify_scheduler.schedules import Schedulable
 
     IS_QUANTIFY_INSTALLED: bool = True
@@ -77,6 +85,18 @@ except ImportError as exp:
     Schedulable: TypeAlias = Any
 
     class DeviceElement(BasicCompatClass): ...
+
+    class ShiftClockPhase(BasicCompatClass): ...
+
+    class SquarePulse(BasicCompatClass): ...
+
+    class ClockResource(BasicCompatClass): ...
+
+    class ManualParameter(BasicCompatClass): ...
+
+    class Numbers(BasicCompatClass): ...
+
+    class InstrumentChannel(BasicCompatClass): ...
 
     class Edge(BasicCompatClass): ...
 

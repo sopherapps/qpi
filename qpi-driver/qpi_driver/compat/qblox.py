@@ -39,10 +39,14 @@ try:
         Y,
         Z,
     )
+    from qblox_scheduler.operations.pulse_library import ShiftClockPhase, SquarePulse
     from qblox_scheduler.qblox.hardware_agent import (
         QbloxHardwareCompilationConfig,  # noqa: F401
     )
+    from qblox_scheduler.resources import ClockResource
     from qblox_scheduler.schedules import Schedulable
+    from qblox_scheduler.schedules.schedule import TimeableSchedule
+    from qblox_scheduler.structure.model import Numbers, Parameter, SchedulerSubmodule
     from qcodes.instrument import InstrumentModule  # noqa: F401
     from qcodes.instrument.base import Instrument  # noqa: F401
     from qcodes.parameters import ParameterBase  # noqa: F401
@@ -62,6 +66,18 @@ except ImportError as exp:
     Schedulable: TypeAlias = Any
 
     class DeviceElement(BasicCompatClass): ...
+
+    class ShiftClockPhase(BasicCompatClass): ...
+
+    class SchedulerSubmodule(BasicCompatClass): ...
+
+    class Numbers(BasicCompatClass): ...
+
+    class SquarePulse(BasicCompatClass): ...
+
+    class ClockResource(BasicCompatClass): ...
+
+    class TimeableSchedule(BasicCompatClass): ...
 
     class Edge(BasicCompatClass): ...
 
@@ -123,3 +139,6 @@ except ImportError as exp:
             return args
 
         return decor
+
+    def Parameter(*args, **kwargs):
+        pass

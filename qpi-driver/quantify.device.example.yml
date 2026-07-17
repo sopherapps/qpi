@@ -72,6 +72,8 @@ q1_q2:
     kwargs:
       parent_element_name: q1
       child_element_name: q2
+  clock_freqs:
+    cz: 3900e6
   cz:
     square_amp: 0.5
     square_duration: 20e-9
