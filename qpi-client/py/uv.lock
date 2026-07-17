@@ -387,7 +387,7 @@ wheels = [
 
 [[package]]
 name = "qpi-client"
-version = "0.0.38"
+version = "0.0.39"
 source = { editable = "." }
 dependencies = [
     { name = "qiskit" },

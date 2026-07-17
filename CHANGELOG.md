@@ -7,6 +7,8 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 
 ## [Unreleased]
 
+## [0.0.39] - 2026-07-17
+
 ### Changed
 
 - `qpi-ui`: Reduced built binary size by compiling with `-ldflags="-s -w"` (stripping symbol table and DWARF debug information).
