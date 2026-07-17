@@ -395,7 +395,7 @@ jobs:
 
     - name: Build Mac ${{ matrix.goarch }} Binary
       run: |
-        GOOS=darwin go build -C "qpi-ui" -ldflags="-X 'main.Version=v${RAW_VERSION#v}'" -o "../${ARTEFACT}" .
+        GOOS=darwin go build -C "qpi-ui" -ldflags="-s -w -X 'main.Version=v${RAW_VERSION#v}'" -o "../${ARTEFACT}" .
 
     # Uses Apple's built-in tool suite to build the native component installer
     - name: Build Native ${{ matrix.goarch }} macOS .pkg

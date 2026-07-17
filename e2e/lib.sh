@@ -41,7 +41,7 @@ trap cleanup EXIT
 build_server() {
     echo "[e2e] Building Go server..."
     mkdir -p "${PROJECT_ROOT}/bin"
-    (cd "${PROJECT_ROOT}/qpi-ui" && go build -o ../bin/qpi .)
+    (cd "${PROJECT_ROOT}/qpi-ui" && go build -ldflags="-s -w" -o ../bin/qpi .)
 }
 
 build_js_client() {

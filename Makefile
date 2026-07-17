@@ -15,7 +15,7 @@ venv-check:
 build: venv-check build-dashboard
 	@echo "Building Go server..."
 	mkdir -p bin
-	(cd qpi-ui && go build -o ../bin/qpi .)
+	(cd qpi-ui && go build -ldflags="-s -w" -o ../bin/qpi .)
 	@echo "Installing python driver package..."
 	$(UV) sync --project qpi-driver --extra cli --extra aer --extra quantify --dev
 	@if [ "$$(uname)" = "Darwin" ]; then \

@@ -26,7 +26,7 @@ builds:
       - amd64
       - arm64
     ldflags:
-      - -X 'main.Version={{.Tag}}'
+      - -s -w -X 'main.Version={{.Tag}}'
 
 archives:
   - id: qpi-archive
