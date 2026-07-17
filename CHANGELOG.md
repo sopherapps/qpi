@@ -7,6 +7,8 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 
 ## [Unreleased]
 
+## [0.0.40] - 2026-07-17
+
 ## Fixed
 
 - `qpi-driver`: Fixed 'Frequency settings underconstrained for freqs.clock=0. Neither LO nor IF supplied (freqs.LO=None, freqs.IF=None).'
