@@ -8,6 +8,7 @@ from qpi_driver.executors.utils.qiskit import load_qasm, memory_to_dataset
 from qpi_driver.executors.utils.result import build_qiskit_result, iq_memory_avg
 
 from ..base import Executor, JobPayload
+from ..utils.types import cast_to
 
 
 class MockExecutor(Executor):
@@ -91,7 +92,7 @@ class MockExecutor(Executor):
         Returns:
             dict: Qiskit-compatible result dict.
         """
-        meas_level = int(dataset.attrs.get("meas_level", 2))
+        meas_level = cast_to(int, dataset.attrs.get("meas_level"), 2)
         meas_return = str(dataset.attrs.get("meas_return", "single"))
         backend = dataset.attrs.get("backend", self.name)
 
@@ -127,7 +128,7 @@ class MockExecutor(Executor):
 
         qubit_vars.sort()
         q0_key = str(qubit_vars[0])
-        shots = int(dataset.attrs.get("shots", len(dataset[q0_key])))
+        shots = cast_to(int, dataset.attrs.get("shots"), len(dataset[q0_key]))
 
         # meas_level=1: return IQ memory
         if meas_level == 1:

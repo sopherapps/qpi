@@ -19,6 +19,7 @@ from qpi_driver.executors.qblox.config import (
 )
 from qpi_driver.executors.qblox.conv import generate_schedule
 from qpi_driver.executors.utils.qiskit import load_qasm
+from qpi_driver.executors.utils.types import cast_to
 
 
 class QbloxExecutor(Executor):
@@ -197,7 +198,7 @@ class QbloxExecutor(Executor):
         """
         from qpi_driver.executors.utils.result import build_qiskit_result
 
-        meas_level = int(dataset.attrs.get("meas_level", 2))
+        meas_level = cast_to(int, dataset.attrs.get("meas_level"), 2)
         meas_return = str(dataset.attrs.get("meas_return", "single"))
         acq_protocol = str(dataset.attrs.get("acq_protocol", "SSBIntegrationComplex"))
         backend = dataset.attrs.get("backend", self.name)
@@ -246,7 +247,7 @@ class QbloxExecutor(Executor):
             return [], "", 0
         qubit_vars.sort()
         q0_key = qubit_vars[0] if qubit_vars[0] in dataset else str(qubit_vars[0])
-        shots = int(dataset.attrs.get("shots", len(dataset[q0_key])))
+        shots = cast_to(int, dataset.attrs.get("shots"), len(dataset[q0_key]))
         return qubit_vars, q0_key, shots
 
     def _process_meas_level_0(
