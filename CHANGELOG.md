@@ -7,9 +7,20 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 
 ## [Unreleased]
 
+## [0.0.41] - 2026-07-20
+
+### Changed
+
+- `qpi-driver`: Made logging more verbose in qpi driver
+
+### Fixed
+
+- `qpi-driver`: Fixed invalid YAML error when loading quantify hardware json file
+- `qpi-driver`: Fixed connection reset by peer errors caused by qblox-instruments >= 1.3.0
+
 ## [0.0.40] - 2026-07-17
 
-## Fixed
+### Fixed
 
 - `qpi-driver`: Fixed 'Frequency settings underconstrained for freqs.clock=0. Neither LO nor IF supplied (freqs.LO=None, freqs.IF=None).'
 - `qpi-driver`: Fixed 'ValueError: Operation 'CZ(qC='q1',qT='q2')' contains an unknown clock 'q1_q2.cz''
