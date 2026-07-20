@@ -26,6 +26,8 @@ qpi.config.yml
 
 # quantify 
 quantify.hardware.json
+quantify.hardware.yml
+quantify.hardware.yaml
 quantify.device.json
 quantify.config.yml
 quantify.device.yml
