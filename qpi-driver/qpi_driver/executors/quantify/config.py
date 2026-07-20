@@ -1,4 +1,5 @@
 import copy
+import json
 from pathlib import Path
 from typing import Any
 
@@ -81,7 +82,10 @@ def load_quantify_hardware_config(
     """
     if isinstance(data, Path):
         with open(data, "r") as file:
-            data: dict = yaml.safe_load(file)
+            if data.suffix == ".json":
+                data = json.load(file)
+            else:
+                data = yaml.safe_load(file)
 
     return QbloxHardwareCompilationConfig.model_validate(data)
 
