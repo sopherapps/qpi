@@ -163,8 +163,8 @@ def run_driver(
                     job = json.loads(raw)
                     log.info("Received job %s", job.get("job_id"))
                     job_queue.put(job)
-                except Exception as exc:
-                    log.error("PULL error: %s", exc)
+                except Exception:
+                    log.exception("PULL error")
                     # Retry with 0.2s delay for faster reconnection times
                     time.sleep(0.2)
     except KeyboardInterrupt:
@@ -288,9 +288,12 @@ def execute_job(
             options["data_dir"] = data_dir
         executor_instance = resolve_executor(executor, custom_executors, **options)
     except Exception as exc:
-        w_log.error("Failed to resolve executor: %s", exc)
+        w_log.exception("Failed to resolve executor")
         result_queue.put(
-            {"job_id": "init_error", "error": f"Failed to resolve executor: {exc}"}
+            {
+                "job_id": "init_error",
+                "error": f"Failed to resolve executor: {_sanitize_exception_msg(exc)}",
+            }
         )
         return
 
@@ -321,12 +324,18 @@ def execute_job(
                 result_queue.put({"job_id": job_id, "results": result_dict})
                 w_log.info("Worker process completed job %s", job_id)
             except Exception as exc:
-                w_log.error("Worker process failed job %s: %s", job_id, exc)
-                result_queue.put({"job_id": job_id, "error": str(exc)})
+                # Full details, including the stack trace, are only ever written to
+                # this process's own log. What goes back over the wire is limited to
+                # client_safe_error_message() so we never leak internal state (file
+                # paths, hardware/network details, etc.) to whoever submitted the job.
+                w_log.exception("Worker process failed job %s", job_id)
+                result_queue.put(
+                    {"job_id": job_id, "error": _sanitize_exception_msg(exc)}
+                )
         except KeyboardInterrupt:
             break
-        except Exception as exc:
-            w_log.error("Worker loop exception: %s", exc)
+        except Exception:
+            w_log.exception("Worker loop exception")
 
     # release resources
     executor_instance.close()
@@ -389,8 +398,8 @@ def send_results(
 
             except KeyboardInterrupt:
                 break
-            except Exception as exc:
-                rs_log.error("Result sender process exception: %s", exc)
+            except Exception:
+                rs_log.exception("Result sender process exception")
 
 
 def _download_root_ca_cert(
@@ -452,3 +461,25 @@ def _normalize_qpi_addr(qpi_addr: str) -> str:
 def _sanitize_name(name: str) -> str:
     """Sanitizes the name to be the kind that executors can use"""
     return name.replace("-", "_")
+
+
+def _sanitize_exception_msg(exc: Exception) -> str:
+    """Builds an error message safe to send back to whoever submitted the job.
+
+    ValueError is what this codebase deliberately raises to describe invalid job
+    input (malformed QASM, an out-of-range meas_level, a non-numeric dataset
+    attribute, etc.), so its message is informative and safe to relay verbatim.
+    Any other exception type may originate from a hardware driver or other
+    internal state and could leak file paths, network addresses, or similar
+    operational details, so only its type name is relayed. The full exception,
+    with stack trace, is always written to the worker process log.
+
+    Args:
+        exc: The exception raised while handling a job.
+
+    Returns:
+        A message suitable for returning to the job submitter.
+    """
+    if isinstance(exc, ValueError):
+        return str(exc)
+    return f"{type(exc).__name__}: job execution failed, see driver logs for details"
