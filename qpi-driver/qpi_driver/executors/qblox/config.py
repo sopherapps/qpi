@@ -142,13 +142,8 @@ def _apply_parameters(obj: Any, data: dict):
             _apply_parameters(attribute, value)
         else:
             value = _to_num(value)
-            if (
-                callable(attribute)
-                and not hasattr(attribute, "__class__")
-                or (
-                    hasattr(attribute, "__call__")
-                    and not isinstance(attribute, (int, float, str, bool))
-                )
+            if hasattr(attribute, "__call__") and not isinstance(
+                attribute, (int, float, str, bool)
             ):
                 try:
                     attribute(value)

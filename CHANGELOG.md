@@ -18,6 +18,7 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 - `qpi-driver`: Fixed multi-circuit batches with heterogeneous classical-bit/qubit widths raising or misaligning in the mock, qiskit-aer, qblox and quantify executors: per-circuit datasets are now bundled independently instead of being force-concatenated onto a shared axis, and the recorded `shots`/`n_qubits` metadata reflects what was actually used per circuit rather than the batch default or only the last circuit.
 - `qpi-driver`: Fixed fragile `ThresholdedAcquisition` discrimination that relied on the backend returning exactly `1.0`: the discriminator now uses a midpoint threshold (`r >= 0.5`), correctly classifying floating-point values just below `1.0` and averaged fractional bins as `|1>`, consistent with the simulator path.
 - `qpi-driver`: Fixed the qblox `FluxTunableCoupler` CZ compilation anchoring the virtual-Z phase corrections ambiguously: both `ShiftClockPhase` corrections now reference the square pulse explicitly (`ref_op=pulse`, `ref_pt="start"`) instead of the child correction implicitly chaining off the parent correction, so both are unambiguously applied at the pulse start and match the quantify executor's behaviour.
+- `qpi-driver`: Removed a dead condition in the qblox `_apply_parameters`: `callable(attribute) and not hasattr(attribute, "__class__")` was always `False` since every object has `__class__`, so it never contributed to the branch decision; the condition now expresses only the check that actually applies.
 
 ## [0.0.41] - 2026-07-20
 
