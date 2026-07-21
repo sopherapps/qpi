@@ -4,6 +4,7 @@ from typing import Any
 
 import numpy as np
 import xarray as xr
+from qiskit import QuantumCircuit
 
 from qpi_driver.compat.qblox import (
     IS_QBLOX_SCHEDULER_INSTALLED,
@@ -86,20 +87,51 @@ class QbloxExecutor(Executor):
     def execute(self, payload: JobPayload) -> xr.Dataset:
         """Execute quantum instructions using the Qblox scheduler.
 
+        Every circuit in ``payload.circuits`` is executed, honouring each
+        circuit's ``shots`` override and ``parameter_values`` bindings.  For
+        multi-circuit payloads the per-circuit datasets are concatenated along a
+        ``circuit_index`` dimension; a single-circuit payload without parameter
+        bindings returns the legacy flat dataset for backward compatibility.
+
         Args:
             payload: JobPayload specifying shots, circuits, meas_level, etc.
 
         Returns:
             xr.Dataset: Raw acquisition dataset.
         """
-        # Parse QASM circuit
-        circuit = load_qasm(payload.qasm)
-        shots = payload.shots
-        n_qubits = circuit.num_qubits
-
-        # Determine acquisition protocol and parameters from meas_level and payload overrides
         acq_protocol, acq_kwargs = self._resolve_acq_protocol(payload)
+        sub_datasets: list[xr.Dataset] = []
 
+        for circ in payload.circuits:
+            circ_shots = circ.shots if circ.shots is not None else payload.shots
+            circuit = load_qasm(circ.circuit)
+
+            for param_values in circ.parameter_values or [None]:
+                bound_circuit = circuit
+                if param_values is not None and circuit.parameters:
+                    bound_circuit = circuit.assign_parameters(param_values)
+                sub_datasets.append(
+                    self._run_circuit(
+                        payload, bound_circuit, circ_shots, acq_protocol, acq_kwargs
+                    )
+                )
+
+        if len(sub_datasets) == 1:
+            return sub_datasets[0]
+
+        combined = xr.concat(sub_datasets, dim="circuit_index")
+        combined.attrs["shots"] = payload.shots
+        return combined
+
+    def _run_circuit(
+        self,
+        payload: JobPayload,
+        circuit: QuantumCircuit,
+        shots: int,
+        acq_protocol: str,
+        acq_kwargs: dict,
+    ) -> xr.Dataset:
+        """Run a single (parameter-bound) circuit and return its acquisition dataset."""
         schedule, clbit_map, num_clbits = generate_schedule(
             name=payload.id,
             circuit=circuit,
@@ -112,7 +144,7 @@ class QbloxExecutor(Executor):
         dataset.attrs.update(
             {
                 "shots": shots,
-                "n_qubits": n_qubits,
+                "n_qubits": circuit.num_qubits,
                 "backend": self.name,
                 "meas_level": payload.meas_level,
                 "meas_return": payload.meas_return,
