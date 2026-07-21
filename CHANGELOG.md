@@ -7,7 +7,12 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 
 ## [Unreleased]
 
-## Fixed
+### Added
+
+- `qpi-driver`: Added `CRZGate` and `CPhaseGate` support to both the qblox and quantify executors' gate conversion, decomposed via the standard CZ-based identity (`Rz(theta/2)` on target, CNOT, `Rz(-theta/2)` on target, CNOT, plus an extra `Rz(theta/2)` on the control for `CPhaseGate`). These are handled separately from the standalone `RZGate`/`PhaseGate` mapping because the global phase difference between the two gates becomes an observable, control-conditioned phase once controlled.
+- `qpi-driver`: Replaced the one-off Toffoli-only unitary test with a parametrized `GATE_CONVERSION_CASES` table in `tests/utils.py`, covering every unitary gate branch in `to_qblox_gates`/`to_quantify_gates` (single- and multi-qubit) against qiskit's own reference unitary via a new `qiskit_unitary` helper, run for both the qblox and quantify executors.
+
+### Fixed
 
 - `qpi-driver`: Fixed the misnamed `hex_counts` output of `build_qiskit_result`, which returned binary-string-keyed counts (duplicating `counts`) instead of hex-keyed counts: it now genuinely converts to hex via the existing `counts_to_hex` helper, and the redundant Qiskit `Result` construction (and its `build_experiment_result` helper) used only to derive that value was removed.
 - `qpi-driver`: Fixed 'can only handle OpenQASM 2.0, but given 3.0' error caused by genuine error in OpenQASM 3
@@ -19,6 +24,7 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 - `qpi-driver`: Fixed fragile `ThresholdedAcquisition` discrimination that relied on the backend returning exactly `1.0`: the discriminator now uses a midpoint threshold (`r >= 0.5`), correctly classifying floating-point values just below `1.0` and averaged fractional bins as `|1>`, consistent with the simulator path.
 - `qpi-driver`: Fixed the qblox `FluxTunableCoupler` CZ compilation anchoring the virtual-Z phase corrections ambiguously: both `ShiftClockPhase` corrections now reference the square pulse explicitly (`ref_op=pulse`, `ref_pt="start"`) instead of the child correction implicitly chaining off the parent correction, so both are unambiguously applied at the pulse start and match the quantify executor's behaviour.
 - `qpi-driver`: Removed a dead condition in the qblox `_apply_parameters`: `callable(attribute) and not hasattr(attribute, "__class__")` was always `False` since every object has `__class__`, so it never contributed to the branch decision; the condition now expresses only the check that actually applies.
+- `qpi-driver`: Documented that `PhaseGate` and `RZGate` are intentionally mapped to the same `Rz` operation in both the qblox and quantify executors' gate conversion: they differ only by an unobservable global phase for a standalone gate. No functional change.
 
 ## [0.0.41] - 2026-07-20
 

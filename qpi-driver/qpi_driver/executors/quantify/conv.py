@@ -104,6 +104,25 @@ def to_quantify_gates(
     if isinstance(gate, qiskit_library.CZGate):
         return [CZ(qC=c, qT=t) for c, t in zip(qubits[0::2], qubits[1::2])]
 
+    if isinstance(gate, qiskit_library.CRZGate):
+        theta_deg = float(np.degrees(params[0]))
+        ops = []
+        for c, t in zip(qubits[0::2], qubits[1::2]):
+            ops.extend(_crz_ops(c, t, theta_deg))
+        return ops
+
+    if isinstance(gate, qiskit_library.CPhaseGate):
+        # CPhase(theta) = CRZ(theta) with an extra Rz(theta/2) on the control:
+        # CPhase and RZ differ by a global phase e^{i*theta/2} that only becomes
+        # observable, as a phase conditioned on the control qubit, once the
+        # gate is controlled. See CRZ/CPhase identity used in _crz_ops.
+        theta_deg = float(np.degrees(params[0]))
+        ops = []
+        for c, t in zip(qubits[0::2], qubits[1::2]):
+            ops.extend(_crz_ops(c, t, theta_deg))
+            ops.append(Rz(theta_deg / 2, c))
+        return ops
+
     if isinstance(gate, qiskit_library.CCXGate):
         # the Toffoli gate. Do note that CX is not natively supported so each CX in
         # the standard 6-CNOT decomposition is expanded to H, CZ, H.
@@ -171,6 +190,11 @@ def to_quantify_gates(
         return [Rxy(theta_deg, 90, q) for q in qubits]
 
     if isinstance(gate, (qiskit_library.RZGate, qiskit_library.PhaseGate)):
+        # PhaseGate(theta) and RZGate(theta) differ only by a global phase
+        # (e^{i*theta/2}), which is unobservable for a standalone gate, so both
+        # map to the same Rz. Once controlled, that phase becomes observable,
+        # which is why CRZGate and CPhaseGate above are handled separately
+        # rather than falling through to this branch.
         theta_deg = float(np.degrees(params[0]))
         return [Rz(theta_deg, q) for q in qubits]
 
@@ -238,3 +262,21 @@ def to_quantify_gates(
 def _to_multiple_of_4(time_ns: float) -> int:
     """Converts the given time_ns to a multiple of 4"""
     return int(round(time_ns / 4.0) * 4)
+
+
+def _crz_ops(control: str, target: str, theta_deg: float) -> list[Operation]:
+    """Builds the CZ-based decomposition of a controlled-RZ(theta_deg) gate.
+
+    Uses the standard identity Rz(theta/2)_t, CNOT, Rz(-theta/2)_t, CNOT, with
+    CNOT expanded to H, CZ, H since CNOT isn't native here.
+    """
+    return [
+        Rz(theta_deg / 2, target),
+        H(target),
+        CZ(qC=control, qT=target),
+        H(target),
+        Rz(-theta_deg / 2, target),
+        H(target),
+        CZ(qC=control, qT=target),
+        H(target),
+    ]

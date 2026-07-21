@@ -132,6 +132,20 @@ def to_qblox_gates(
     if isinstance(gate, qiskit_library.CZGate):
         return [CZ(qC=qubits[0], qT=qubits[1])]
 
+    if isinstance(gate, qiskit_library.CRZGate):
+        c, t = qubits[0], qubits[1]
+        theta_deg = float(np.degrees(params[0]))
+        return _crz_ops(c, t, theta_deg)
+
+    if isinstance(gate, qiskit_library.CPhaseGate):
+        # CPhase(theta) = CRZ(theta) with an extra Rz(theta/2) on the control:
+        # CPhase and RZ differ by a global phase e^{i*theta/2} that only becomes
+        # observable, as a phase conditioned on the control qubit, once the
+        # gate is controlled. See CRZ/CPhase identity used in _crz_ops.
+        c, t = qubits[0], qubits[1]
+        theta_deg = float(np.degrees(params[0]))
+        return _crz_ops(c, t, theta_deg) + [Rz(theta_deg / 2, c)]
+
     if isinstance(gate, qiskit_library.SwapGate):
         c, t = qubits[0], qubits[1]
         return [
@@ -155,6 +169,11 @@ def to_qblox_gates(
         return [Rxy(theta_deg, 90, q) for q in qubits]
 
     if isinstance(gate, (qiskit_library.RZGate, qiskit_library.PhaseGate)):
+        # PhaseGate(theta) and RZGate(theta) differ only by a global phase
+        # (e^{i*theta/2}), which is unobservable for a standalone gate, so both
+        # map to the same Rz. Once controlled, that phase becomes observable,
+        # which is why CRZGate and CPhaseGate below are handled separately
+        # rather than falling through to this branch.
         theta_deg = float(np.degrees(params[0]))
         return [Rz(theta_deg, q) for q in qubits]
 
@@ -272,3 +291,21 @@ def generate_schedule(
 def _to_multiple_of_4(time_ns: float) -> int:
     """Convert a time ns to multiple of 4"""
     return int(round(time_ns / 4.0) * 4)
+
+
+def _crz_ops(control: str, target: str, theta_deg: float) -> list[Operation]:
+    """Builds the CZ-based decomposition of a controlled-RZ(theta_deg) gate.
+
+    Uses the standard identity Rz(theta/2)_t, CNOT, Rz(-theta/2)_t, CNOT, with
+    CNOT expanded to H, CZ, H since CNOT isn't native here.
+    """
+    return [
+        Rz(theta_deg / 2, target),
+        H(target),
+        CZ(qC=control, qT=target),
+        H(target),
+        Rz(-theta_deg / 2, target),
+        H(target),
+        CZ(qC=control, qT=target),
+        H(target),
+    ]
