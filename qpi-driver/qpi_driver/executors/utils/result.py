@@ -1,36 +1,5 @@
 """Shared utilities for building Qiskit-compatible result dictionaries."""
 
-from qiskit.result import Result
-from qiskit.result.models import ExperimentResult, ExperimentResultData
-
-
-def build_experiment_result(
-    result_data: dict, shots: int, name: str = "qpi_job"
-) -> ExperimentResult:
-    """Build a single Qiskit ExperimentResult from a result data dict.
-
-    Args:
-        result_data: Dict with either 'counts' (binary str -> int) or 'memory' (IQ list).
-        shots: Number of shots.
-        name: Experiment name.
-
-    Returns:
-        ExperimentResult object.
-    """
-    if "memory" in result_data:
-        expt_data = ExperimentResultData(memory=result_data["memory"])
-    else:
-        expt_data = ExperimentResultData(
-            counts={hex(int(s, 2)): c for s, c in result_data["counts"].items()}
-        )
-    return ExperimentResult(
-        shots=shots,
-        success=True,
-        data=expt_data,
-        status="DONE",
-        name=name,
-    )
-
 
 def build_qiskit_result(
     experiment_results: list[dict],
@@ -51,19 +20,6 @@ def build_qiskit_result(
     Returns:
         dict: Qiskit-compatible result dict with top-level keys and optional 'circuit_results'.
     """
-    exp_result_objs = [
-        build_experiment_result(er, er["shots"]) for er in experiment_results
-    ]
-
-    result_obj = Result(
-        backend_name=backend,
-        backend_version="1.0.0",
-        qobj_id=job_id,
-        job_id=job_id,
-        success=True,
-        results=exp_result_objs,
-    )
-
     first = experiment_results[0]
     out = {
         "shots": first["shots"],
@@ -76,7 +32,7 @@ def build_qiskit_result(
 
     if "counts" in first:
         out["counts"] = first["counts"]
-        out["hex_counts"] = result_obj.get_counts(0)
+        out["hex_counts"] = counts_to_hex(first["counts"])
     if "memory" in first:
         out["memory"] = first["memory"]
 
