@@ -12,9 +12,10 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 - `qpi-driver`: Fixed 'can only handle OpenQASM 2.0, but given 3.0' error caused by genuine error in OpenQASM 3
 - `qpi-driver`: Fixed meas_level=2 counts collapsing all shots into one bin
 - `qpi-driver`: Fixed meas_level=2 counts being keyed by qubit index/width instead of the classical register: a qubit measured into more than one clbit now reports each measurement as an independent bit, `measure q[i] -> c[j]` positions bits by clbit index `j` (little-endian, `c[0]` rightmost) rather than qubit index, and the bitstring width matches `num_clbits` instead of `2 ** n_qubits`.
-- `qpi-driver: Corrected the Toffoli (CCX) decomposition in both qblox and quantify executors.
+- `qpi-driver`: Corrected the Toffoli (CCX) decomposition in both qblox and quantify executors.
 - `qpi-driver`: Fixed the qblox and quantify executors only running the first circuit of a batch: `execute` now runs every circuit in `payload.circuits`, honouring per-circuit `shots` and `parameter_values`, and concatenates the results along a `circuit_index` dimension like the simulator executors.
 - `qpi-driver`: Fixed multi-circuit batches with heterogeneous classical-bit/qubit widths raising or misaligning in the mock, qiskit-aer, qblox and quantify executors: per-circuit datasets are now bundled independently instead of being force-concatenated onto a shared axis, and the recorded `shots`/`n_qubits` metadata reflects what was actually used per circuit rather than the batch default or only the last circuit.
+- `qpi-driver`: Fixed fragile `ThresholdedAcquisition` discrimination that relied on the backend returning exactly `1.0`: the discriminator now uses a midpoint threshold (`r >= 0.5`), correctly classifying floating-point values just below `1.0` and averaged fractional bins as `|1>`, consistent with the simulator path.
 
 ## [0.0.41] - 2026-07-20
 
