@@ -99,7 +99,7 @@ def build_discriminator(
 
         def discriminate(val: complex) -> str:
             r = val.real if not np.isnan(val.real) else 0.0
-            return "1" if r >= 1 else "0"
+            return "1" if r >= 0.5 else "0"
 
         return discriminate
 
