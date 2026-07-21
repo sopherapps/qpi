@@ -1,9 +1,11 @@
 import json
 from pathlib import Path
-from typing import Any, Iterable, Sequence
+from typing import Any, Callable, Iterable, Sequence
 
 import numpy as np
 import yaml
+from qiskit import QuantumCircuit
+from qiskit.quantum_info import Operator
 
 _FIXTURES_PATH = Path(__file__).parent / "fixtures"
 
@@ -54,11 +56,65 @@ def equal_up_to_global_phase(a: np.ndarray, b: np.ndarray, atol: float = 1e-9) -
     return bool(np.allclose(a * phase, b, atol=atol))
 
 
-def toffoli_unitary() -> np.ndarray:
-    """Unitary of a Toffoli (CCX) with qubit order (control, control, target)."""
-    unitary = np.eye(8, dtype=complex)
-    unitary[[6, 7]] = unitary[[7, 6]]
-    return unitary
+def qiskit_unitary(gate: Any) -> np.ndarray:
+    """Reference unitary for a qiskit gate, in the qubit-order convention used by
+    operations_to_unitary/_embed (first qubit is the most significant bit).
+
+    Qiskit's own ``Operator(gate).data`` is little-endian (first qubit is the
+    least significant bit), so ``reverse_qargs()`` flips it to line up.
+    """
+    return Operator(gate).reverse_qargs().data
+
+
+# Every unitary gate branch handled by to_qblox_gates/to_quantify_gates, paired
+# with a function that applies it to a fresh circuit. Reset/Measure/Delay/Barrier
+# are excluded since they aren't fixed unitaries.
+GATE_CONVERSION_CASES: list[tuple[str, int, Callable[[QuantumCircuit], None]]] = [
+    ("x", 1, lambda qc: qc.x(0)),
+    ("y", 1, lambda qc: qc.y(0)),
+    ("z", 1, lambda qc: qc.z(0)),
+    ("h", 1, lambda qc: qc.h(0)),
+    ("s", 1, lambda qc: qc.s(0)),
+    ("sdg", 1, lambda qc: qc.sdg(0)),
+    ("t", 1, lambda qc: qc.t(0)),
+    ("tdg", 1, lambda qc: qc.tdg(0)),
+    ("sx", 1, lambda qc: qc.sx(0)),
+    ("sxdg", 1, lambda qc: qc.sxdg(0)),
+    ("rx", 1, lambda qc: qc.rx(0.37, 0)),
+    ("ry", 1, lambda qc: qc.ry(0.51, 0)),
+    ("rz", 1, lambda qc: qc.rz(0.63, 0)),
+    ("p", 1, lambda qc: qc.p(0.63, 0)),
+    ("u", 1, lambda qc: qc.u(0.3, 0.4, 0.5, 0)),
+    ("cx", 2, lambda qc: qc.cx(0, 1)),
+    ("cz", 2, lambda qc: qc.cz(0, 1)),
+    ("swap", 2, lambda qc: qc.swap(0, 1)),
+    ("crz", 2, lambda qc: qc.crz(0.63, 0, 1)),
+    ("cp", 2, lambda qc: qc.cp(0.63, 0, 1)),
+    ("ccx", 3, lambda qc: qc.ccx(0, 1, 2)),
+]
+
+
+def assert_gate_conversion_matches_qiskit(
+    to_gates_fn: Callable[..., Iterable[Any]],
+    num_qubits: int,
+    apply_gate: Callable[[QuantumCircuit], None],
+) -> None:
+    """Asserts a gate-conversion function reproduces qiskit's own unitary for that gate.
+
+    Builds a circuit with a single gate application, converts it via
+    ``to_gates_fn``, and compares the resulting operations' unitary against
+    qiskit's reference, up to a global phase.
+    """
+    circuit = QuantumCircuit(num_qubits)
+    apply_gate(circuit)
+    instruction = circuit.data[0]
+    qubits = [f"q{idx}" for idx in range(num_qubits)]
+
+    operations = to_gates_fn(circuit=circuit, instruction=instruction, acq_indices={})
+
+    actual = operations_to_unitary(operations, qubits)
+    expected = qiskit_unitary(instruction.operation)
+    assert equal_up_to_global_phase(actual, expected)
 
 
 def _gate_qubits(gate_info: dict) -> list[str]:

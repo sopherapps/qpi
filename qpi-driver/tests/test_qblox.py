@@ -1,16 +1,14 @@
 import pytest
 import xarray as xr
-from qiskit import QuantumCircuit
 from qpi_driver.compat.qblox import IS_QBLOX_SCHEDULER_INSTALLED
 from qpi_driver.executors import resolve_executor
 from qpi_driver.executors.base import CircuitPayload, JobPayload
 
 from .utils import (
-    equal_up_to_global_phase,
+    GATE_CONVERSION_CASES,
+    assert_gate_conversion_matches_qiskit,
     load_json_fixture,
     load_yaml_fixture,
-    operations_to_unitary,
-    toffoli_unitary,
 )
 
 _QUANTIFY_HARDWARE_CONFIG: dict = load_json_fixture("quantify.hardware.json")
@@ -304,15 +302,11 @@ measure q[1] -> c[0];"""
     assert len(counts) == 4
 
 
-def test_qblox_ccx_decomposes_to_toffoli():
-    """The CCXGate conversion must implement a real Toffoli, not a bare CX(c1, t)."""
-    circuit = QuantumCircuit(3)
-    circuit.ccx(0, 1, 2)
-    instruction = circuit.data[0]
-
-    operations = to_qblox_gates(
-        circuit=circuit, instruction=instruction, acq_indices={}
-    )
-
-    unitary = operations_to_unitary(operations, ["q0", "q1", "q2"])
-    assert equal_up_to_global_phase(unitary, toffoli_unitary())
+@pytest.mark.parametrize(
+    "name, num_qubits, apply_gate",
+    GATE_CONVERSION_CASES,
+    ids=[case[0] for case in GATE_CONVERSION_CASES],
+)
+def test_qblox_gate_conversion_matches_qiskit_unitary(name, num_qubits, apply_gate):
+    """Every gate to_qblox_gates supports must reproduce qiskit's own unitary for it."""
+    assert_gate_conversion_matches_qiskit(to_qblox_gates, num_qubits, apply_gate)
