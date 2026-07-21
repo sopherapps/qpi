@@ -98,21 +98,35 @@ def to_qblox_gates(
         return [H(t), CZ(qC=c, qT=t), H(t)]
 
     if isinstance(gate, qiskit_library.CCXGate):
-        # Explicitly extract the three qubits for this specific instruction
         c1, c2, t = qubits[0], qubits[1], qubits[2]
         return [
             H(t),
+            H(t),
             CZ(qC=c2, qT=t),
-            TDagger(t),
-            CZ(qC=c1, qT=t),
-            T(t),
-            CZ(qC=c2, qT=t),
+            H(t),
             TDagger(t),
             H(t),
-            # Final entangling phase cleanup between the two control lines
+            CZ(qC=c1, qT=t),
+            H(t),
+            T(t),
+            H(t),
+            CZ(qC=c2, qT=t),
+            H(t),
+            TDagger(t),
+            H(t),
+            CZ(qC=c1, qT=t),
+            H(t),
+            T(c2),
+            T(t),
+            H(t),
+            H(c2),
             CZ(qC=c1, qT=c2),
+            H(c2),
+            T(c1),
             TDagger(c2),
+            H(c2),
             CZ(qC=c1, qT=c2),
+            H(c2),
         ]
 
     if isinstance(gate, qiskit_library.CZGate):
