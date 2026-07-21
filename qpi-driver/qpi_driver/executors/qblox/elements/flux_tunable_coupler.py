@@ -61,7 +61,7 @@ def compile_cz(
     sched = TimeableSchedule("CZ")
     sched.add_resource(ClockResource(name=square_clock, freq=square_freq))
 
-    sched.add(
+    pulse = sched.add(
         SquarePulse(
             amplitude=square_amp,
             duration=square_duration,
@@ -77,6 +77,7 @@ def compile_cz(
             clock=virt_z_parent_qubit_clock,
             t0=t0,
         ),
+        ref_op=pulse,
         ref_pt="start",
     )
     sched.add(
@@ -85,6 +86,7 @@ def compile_cz(
             clock=virt_z_child_qubit_clock,
             t0=t0,
         ),
+        ref_op=pulse,
         ref_pt="start",
     )
 
