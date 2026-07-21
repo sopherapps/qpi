@@ -211,7 +211,10 @@ def test_quantify_executor_repeated_measurement():
     """A qubit measured more than once yields acq_index length > 1 per shot.
 
     Running it end-to-end guards the discrimination against raising on that
-    ragged per-shot array and confirms every shot is still counted.
+    ragged per-shot array, confirms every shot is still counted, and -- since
+    the qubit is measured into two distinct clbits (c[0] and c[1]) -- the
+    counts bitstring must be 2 bits wide rather than collapsing to a single
+    bit representing only the qubit's final measurement.
     """
     executor = resolve_executor(
         "quantify",
@@ -234,3 +237,64 @@ measure q[0] -> c[1];"""
     result = executor.process_result(dataset, "job-repeated-measurement")
     counts = result["counts"]
     assert sum(counts.values()) == 50
+    assert len(counts) == 4
+    assert all(len(state) == 2 for state in counts)
+
+
+def test_quantify_executor_partial_measurement_pads_unmeasured_clbit():
+    """Measuring only c[1] of a 2-bit creg must yield a 2-bit string with c[0] as a fixed '0' gap."""
+    executor = resolve_executor(
+        "quantify",
+        is_dummy=True,
+        quantify_hardware_config=_QUANTIFY_HARDWARE_CONFIG,
+        quantify_device_config=_QUANTIFY_DEVICE_CONFIG,
+    )
+
+    qasm = """OPENQASM 2.0;
+include "qelib1.inc";
+qreg q[2];
+creg c[2];
+x q[1];
+measure q[1] -> c[1];"""
+
+    payload = JobPayload(circuits=[CircuitPayload(circuit=qasm)], shots=20)
+    dataset = executor.execute(payload)
+
+    result = executor.process_result(dataset, "job-partial-measurement")
+    counts = result["counts"]
+    assert sum(counts.values()) == 20
+    assert len(counts) == 4
+    # c[0] was never measured, so it must always stay "0" (the rightmost bit)
+    # in every state that actually occurred (zero-padded states are excluded,
+    # since padding fills in all 2**num_clbits keys regardless of c[0]).
+    assert all(state[-1] == "0" for state, n in counts.items() if n > 0)
+
+
+def test_quantify_executor_clbit_remap():
+    """measure q[0]->c[1]; q[1]->c[0] must still yield a well-formed 2-bit-wide counts dict.
+
+    The dummy cluster fakes acquisition data rather than simulating true
+    qubit state, so exact bit values aren't asserted here; the shared unit
+    tests in tests/test_counts.py cover exact bit placement.
+    """
+    executor = resolve_executor(
+        "quantify",
+        is_dummy=True,
+        quantify_hardware_config=_QUANTIFY_HARDWARE_CONFIG,
+        quantify_device_config=_QUANTIFY_DEVICE_CONFIG,
+    )
+
+    qasm = """OPENQASM 2.0;
+include "qelib1.inc";
+qreg q[2];
+creg c[2];
+measure q[0] -> c[1];
+measure q[1] -> c[0];"""
+
+    payload = JobPayload(circuits=[CircuitPayload(circuit=qasm)], shots=20)
+    dataset = executor.execute(payload)
+
+    result = executor.process_result(dataset, "job-clbit-remap")
+    counts = result["counts"]
+    assert sum(counts.values()) == 20
+    assert len(counts) == 4

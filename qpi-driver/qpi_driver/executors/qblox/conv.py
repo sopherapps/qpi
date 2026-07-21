@@ -33,6 +33,7 @@ def to_qblox_gates(
     acq_indices: dict[int, int],
     acq_protocol: str = "SSBIntegrationComplex",
     acq_kwargs: dict | None = None,
+    clbit_map: list[tuple[int, int, int]] | None = None,
 ) -> list[Operation]:
     """Converts a qiskit Instruction to Qblox gate operations.
 
@@ -40,6 +41,11 @@ def to_qblox_gates(
         circuit: The circuit in which the instruction is.
         instruction: The instruction to convert.
         acq_indices: A mapping of qubit and current acquisitions/measurements done on said qubit in circuit..
+        acq_protocol: Acquisition protocol to use when measuring.
+        acq_kwargs: Additional arguments passed for acquisition.
+        clbit_map: If given, appended to with a ``(qubit_idx, acq_index, clbit_idx)``
+            triple for every Measure operation, recording which classical bit
+            each acquisition targets.
 
     Returns:
         list of qblox Operations
@@ -157,7 +163,8 @@ def to_qblox_gates(
     if isinstance(gate, qiskit_library.Measure):
         result = []
         extra = acq_kwargs or {}
-        for idx in qubit_indices:
+        clbit_indices = [circuit.find_bit(c).index for c in instruction.clbits]
+        for idx, clbit_idx in zip(qubit_indices, clbit_indices):
             acq_idx = acq_indices.get(idx, 0)
             # Use unique acq_channel per qubit to avoid overlaps
             result.append(
@@ -169,6 +176,8 @@ def to_qblox_gates(
                     **extra,
                 )
             )
+            if clbit_map is not None:
+                clbit_map.append((idx, acq_idx, clbit_idx))
             # update the measurement count for that qubit to allow for multiple measurements on a qubit
             acq_indices[idx] = acq_idx + 1
         return result
@@ -198,7 +207,7 @@ def to_qblox_gates(
 
 def generate_schedule(
     name: str, circuit: QuantumCircuit, shots: int, acq_protocol: str, acq_kwargs: dict
-) -> Schedule:
+) -> tuple[Schedule, list[tuple[int, int, int]], int]:
     """Generate a schedule from the given circuit.
 
     Args:
@@ -209,10 +218,14 @@ def generate_schedule(
         acq_kwargs: Additional arguments passed for acquisition.
 
     Returns:
-        the Schedule with all the proper timings
+        A tuple of the Schedule with all the proper timings, the clbit_map
+        (a list of ``(qubit_idx, acq_index, clbit_idx)`` triples recording
+        which classical bit each measurement targets), and the number of
+        classical bits declared in the circuit.
     """
     schedule = Schedule(name=name, repetitions=shots)
-    acq_indices = {}
+    acq_indices: dict[int, int] = {}
+    clbit_map: list[tuple[int, int, int]] = []
 
     for instruction in circuit.data:
         parsed_ops = to_qblox_gates(
@@ -221,6 +234,7 @@ def generate_schedule(
             acq_indices=acq_indices,
             acq_protocol=acq_protocol,
             acq_kwargs=acq_kwargs,
+            clbit_map=clbit_map,
         )
 
         import qiskit
@@ -238,7 +252,7 @@ def generate_schedule(
             for op in parsed_ops:
                 schedule.add(op)
 
-    return schedule
+    return schedule, clbit_map, circuit.num_clbits
 
 
 def _to_multiple_of_4(time_ns: float) -> int:

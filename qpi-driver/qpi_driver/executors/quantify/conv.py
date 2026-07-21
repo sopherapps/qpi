@@ -28,6 +28,7 @@ def to_quantify_gates(
     acq_indices: dict[int, int],
     acq_protocol: str = "SSBIntegrationComplex",
     acq_kwargs: dict | None = None,
+    clbit_map: list[tuple[int, int, int]] | None = None,
 ) -> list[Operation]:
     """Converts a qiskit Instruction to Quantify gate operations.
 
@@ -35,6 +36,11 @@ def to_quantify_gates(
         circuit: The circuit in which the instruction is.
         instruction: The instruction to convert.
         acq_indices: A mapping of qubit and current acquisitions/measurements done on said qubit in circuit..
+        acq_protocol: Acquisition protocol to use when measuring.
+        acq_kwargs: Additional arguments passed for acquisition.
+        clbit_map: If given, appended to with a ``(qubit_idx, acq_index, clbit_idx)``
+            triple for every Measure operation, recording which classical bit
+            each acquisition targets.
 
     Returns:
         list of quantify Operations
@@ -171,7 +177,8 @@ def to_quantify_gates(
     if isinstance(gate, qiskit_library.Measure):
         result = []
         extra = acq_kwargs or {}
-        for idx in qubit_indices:
+        clbit_indices = [circuit.find_bit(c).index for c in instruction.clbits]
+        for idx, clbit_idx in zip(qubit_indices, clbit_indices):
             acq_idx = acq_indices.get(idx, 0)
             # Use unique acq_channel per qubit to avoid overlaps
             result.append(
@@ -183,6 +190,8 @@ def to_quantify_gates(
                     **extra,
                 )
             )
+            if clbit_map is not None:
+                clbit_map.append((idx, acq_idx, clbit_idx))
             # update the measurement count for that qubit to allow for multiple measurements on a qubit
             acq_indices[idx] = acq_idx + 1
         return result

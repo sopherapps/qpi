@@ -23,6 +23,12 @@ from qpi_driver.executors.quantify.config import (
     load_quantum_device,
 )
 from qpi_driver.executors.quantify.conv import to_quantify_gates
+from qpi_driver.executors.utils.counts import (
+    build_acquisition_counts,
+    build_discriminator,
+    per_shot_values,
+    qubit_key,
+)
 from qpi_driver.executors.utils.qiskit import load_qasm
 from qpi_driver.executors.utils.types import cast_to
 
@@ -110,7 +116,8 @@ class QuantifyExecutor(Executor):
 
         # Translate Qiskit QuantumCircuit to Quantify Schedule
         schedule = Schedule(name=payload.id, repetitions=shots)
-        acq_indices = {}
+        acq_indices: dict[int, int] = {}
+        clbit_map: list[tuple[int, int, int]] = []
 
         for instruction in circuit.data:
             parsed_ops = to_quantify_gates(
@@ -119,6 +126,7 @@ class QuantifyExecutor(Executor):
                 acq_indices=acq_indices,
                 acq_protocol=acq_protocol,
                 acq_kwargs=acq_kwargs,
+                clbit_map=clbit_map,
             )
             import qiskit
 
@@ -149,6 +157,8 @@ class QuantifyExecutor(Executor):
                 "meas_level": payload.meas_level,
                 "meas_return": payload.meas_return,
                 "acq_protocol": acq_protocol,
+                "clbit_map": [list(entry) for entry in clbit_map],
+                "num_clbits": circuit.num_clbits,
             }
         )
         if "acq_rotation" in acq_kwargs:
@@ -288,33 +298,9 @@ class QuantifyExecutor(Executor):
         if not qubit_vars:
             return [], "", 0
         qubit_vars.sort()
-        q0_key = self._qubit_key(dataset, qubit_vars[0])
+        q0_key = qubit_key(dataset, qubit_vars[0])
         shots = cast_to(int, dataset.attrs.get("shots"), len(dataset[q0_key]))
         return qubit_vars, q0_key, shots
-
-    @staticmethod
-    def _qubit_key(dataset: xr.Dataset, q_idx: int) -> Any:
-        """Return the data-variable key for a qubit, tolerating int or str names."""
-        return q_idx if q_idx in dataset else str(q_idx)
-
-    @staticmethod
-    def _per_shot_values(data_array: xr.DataArray) -> np.ndarray:
-        """Return a 1D per-shot complex array for a single acquisition channel.
-
-        Single-shot acquisitions (BinMode.APPEND) arrive with dims
-        (repetition, acq_index_<ch>); averaged acquisitions carry only the
-        acquisition-index axis. The repetition axis, when present, becomes the
-        shot axis, and the acquisition-index axis is reduced to the channel's
-        final measurement so a qubit measured more than once still yields a
-        single bit rather than a ragged array.
-        """
-        values = np.asarray(data_array.values)
-        if "repetition" in data_array.dims:
-            values = np.moveaxis(values, data_array.dims.index("repetition"), 0)
-        else:
-            values = values[np.newaxis, ...]
-        values = values.reshape(values.shape[0], -1)
-        return values[:, -1]
 
     def _process_meas_level_0(
         self, dataset: xr.Dataset, qubit_vars: list[int], shots: int
@@ -335,7 +321,7 @@ class QuantifyExecutor(Executor):
         from qpi_driver.executors.utils.result import iq_memory_avg
 
         per_shot = {
-            q_idx: self._per_shot_values(dataset[self._qubit_key(dataset, q_idx)])
+            q_idx: per_shot_values(dataset[qubit_key(dataset, q_idx)])
             for q_idx in qubit_vars
         }
         num_samples = len(per_shot[qubit_vars[0]])
@@ -356,61 +342,15 @@ class QuantifyExecutor(Executor):
     def _process_meas_level_2(
         self, dataset: xr.Dataset, qubit_vars: list[int], shots: int, acq_protocol: str
     ) -> dict:
-        """Extract classified counts (meas_level=2) performing software discrimination if needed."""
-        per_shot = {
-            q_idx: self._per_shot_values(dataset[self._qubit_key(dataset, q_idx)])
-            for q_idx in qubit_vars
-        }
-        num_samples = len(per_shot[qubit_vars[0]])
-        n_qubits = len(qubit_vars)
-        counts_dict: dict[str, int] = {}
+        """Extract classified counts (meas_level=2) performing software discrimination if needed.
 
-        if acq_protocol == "ThresholdedAcquisition":
-            for s in range(num_samples):
-                state_chars = []
-                for q_idx in reversed(qubit_vars):
-                    val = per_shot[q_idx][s]
-                    r = val.real if not np.isnan(val.real) else 0.0
-                    state_chars.append(str(1 if r >= 1 else 0))
-                state_str = "".join(state_chars)
-                counts_dict[state_str] = counts_dict.get(state_str, 0) + 1
-        else:
-            # SSBIntegrationComplex software discrimination.
-            # Check dataset.attrs first, fallback to device config, default to 0.0.
-            acq_rotation = dataset.attrs.get("acq_rotation")
-            acq_threshold = dataset.attrs.get("acq_threshold")
-            if acq_rotation is None or acq_threshold is None:
-                dev_params = self._get_threshold_params()
-                acq_rotation = (
-                    dev_params.get("acq_rotation", 0.0)
-                    if acq_rotation is None
-                    else acq_rotation
-                )
-                acq_threshold = (
-                    dev_params.get("acq_threshold", 0.0)
-                    if acq_threshold is None
-                    else acq_threshold
-                )
-
-            rot_rad = np.radians(acq_rotation)
-            for s in range(num_samples):
-                state_chars = []
-                for q_idx in reversed(qubit_vars):
-                    val = per_shot[q_idx][s]
-                    if np.isnan(val.real) and np.isnan(val.imag):
-                        state_chars.append("0")
-                    else:
-                        rotated = val * np.exp(1j * rot_rad)
-                        state_chars.append("1" if rotated.real > acq_threshold else "0")
-                state_str = "".join(state_chars)
-                counts_dict[state_str] = counts_dict.get(state_str, 0) + 1
-
-        # Pad with 0 counts for all 2^N states
-        states_list = [format(i, f"0{n_qubits}b") for i in range(2**n_qubits)]
-        for st in states_list:
-            if st not in counts_dict:
-                counts_dict[st] = 0
-
+        Counts are keyed by classical register, one bit per measured clbit,
+        positioned by clbit index (see ``build_acquisition_counts``).
+        """
+        discriminate = build_discriminator(
+            dataset, acq_protocol, self._get_threshold_params
+        )
+        counts_dict = build_acquisition_counts(dataset, qubit_vars, discriminate)
         return {"counts": counts_dict, "shots": shots}
 
     def close(self) -> None:

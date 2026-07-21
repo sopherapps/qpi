@@ -36,9 +36,14 @@ def load_qasm(value: str, num_qubits: int | None = None) -> QuantumCircuit:
 
 
 def memory_to_dataset(
-    memory: list[str], n_qubits: int, shots: int, meas_level: int
+    memory: list[str], n_clbits: int, shots: int, meas_level: int
 ) -> xr.Dataset:
     """Convert shot memory (list of bitstrings) into an xr.Dataset.
+
+    Qiskit's own simulators already resolve each ``measure q[i] -> c[j]``
+    mapping (including repeated measurements or remapped clbits) into a
+    single bitstring per shot, positioned by classical bit index. This just
+    fans that string out into one data variable per classical bit.
 
     The returned dataset format depends on ``meas_level``:
 
@@ -49,12 +54,12 @@ def memory_to_dataset(
 
     Args:
         memory: List of bitstring outcomes (e.g. ['00', '01', '11']).
-        n_qubits: Number of qubits in the circuit.
+        n_clbits: Number of classical bits in the circuit.
         shots: Number of shots.
         meas_level: Measurement level (0=raw IQ, 1=kerneled IQ, 2=counts).
 
     Returns:
-        xr.Dataset with one data variable per qubit.
+        xr.Dataset with one data variable per classical bit.
 
     Raises:
         NotImplementedError: If ``meas_level=0`` is requested.
@@ -67,15 +72,15 @@ def memory_to_dataset(
     import numpy as np
 
     data_vars = {}
-    for i in range(n_qubits):
-        # Qubit state 0 or 1 for each shot. Qubit 0 is LSB, so index is n_qubits - 1 - i.
-        qubit_vals = [float(outcome[n_qubits - 1 - i]) for outcome in memory]
+    for i in range(n_clbits):
+        # clbit 0 is the rightmost (LSB) character, so its index is n_clbits - 1 - i.
+        bit_vals = [float(outcome[n_clbits - 1 - i]) for outcome in memory]
 
         if meas_level == 1:
             # Synthesize IQ-like complex values with Gaussian noise
             # |0⟩ cluster centred at (0.1, 0.05), |1⟩ cluster centred at (0.9, 0.85)
             iq_vals = []
-            for val in qubit_vals:
+            for val in bit_vals:
                 noise_i = float(np.random.normal(0, 0.05))
                 noise_q = float(np.random.normal(0, 0.05))
                 if val < 0.5:  # state |0⟩
@@ -90,7 +95,7 @@ def memory_to_dataset(
         else:
             # meas_level=2: classified counts as complex(bit, 0)
             data_vars[str(i)] = xr.DataArray(
-                [complex(val, 0.0) for val in qubit_vals],
+                [complex(val, 0.0) for val in bit_vals],
                 dims=[f"acq_index_{i}"],
                 coords={f"acq_index_{i}": list(range(shots))},
             )

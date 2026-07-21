@@ -11,6 +11,7 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 
 - `qpi-driver`: Fixed 'can only handle OpenQASM 2.0, but given 3.0' error caused by genuine error in OpenQASM 3
 - `qpi-driver`: Fixed meas_level=2 counts collapsing all shots into one bin
+- `qpi-driver`: Fixed meas_level=2 counts being keyed by qubit index/width instead of the classical register: a qubit measured into more than one clbit now reports each measurement as an independent bit, `measure q[i] -> c[j]` positions bits by clbit index `j` (little-endian, `c[0]` rightmost) rather than qubit index, and the bitstring width matches `num_clbits` instead of `2 ** n_qubits`.
 
 ## [0.0.41] - 2026-07-20
 

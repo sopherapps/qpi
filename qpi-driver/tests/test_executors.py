@@ -125,3 +125,75 @@ measure q -> c;"""
     assert len(res_iq["memory"]) == 10  # shots
     assert len(res_iq["memory"][0]) == 2  # qubits
     assert len(res_iq["memory"][0][0]) == 2  # [real, imag]
+
+
+def test_mock_executor_repeated_measurement_yields_independent_bits():
+    """Measuring the same qubit into two different clbits must record both bits independently."""
+    from qpi_driver.executors.base import JobPayload
+
+    executor = MockExecutor(name="mock")
+
+    qasm = """OPENQASM 2.0;
+include "qelib1.inc";
+qreg q[1];
+creg c[2];
+x q[0];
+measure q[0] -> c[0];
+measure q[0] -> c[1];"""
+
+    payload = JobPayload(circuits=[CircuitPayload(circuit=qasm)], shots=20)
+    dataset = executor.execute(payload)
+    result = executor.process_result(dataset, "job-repeated-measurement")
+    counts = result["counts"]
+
+    assert sum(counts.values()) == 20
+    assert set(counts) == {"00", "01", "10", "11"}
+    # q0 is flipped to |1> by the X gate, so both c[0] and c[1] read 1 every shot.
+    assert counts["11"] == 20
+
+
+def test_mock_executor_clbit_remap_positions_bits_by_clbit_index():
+    """measure q[0]->c[1]; q[1]->c[0] must place bits by clbit index, not qubit index."""
+    from qpi_driver.executors.base import JobPayload
+
+    executor = MockExecutor(name="mock")
+
+    qasm = """OPENQASM 2.0;
+include "qelib1.inc";
+qreg q[2];
+creg c[2];
+x q[0];
+measure q[0] -> c[1];
+measure q[1] -> c[0];"""
+
+    payload = JobPayload(circuits=[CircuitPayload(circuit=qasm)], shots=20)
+    dataset = executor.execute(payload)
+    result = executor.process_result(dataset, "job-clbit-remap")
+    counts = result["counts"]
+
+    assert sum(counts.values()) == 20
+    # q0=1 -> c[1] (leftmost); q1=0 -> c[0] (rightmost).
+    assert counts["10"] == 20
+
+
+def test_mock_executor_partial_measurement_pads_unmeasured_clbit():
+    """Measuring only c[1] out of a 2-bit creg must default the unmeasured c[0] to '0'."""
+    from qpi_driver.executors.base import JobPayload
+
+    executor = MockExecutor(name="mock")
+
+    qasm = """OPENQASM 2.0;
+include "qelib1.inc";
+qreg q[2];
+creg c[2];
+x q[1];
+measure q[1] -> c[1];"""
+
+    payload = JobPayload(circuits=[CircuitPayload(circuit=qasm)], shots=20)
+    dataset = executor.execute(payload)
+    result = executor.process_result(dataset, "job-partial-measurement")
+    counts = result["counts"]
+
+    assert sum(counts.values()) == 20
+    assert len(counts) == 4
+    assert counts["10"] == 20
