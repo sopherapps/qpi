@@ -9,6 +9,7 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 
 ## Fixed
 
+- `qpi-driver`: Fixed the misnamed `hex_counts` output of `build_qiskit_result`, which returned binary-string-keyed counts (duplicating `counts`) instead of hex-keyed counts: it now genuinely converts to hex via the existing `counts_to_hex` helper, and the redundant Qiskit `Result` construction (and its `build_experiment_result` helper) used only to derive that value was removed.
 - `qpi-driver`: Fixed 'can only handle OpenQASM 2.0, but given 3.0' error caused by genuine error in OpenQASM 3
 - `qpi-driver`: Fixed meas_level=2 counts collapsing all shots into one bin
 - `qpi-driver`: Fixed meas_level=2 counts being keyed by qubit index/width instead of the classical register: a qubit measured into more than one clbit now reports each measurement as an independent bit, `measure q[i] -> c[j]` positions bits by clbit index `j` (little-endian, `c[0]` rightmost) rather than qubit index, and the bitstring width matches `num_clbits` instead of `2 ** n_qubits`.
