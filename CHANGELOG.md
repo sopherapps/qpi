@@ -14,6 +14,7 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 - `qpi-driver`: Fixed meas_level=2 counts being keyed by qubit index/width instead of the classical register: a qubit measured into more than one clbit now reports each measurement as an independent bit, `measure q[i] -> c[j]` positions bits by clbit index `j` (little-endian, `c[0]` rightmost) rather than qubit index, and the bitstring width matches `num_clbits` instead of `2 ** n_qubits`.
 - `qpi-driver: Corrected the Toffoli (CCX) decomposition in both qblox and quantify executors.
 - `qpi-driver`: Fixed the qblox and quantify executors only running the first circuit of a batch: `execute` now runs every circuit in `payload.circuits`, honouring per-circuit `shots` and `parameter_values`, and concatenates the results along a `circuit_index` dimension like the simulator executors.
+- `qpi-driver`: Fixed multi-circuit batches with heterogeneous classical-bit/qubit widths raising or misaligning in the mock, qiskit-aer, qblox and quantify executors: per-circuit datasets are now bundled independently instead of being force-concatenated onto a shared axis, and the recorded `shots`/`n_qubits` metadata reflects what was actually used per circuit rather than the batch default or only the last circuit.
 
 ## [0.0.41] - 2026-07-20
 
