@@ -105,23 +105,39 @@ def to_quantify_gates(
         return [CZ(qC=c, qT=t) for c, t in zip(qubits[0::2], qubits[1::2])]
 
     if isinstance(gate, qiskit_library.CCXGate):
-        # the Toffoli gate. Do note that CX is not natively supported so we use other combinations
+        # the Toffoli gate. Do note that CX is not natively supported so each CX in
+        # the standard 6-CNOT decomposition is expanded to H, CZ, H.
         ops = []
         for c1, c2, t in zip(qubits[0::3], qubits[1::3], qubits[2::3]):
             ops.extend(
                 [
                     H(t),
+                    H(t),
                     CZ(qC=c2, qT=t),
-                    TDagger(t),
-                    CZ(qC=c1, qT=t),
-                    T(t),
-                    CZ(qC=c2, qT=t),
+                    H(t),
                     TDagger(t),
                     H(t),
-                    # final entangling phase cleanup between controls
+                    CZ(qC=c1, qT=t),
+                    H(t),
+                    T(t),
+                    H(t),
+                    CZ(qC=c2, qT=t),
+                    H(t),
+                    TDagger(t),
+                    H(t),
+                    CZ(qC=c1, qT=t),
+                    H(t),
+                    T(c2),
+                    T(t),
+                    H(t),
+                    H(c2),
                     CZ(qC=c1, qT=c2),
+                    H(c2),
+                    T(c1),
                     TDagger(c2),
+                    H(c2),
                     CZ(qC=c1, qT=c2),
+                    H(c2),
                 ]
             )
         return ops
