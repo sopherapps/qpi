@@ -176,6 +176,52 @@ measure q[1] -> c[0];"""
     assert counts["10"] == 20
 
 
+def test_mock_executor_heterogeneous_clbit_batch():
+    """A batch of circuits with different creg widths must not force a shared bit axis."""
+    from qpi_driver.executors.base import JobPayload
+
+    executor = MockExecutor(name="mock")
+
+    two_bit = """OPENQASM 2.0;
+include "qelib1.inc";
+qreg q[2];
+creg c[2];
+x q[0];
+measure q -> c;"""
+    three_bit = """OPENQASM 2.0;
+include "qelib1.inc";
+qreg q[3];
+creg c[3];
+x q[1];
+measure q -> c;"""
+
+    payload = JobPayload(
+        circuits=[
+            CircuitPayload(circuit=two_bit, shots=30),
+            CircuitPayload(circuit=three_bit, shots=50),
+        ],
+        shots=1024,
+    )
+    dataset = executor.execute(payload)
+    result = executor.process_result(dataset, "job-heterogeneous")
+
+    circuit_results = result["circuit_results"]
+    assert len(circuit_results) == 2
+
+    first, second = circuit_results
+    # Per-circuit shots reflect the overrides actually used, not payload.shots.
+    assert first["shots"] == 30
+    assert second["shots"] == 50
+    assert sum(first["counts"].values()) == 30
+    assert sum(second["counts"].values()) == 50
+    # Each circuit keeps its own bit width.
+    assert all(len(state) == 2 for state in first["counts"])
+    assert all(len(state) == 3 for state in second["counts"])
+    # q0=1 -> c[0] (rightmost) for the 2-bit circuit; q1=1 -> c[1] for the 3-bit one.
+    assert first["counts"]["01"] == 30
+    assert second["counts"]["010"] == 50
+
+
 def test_mock_executor_partial_measurement_pads_unmeasured_clbit():
     """Measuring only c[1] out of a 2-bit creg must default the unmeasured c[0] to '0'."""
     from qpi_driver.executors.base import JobPayload

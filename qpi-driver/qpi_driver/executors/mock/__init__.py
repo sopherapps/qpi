@@ -4,6 +4,10 @@ import xarray as xr
 from qiskit import transpile
 from qiskit.providers.basic_provider import BasicSimulator
 
+from qpi_driver.executors.utils.batch import (
+    combine_circuit_datasets,
+    iter_circuit_datasets,
+)
 from qpi_driver.executors.utils.counts import simulator_dataset_to_result
 from qpi_driver.executors.utils.qiskit import load_qasm, memory_to_dataset
 from qpi_driver.executors.utils.result import build_qiskit_result
@@ -20,9 +24,10 @@ class MockExecutor(Executor):
     def execute(self, payload: JobPayload) -> xr.Dataset:
         """Execute quantum circuit simulation using Qiskit BasicSimulator.
 
-        For multi-circuit payloads, results are concatenated along a ``circuit_index``
-        dimension.  A single-circuit payload without parameter bindings returns the
-        legacy flat format (no ``circuit_index`` dimension) for backward compatibility.
+        Every circuit is run honouring its per-circuit ``shots`` override.  A
+        single-circuit payload returns that circuit's flat dataset; multi-circuit
+        payloads are bundled so circuits with different classical-bit widths or
+        shot counts stay independent (see ``combine_circuit_datasets``).
 
         Args:
             payload: JobPayload specifying shots and circuits.
@@ -48,39 +53,22 @@ class MockExecutor(Executor):
                     t_qc, shots=circ_shots, memory=True
                 ).result()
                 memory = result.get_memory(t_qc)
-                n_qubits = circuit.num_qubits
 
                 ds = memory_to_dataset(
                     memory, circuit.num_clbits, circ_shots, payload.meas_level
                 )
+                ds.attrs.update(
+                    {
+                        "shots": circ_shots,
+                        "n_qubits": circuit.num_qubits,
+                        "backend": self.name,
+                        "meas_level": payload.meas_level,
+                        "meas_return": payload.meas_return,
+                    }
+                )
                 sub_datasets.append(ds)
 
-        # Backward compatible: single result → flat dataset (no circuit_index)
-        if len(sub_datasets) == 1:
-            ds = sub_datasets[0]
-            ds.attrs.update(
-                {
-                    "shots": circ_shots,
-                    "n_qubits": n_qubits,
-                    "backend": self.name,
-                    "meas_level": payload.meas_level,
-                    "meas_return": payload.meas_return,
-                }
-            )
-            return ds
-
-        # Multiple results → concat along circuit_index
-        combined = xr.concat(sub_datasets, dim="circuit_index")
-        combined.attrs.update(
-            {
-                "shots": payload.shots,
-                "n_qubits": n_qubits,
-                "backend": self.name,
-                "meas_level": payload.meas_level,
-                "meas_return": payload.meas_return,
-            }
-        )
-        return combined
+        return combine_circuit_datasets(sub_datasets)
 
     def process_result(self, dataset: xr.Dataset, job_id: str) -> dict:
         """Convert the simulator's xr.Dataset into a Qiskit-compatible result dict.
@@ -99,17 +87,8 @@ class MockExecutor(Executor):
         meas_return = str(dataset.attrs.get("meas_return", "single"))
         backend = dataset.attrs.get("backend", self.name)
 
-        # Handle multi-circuit datasets
-        if "circuit_index" in dataset.dims:
-            circuit_results = []
-            for ci in range(dataset.sizes["circuit_index"]):
-                sub_ds = dataset.isel(circuit_index=ci)
-                sub_ds.attrs.update(dataset.attrs)
-                circuit_results.append(
-                    simulator_dataset_to_result(sub_ds, meas_level, meas_return)
-                )
-            return build_qiskit_result(circuit_results, job_id, backend)
-
-        # Single circuit
-        single = simulator_dataset_to_result(dataset, meas_level, meas_return)
-        return build_qiskit_result([single], job_id, backend)
+        circuit_results = [
+            simulator_dataset_to_result(sub_ds, meas_level, meas_return)
+            for sub_ds in iter_circuit_datasets(dataset)
+        ]
+        return build_qiskit_result(circuit_results, job_id, backend)

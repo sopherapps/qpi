@@ -25,6 +25,10 @@ from qpi_driver.executors.quantify.config import (
     load_quantum_device,
 )
 from qpi_driver.executors.quantify.conv import to_quantify_gates
+from qpi_driver.executors.utils.batch import (
+    combine_circuit_datasets,
+    iter_circuit_datasets,
+)
 from qpi_driver.executors.utils.counts import (
     build_acquisition_counts,
     build_discriminator,
@@ -103,10 +107,10 @@ class QuantifyExecutor(Executor):
           (software discrimination deferred to ``process_result()``).
 
         Every circuit in ``payload.circuits`` is executed, honouring each
-        circuit's ``shots`` override and ``parameter_values`` bindings.  For
-        multi-circuit payloads the per-circuit datasets are concatenated along a
-        ``circuit_index`` dimension; a single-circuit payload without parameter
-        bindings returns the legacy flat dataset for backward compatibility.
+        circuit's ``shots`` override and ``parameter_values`` bindings.  A
+        single-circuit payload returns that circuit's flat dataset; multi-circuit
+        payloads are bundled so circuits with different qubit widths or shot
+        counts stay independent (see ``combine_circuit_datasets``).
 
         Args:
             payload: JobPayload specifying shots, circuits, meas_level, etc.
@@ -131,12 +135,7 @@ class QuantifyExecutor(Executor):
                     )
                 )
 
-        if len(sub_datasets) == 1:
-            return sub_datasets[0]
-
-        combined = xr.concat(sub_datasets, dim="circuit_index")
-        combined.attrs["shots"] = payload.shots
-        return combined
+        return combine_circuit_datasets(sub_datasets)
 
     def _run_circuit(
         self,
@@ -285,23 +284,13 @@ class QuantifyExecutor(Executor):
         acq_protocol = str(dataset.attrs.get("acq_protocol", "SSBIntegrationComplex"))
         backend = dataset.attrs.get("backend", self.name)
 
-        # Handle multi-circuit datasets
-        if "circuit_index" in dataset.dims:
-            circuit_results = []
-            for ci in range(dataset.sizes["circuit_index"]):
-                sub_ds = dataset.isel(circuit_index=ci)
-                sub_ds.attrs.update(dataset.attrs)
-                circuit_results.append(
-                    self._single_dataset_to_result(
-                        sub_ds, meas_level, meas_return, acq_protocol
-                    )
-                )
-            return build_qiskit_result(circuit_results, job_id, backend)
-
-        single = self._single_dataset_to_result(
-            dataset, meas_level, meas_return, acq_protocol
-        )
-        return build_qiskit_result([single], job_id, backend)
+        circuit_results = [
+            self._single_dataset_to_result(
+                sub_ds, meas_level, meas_return, acq_protocol
+            )
+            for sub_ds in iter_circuit_datasets(dataset)
+        ]
+        return build_qiskit_result(circuit_results, job_id, backend)
 
     def _single_dataset_to_result(
         self, dataset: xr.Dataset, meas_level: int, meas_return: str, acq_protocol: str
