@@ -7,6 +7,10 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 
 ## [Unreleased]
 
+## Fixed
+
+- `qpi-driver`: Fixed 'can only handle OpenQASM 2.0, but given 3.0' error caused by genuine error in OpenQASM 3
+
 ## [0.0.41] - 2026-07-20
 
 ### Changed

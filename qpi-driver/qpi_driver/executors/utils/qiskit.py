@@ -1,5 +1,9 @@
+import re
+
 import xarray as xr
 from qiskit import QuantumCircuit, qasm2, qasm3
+
+_QASM_VERSION_PATTERN = re.compile(r"OPENQASM\s+(2|3)(?:\.\d+)?\s*;")
 
 
 def load_qasm(value: str, num_qubits: int | None = None) -> QuantumCircuit:
@@ -13,13 +17,20 @@ def load_qasm(value: str, num_qubits: int | None = None) -> QuantumCircuit:
         the QASM circuit as got from the string value passed
 
     Raises:
+        ValueError: missing or unrecognized OPENQASM version header
         ValueError: Failed to parse QASM circuit: exc
     """
+    version = _detect_qasm_version(value)
+    if version is None:
+        raise ValueError(
+            "Failed to parse QASM circuit: missing or unrecognized OPENQASM "
+            "version header, expected 'OPENQASM 2.0;' or 'OPENQASM 3.0;'"
+        )
+
     try:
-        try:
+        if version == 3:
             return qasm3.loads(value, num_qubits=num_qubits)
-        except Exception:
-            return qasm2.loads(value, strict=True)
+        return qasm2.loads(value, strict=True)
     except Exception as exc:
         raise ValueError(f"Failed to parse QASM circuit: {exc}") from exc
 
@@ -84,3 +95,16 @@ def memory_to_dataset(
                 coords={f"acq_index_{i}": list(range(shots))},
             )
     return xr.Dataset(data_vars)
+
+
+def _detect_qasm_version(value: str) -> int | None:
+    """Detects the OpenQASM major version declared in a QASM string.
+
+    Args:
+        value: the QASM string to inspect
+
+    Returns:
+        2 or 3 if a version header is found, else None
+    """
+    match = _QASM_VERSION_PATTERN.search(value)
+    return int(match.group(1)) if match else None
