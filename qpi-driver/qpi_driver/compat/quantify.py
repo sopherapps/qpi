@@ -32,6 +32,7 @@ try:
     from quantify_scheduler.device_under_test.transmon_element import (
         BasicTransmonElement,
     )
+    from quantify_scheduler.enums import BinMode
     from quantify_scheduler.helpers.validators import Numbers
     from quantify_scheduler.instrument_coordinator import InstrumentCoordinator
     from quantify_scheduler.operations.gate_library import (
@@ -107,6 +108,10 @@ except ImportError as exp:
     class CZ(BasicCompatClass): ...
 
     class H(BasicCompatClass): ...
+
+    class BinMode(str, Enum):
+        APPEND = "append"
+        AVERAGE = "average"
 
     class Measure(BasicCompatClass): ...
 

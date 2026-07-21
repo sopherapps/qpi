@@ -7,6 +7,7 @@ import xarray as xr
 
 from qpi_driver.compat.qblox import (
     IS_QBLOX_SCHEDULER_INSTALLED,
+    BinMode,
     HardwareAgent,
     Instrument,
     QbloxHardwareCompilationConfig,
@@ -127,11 +128,13 @@ class QbloxExecutor(Executor):
         Returns:
             Tuple of (protocol_name, extra_kwargs_for_Measure).
         """
+        bin_mode = self._resolve_bin_mode(payload.meas_level, payload.meas_return)
+
         if payload.meas_level == 0:
-            return "Trace", {}
+            return "Trace", {"bin_mode": bin_mode}
 
         if payload.meas_level == 1:
-            return "SSBIntegrationComplex", {}
+            return "SSBIntegrationComplex", {"bin_mode": bin_mode}
 
         # meas_level == 2: try ThresholdedAcquisition if device or payload has threshold params
         dev_params = self._get_threshold_params()
@@ -141,10 +144,24 @@ class QbloxExecutor(Executor):
             dev_params["acq_threshold"] = payload.acq_threshold
 
         if "acq_rotation" in dev_params and "acq_threshold" in dev_params:
-            return "ThresholdedAcquisition", dev_params
+            return "ThresholdedAcquisition", {**dev_params, "bin_mode": bin_mode}
 
         # Fallback to SSBIntegrationComplex + software discrimination in process_result()
-        return "SSBIntegrationComplex", dev_params
+        return "SSBIntegrationComplex", {**dev_params, "bin_mode": bin_mode}
+
+    def _resolve_bin_mode(self, meas_level: int, meas_return: str) -> BinMode:
+        """Choose the acquisition bin mode implied by the requested measurement mode.
+
+        Raw traces (level 0) and averaged integrated results (level 1 with
+        ``meas_return="avg"``) collapse every repetition into a single bin.
+        Counts (level 2) and single-shot integrated results keep each shot as a
+        separate bin so results can be processed per shot.
+        """
+        if meas_level == 0:
+            return BinMode.AVERAGE
+        if meas_level == 1 and meas_return == "avg":
+            return BinMode.AVERAGE
+        return BinMode.APPEND
 
     def _get_threshold_params(self) -> dict:
         """Extract acq_threshold and acq_rotation from the first device element that has them.
@@ -246,9 +263,33 @@ class QbloxExecutor(Executor):
         if not qubit_vars:
             return [], "", 0
         qubit_vars.sort()
-        q0_key = qubit_vars[0] if qubit_vars[0] in dataset else str(qubit_vars[0])
+        q0_key = self._qubit_key(dataset, qubit_vars[0])
         shots = cast_to(int, dataset.attrs.get("shots"), len(dataset[q0_key]))
         return qubit_vars, q0_key, shots
+
+    @staticmethod
+    def _qubit_key(dataset: xr.Dataset, q_idx: int) -> Any:
+        """Return the data-variable key for a qubit, tolerating int or str names."""
+        return q_idx if q_idx in dataset else str(q_idx)
+
+    @staticmethod
+    def _per_shot_values(data_array: xr.DataArray) -> np.ndarray:
+        """Return a 1D per-shot complex array for a single acquisition channel.
+
+        Single-shot acquisitions (BinMode.APPEND) arrive with dims
+        (repetition, acq_index_<ch>); averaged acquisitions carry only the
+        acquisition-index axis. The repetition axis, when present, becomes the
+        shot axis, and the acquisition-index axis is reduced to the channel's
+        final measurement so a qubit measured more than once still yields a
+        single bit rather than a ragged array.
+        """
+        values = np.asarray(data_array.values)
+        if "repetition" in data_array.dims:
+            values = np.moveaxis(values, data_array.dims.index("repetition"), 0)
+        else:
+            values = values[np.newaxis, ...]
+        values = values.reshape(values.shape[0], -1)
+        return values[:, -1]
 
     def _process_meas_level_0(
         self, dataset: xr.Dataset, qubit_vars: list[int], shots: int
@@ -268,24 +309,18 @@ class QbloxExecutor(Executor):
         """Extract integrated IQ memory (meas_level=1)."""
         from qpi_driver.executors.utils.result import iq_memory_avg
 
-        q0_key = qubit_vars[0] if qubit_vars[0] in dataset else str(qubit_vars[0])
-        num_samples = len(dataset[q0_key])
+        per_shot = {
+            q_idx: self._per_shot_values(dataset[self._qubit_key(dataset, q_idx)])
+            for q_idx in qubit_vars
+        }
+        num_samples = len(per_shot[qubit_vars[0]])
         memory = []
         for s in range(num_samples):
             shot_iq = []
             for q_idx in qubit_vars:
-                var_key = q_idx if q_idx in dataset else str(q_idx)
-                val = dataset[var_key].values[s]
-                r = (
-                    float(val.real)
-                    if val is not None and not np.isnan(val.real)
-                    else 0.0
-                )
-                i = (
-                    float(val.imag)
-                    if val is not None and not np.isnan(val.imag)
-                    else 0.0
-                )
+                val = per_shot[q_idx][s]
+                r = float(val.real) if not np.isnan(val.real) else 0.0
+                i = float(val.imag) if not np.isnan(val.imag) else 0.0
                 shot_iq.append([r, i])
             memory.append(shot_iq)
 
@@ -297,8 +332,11 @@ class QbloxExecutor(Executor):
         self, dataset: xr.Dataset, qubit_vars: list[int], shots: int, acq_protocol: str
     ) -> dict:
         """Extract classified counts (meas_level=2) performing software discrimination if needed."""
-        q0_key = qubit_vars[0] if qubit_vars[0] in dataset else str(qubit_vars[0])
-        num_samples = len(dataset[q0_key])
+        per_shot = {
+            q_idx: self._per_shot_values(dataset[self._qubit_key(dataset, q_idx)])
+            for q_idx in qubit_vars
+        }
+        num_samples = len(per_shot[qubit_vars[0]])
         n_qubits = len(qubit_vars)
         counts_dict: dict[str, int] = {}
 
@@ -306,9 +344,8 @@ class QbloxExecutor(Executor):
             for s in range(num_samples):
                 state_chars = []
                 for q_idx in reversed(qubit_vars):
-                    var_key = q_idx if q_idx in dataset else str(q_idx)
-                    val = dataset[var_key].values[s]
-                    r = val.real if val is not None and not np.isnan(val.real) else 0.0
+                    val = per_shot[q_idx][s]
+                    r = val.real if not np.isnan(val.real) else 0.0
                     state_chars.append(str(1 if r >= 1 else 0))
                 state_str = "".join(state_chars)
                 counts_dict[state_str] = counts_dict.get(state_str, 0) + 1
@@ -334,19 +371,14 @@ class QbloxExecutor(Executor):
             for s in range(num_samples):
                 state_chars = []
                 for q_idx in reversed(qubit_vars):
-                    var_key = q_idx if q_idx in dataset else str(q_idx)
-                    val = dataset[var_key].values[s]
-                    if val is None or (np.isnan(val.real) and np.isnan(val.imag)):
+                    val = per_shot[q_idx][s]
+                    if np.isnan(val.real) and np.isnan(val.imag):
                         state_chars.append("0")
                     else:
                         rotated = val * np.exp(1j * rot_rad)
                         state_chars.append("1" if rotated.real > acq_threshold else "0")
                 state_str = "".join(state_chars)
                 counts_dict[state_str] = counts_dict.get(state_str, 0) + 1
-
-        if num_samples == 1 and shots > 1:
-            state_str = list(counts_dict.keys())[0]
-            counts_dict = {state_str: shots}
 
         # Pad with 0 counts for all 2^N states
         states_list = [format(i, f"0{n_qubits}b") for i in range(2**n_qubits)]

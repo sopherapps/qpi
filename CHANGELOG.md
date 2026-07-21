@@ -10,6 +10,7 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 ## Fixed
 
 - `qpi-driver`: Fixed 'can only handle OpenQASM 2.0, but given 3.0' error caused by genuine error in OpenQASM 3
+- `qpi-driver`: Fixed meas_level=2 counts collapsing all shots into one bin
 
 ## [0.0.41] - 2026-07-20
 

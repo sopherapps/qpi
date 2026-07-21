@@ -93,9 +93,17 @@ def test_qblox_executor_execute_dummy(qasm):
     assert dataset.attrs["n_qubits"] == 2
     assert dataset.attrs["backend"] == "qblox"
 
-    # In dummy mode without real hardware, the coord length is 1 for each acquisition channel
+    # acq_index_N is the acquisition-index axis (one measurement per qubit -> length 1),
+    # not the shot count; single-shot data lives on a separate "repetition" dimension.
     assert len(dataset.coords["acq_index_0"]) == 1
     assert len(dataset.coords["acq_index_1"]) == 1
+
+    # meas_level=2 must discriminate every shot (BinMode.APPEND), so the counts
+    # add up to the shot count rather than collapsing to a single sample.
+    result = executor.process_result(dataset, "job-execute-dummy")
+    counts = result["counts"]
+    assert sum(counts.values()) == 100
+    assert len(counts) == 2 ** dataset.attrs["n_qubits"]
 
 
 @pytest.mark.parametrize("qasm", _QASM_PARAMS_ONE_QUBIT)
@@ -193,3 +201,32 @@ measure q[2] -> c[2];"""
     cz_config = edge_config["CZ"]
     assert cz_config.factory_kwargs["square_port"] == "q1_q2:fl"
     assert cz_config.factory_kwargs["square_clock"] == "q1_q2.cz"
+
+
+def test_qblox_executor_repeated_measurement():
+    """A qubit measured more than once yields acq_index length > 1 per shot.
+
+    Running it end-to-end guards the discrimination against raising on that
+    ragged per-shot array and confirms every shot is still counted.
+    """
+    executor = resolve_executor(
+        "qblox",
+        is_dummy=True,
+        quantify_hardware_config=_QUANTIFY_HARDWARE_CONFIG,
+        quantify_device_config=_QUANTIFY_DEVICE_CONFIG,
+    )
+
+    qasm = """OPENQASM 2.0;
+include "qelib1.inc";
+qreg q[1];
+creg c[2];
+x q[0];
+measure q[0] -> c[0];
+measure q[0] -> c[1];"""
+
+    payload = JobPayload(circuits=[CircuitPayload(circuit=qasm)], shots=50)
+    dataset = executor.execute(payload)
+
+    result = executor.process_result(dataset, "job-repeated-measurement")
+    counts = result["counts"]
+    assert sum(counts.values()) == 50

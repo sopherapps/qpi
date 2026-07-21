@@ -21,6 +21,7 @@ try:
     from qblox_scheduler.device_under_test.transmon_element import (
         BasicTransmonElement,  # noqa: F401
     )
+    from qblox_scheduler.enums import BinMode
     from qblox_scheduler.operations import (
         CNOT,
         CZ,
@@ -64,6 +65,10 @@ except ImportError as exp:
     Cluster: TypeAlias = Any
     ImportString: TypeAlias = Any
     Schedulable: TypeAlias = Any
+
+    class BinMode(str, Enum):
+        APPEND = "append"
+        AVERAGE = "average"
 
     class DeviceElement(BasicCompatClass): ...
 
