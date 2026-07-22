@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/apis"
@@ -72,6 +73,12 @@ func RegisterRoutes(e *core.ServeEvent, dashboardFS fs.FS) {
 	e.Router.POST("/api/op/qpus/connect", handleQPUConnect)
 	e.Router.POST("/api/op/qpus/create", handleQPUCreate)
 	e.Router.POST("/api/op/qpu/toggle", handleQPUToggle)
+
+	// Driver framework routes (RFC 0001); behind EnableDriverFramework — the
+	// handlers themselves 404 when the flag is off.
+	e.Router.POST("/api/op/drivers/create", handleDriverCreate)
+	e.Router.POST("/api/op/drivers/connect", handleDriverConnect)
+	e.Router.POST("/api/op/drivers/toggle", handleDriverToggle)
 
 	// Job CRUD routes
 	e.Router.POST("/api/jobs", handleJobSubmit)
@@ -624,6 +631,197 @@ func handleQPUToggle(re *core.RequestEvent) error {
 
 	var resp QPUToggleResponse
 	_ = resp.RefreshFromDbModel(&qpu)
+	return re.JSON(http.StatusOK, resp)
+}
+
+// handleDriverCreate creates a new driver record (admin-only), generating a
+// random token and returning it, plus the kind×language setup snippets, once
+// (RFC 0001 §3). The hashed token is stored. POST /api/op/drivers/create
+func handleDriverCreate(re *core.RequestEvent) error {
+	cfg, err := config.GetConfigFromApp(re.App)
+	if err != nil {
+		return re.Error(http.StatusInternalServerError, "failed to retrieve configuration", err)
+	}
+	if !cfg.EnableDriverFramework {
+		return re.Error(http.StatusNotFound, "driver framework is disabled", nil)
+	}
+
+	if !re.HasSuperuserAuth() {
+		return re.Error(http.StatusForbidden, "admin access required", nil)
+	}
+
+	var req DriverCreateRequest
+	if err := parseBody(cfg, re, &req); err != nil {
+		return err
+	}
+
+	kind := DriverKind(req.Kind)
+	language := DriverLanguage(req.Language)
+	if !isKnownDriverKind(kind) {
+		return re.Error(http.StatusBadRequest, fmt.Sprintf("unknown kind %q", req.Kind), nil)
+	}
+	if !isKnownDriverLanguage(language) {
+		return re.Error(http.StatusBadRequest, fmt.Sprintf("unknown language %q", req.Language), nil)
+	}
+
+	events := eventsForKind(kind)
+	if kind == DriverKindCustom {
+		events = req.Events
+	}
+	if len(events) == 0 {
+		return re.Error(http.StatusBadRequest, "events is required for a custom driver", nil)
+	}
+	for _, e := range events {
+		if !isKnownEventType(EventType(e)) {
+			return re.Error(http.StatusBadRequest, fmt.Sprintf("unknown event type %q", e), nil)
+		}
+	}
+
+	// Generate a random token (raw token is returned once, hash is stored by db hook)
+	rawToken := generateAPIToken()
+
+	enabled := true
+	if req.Enabled != nil {
+		enabled = *req.Enabled
+	}
+
+	driver := db.Driver{
+		Name:     req.Name,
+		QPU:      req.QPU,
+		Kind:     string(kind),
+		Language: string(language),
+		Events:   events,
+		Token:    rawToken,
+		Status:   "offline",
+		Enabled:  enabled,
+	}
+
+	if err := saveToDb(re.App, &driver); err != nil {
+		return re.Error(http.StatusInternalServerError, "failed to create driver", err)
+	}
+
+	resp := DriverCreateResponse{
+		CaFingerprint: cfg.GetTlsCaHash(),
+		DriverVersion: Version,
+	}
+	_ = resp.RefreshFromDbModel(&driver)
+	resp.Token = rawToken
+	resp.QpiAddr = getAddrFromReq(re)
+	resp.Snippets = buildDriverSnippets(kind, language, driver.Name, rawToken, resp.QpiAddr, resp.CaFingerprint)
+
+	return re.JSON(http.StatusCreated, resp)
+}
+
+// handleDriverConnect connects a driver process, allocating dynamic in/out
+// NNG ports the same way handleQPUConnect does for QPUs (RFC 0001 §8).
+// POST /api/op/drivers/connect
+func handleDriverConnect(re *core.RequestEvent) error {
+	cfg, err := config.GetConfigFromApp(re.App)
+	if err != nil {
+		return re.Error(http.StatusInternalServerError, "failed to retrieve custom configuration", err)
+	}
+	if !cfg.EnableDriverFramework {
+		return re.Error(http.StatusNotFound, "driver framework is disabled", nil)
+	}
+
+	var req DriverConnectRequest
+	if err := parseBody(cfg, re, &req); err != nil {
+		return err
+	}
+
+	// Find driver by token (hashed) — the token identifies the driver and,
+	// transitively, its QPU (RFC 0001 §8).
+	hashedToken := db.HashToken(req.AccessToken)
+	var driver db.Driver
+	err = db.FindOneByFilter(re.App, cfg.CollectionDrivers, &driver, "token = {:token}", dbx.Params{"token": hashedToken})
+	if err != nil {
+		return re.Error(http.StatusUnauthorized, "invalid access token", err)
+	}
+
+	if !driver.Enabled {
+		return re.Error(http.StatusForbidden, "driver is currently disabled by administrator", nil)
+	}
+
+	if req.Name != "" {
+		driver.Name = req.Name
+	}
+	if req.Host != "" {
+		driver.Host = req.Host
+	}
+	if req.Version != "" {
+		driver.Version = req.Version
+	}
+
+	// Allocate in/out ports if not already done
+	if driver.NNGInPort == 0 || driver.NNGOutPort == 0 {
+		ports, err := findFreePorts(re.App, 2)
+		if err != nil {
+			return re.Error(http.StatusInternalServerError, "cannot allocate NNG ports", err)
+		}
+		driver.NNGInPort = ports[0]
+		driver.NNGOutPort = ports[1]
+	}
+
+	driver.LastSeen = time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
+
+	if err := saveToDb(re.App, &driver); err != nil {
+		return re.Error(http.StatusInternalServerError, "cannot save driver record", err)
+	}
+
+	// Generate auth token for the driver record
+	record, err := driver.ToRecord(re.App)
+	var token string
+	if err == nil {
+		token, err = record.NewStaticAuthToken(0) // 0 = use app default duration
+	}
+	if err != nil {
+		// Non-fatal: fall back to the access token as a simple identifier
+		token = req.AccessToken
+	}
+
+	resp := DriverConnectResponse{
+		Status:     "success",
+		NNGInPort:  driver.NNGInPort,
+		NNGOutPort: driver.NNGOutPort,
+		TLSHash:    cfg.GetTlsCaHash(),
+		AuthToken:  token,
+		NNGHost:    cfg.IpAddr,
+	}
+	return re.JSON(http.StatusOK, resp)
+}
+
+// handleDriverToggle handles POST /api/op/drivers/toggle — toggles a
+// driver's enabled status (admin-only).
+func handleDriverToggle(re *core.RequestEvent) error {
+	cfg, err := config.GetConfigFromApp(re.App)
+	if err != nil {
+		return re.Error(http.StatusInternalServerError, "failed to retrieve configuration", err)
+	}
+	if !cfg.EnableDriverFramework {
+		return re.Error(http.StatusNotFound, "driver framework is disabled", nil)
+	}
+
+	if !re.HasSuperuserAuth() {
+		return re.Error(http.StatusForbidden, "admin access required", nil)
+	}
+
+	var req DriverToggleRequest
+	if err := parseBody(cfg, re, &req); err != nil {
+		return err
+	}
+
+	updateData := map[string]any{"enabled": req.Enabled}
+	var driver db.Driver
+	err = db.FindAndUpdateOne(re.App, cfg.CollectionDrivers, req.ID, &driver, updateData)
+	if err != nil {
+		if errors.Is(err, db.ErrNotFound) {
+			return re.Error(http.StatusNotFound, "driver not found", err)
+		}
+		return re.Error(http.StatusInternalServerError, "failed to update driver status", err)
+	}
+
+	var resp DriverToggleResponse
+	_ = resp.RefreshFromDbModel(&driver)
 	return re.JSON(http.StatusOK, resp)
 }
 

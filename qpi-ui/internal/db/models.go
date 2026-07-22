@@ -211,6 +211,130 @@ func (q *QPU) RefreshFromRecord(record *core.Record) error {
 	return nil
 }
 
+// Driver represents a registered driver record in the database — an external
+// process that exchanges typed events with QPI-UI (RFC 0001 §7). Every driver
+// belongs to exactly one QPU; a QPU may have many drivers. Behind the
+// EnableDriverFramework flag.
+type Driver struct {
+	ID         string   `json:"id" db:"id"`
+	Name       string   `json:"name" db:"name" required:"true"`
+	QPU        string   `json:"qpu" db:"qpu" type:"relation" required:"true" maxSelect:"1" collection:"qpus"`
+	Kind       string   `json:"kind" db:"kind" type:"select" required:"true" maxSelect:"1" values:"mock,qiskit_aer,quantify,qblox,presto,custom"`
+	Language   string   `json:"language" db:"language" type:"select" required:"true" maxSelect:"1" values:"python,typescript,go"`
+	Events     []string `json:"events" db:"events" type:"json"`
+	Token      string   `json:"token" db:"token" required:"true" hidden:"true"`
+	Status     string   `json:"status" db:"status" type:"select" required:"true" maxSelect:"1" values:"offline,online,maintenance"`
+	NNGInPort  int      `json:"nng_in_port" db:"nng_in_port"`
+	NNGOutPort int      `json:"nng_out_port" db:"nng_out_port"`
+	Host       string   `json:"host" db:"host"`
+	Version    string   `json:"version" db:"version"`
+	LastSeen   string   `json:"last_seen,omitempty" db:"last_seen" type:"date"`
+	Enabled    bool     `json:"enabled" db:"enabled"`
+	Created    string   `json:"created" db:"created"`
+	Updated    string   `json:"updated" db:"updated"`
+}
+
+// ToRecord converts this model into a pocketbase record
+func (d *Driver) ToRecord(app core.App) (*core.Record, error) {
+	if d == nil {
+		return nil, nil
+	}
+	cfg, err := config.GetConfigFromApp(app)
+	if err != nil {
+		return nil, err
+	}
+
+	col_name := cfg.CollectionDrivers
+	col, err := app.FindCollectionByNameOrId(col_name)
+	if err != nil {
+		return nil, fmt.Errorf("error finding collection %s: %w", col_name, err)
+	}
+
+	record, err := getOrCreateRecord(app, col_name, d.ID, col)
+	if err != nil {
+		return nil, err
+	}
+	record.Set("name", d.Name)
+	record.Set("qpu", d.QPU)
+	record.Set("kind", d.Kind)
+	record.Set("language", d.Language)
+	record.Set("token", d.Token)
+	record.Set("status", d.Status)
+	record.Set("nng_in_port", d.NNGInPort)
+	record.Set("nng_out_port", d.NNGOutPort)
+	record.Set("host", d.Host)
+	record.Set("version", d.Version)
+	record.Set("last_seen", d.LastSeen)
+	record.Set("enabled", d.Enabled)
+	record.Set("created", d.Created)
+	record.Set("updated", d.Updated)
+
+	if d.Events != nil {
+		eventsJSON, err := json.Marshal(d.Events)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling events: %w", err)
+		}
+		record.Set("events", eventsJSON)
+	}
+
+	return record, nil
+}
+
+// RefreshFromRecord updates this model using the values from a pocketbase record
+func (d *Driver) RefreshFromRecord(record *core.Record) error {
+	if d == nil || record == nil {
+		return errors.New("cannot refresh from nil record")
+	}
+
+	d.ID = record.Id
+	d.Name = record.GetString("name")
+	d.QPU = record.GetString("qpu")
+	d.Kind = record.GetString("kind")
+	d.Language = record.GetString("language")
+	d.Token = record.GetString("token")
+	d.Status = record.GetString("status")
+	d.NNGInPort = record.GetInt("nng_in_port")
+	d.NNGOutPort = record.GetInt("nng_out_port")
+	d.Host = record.GetString("host")
+	d.Version = record.GetString("version")
+	d.LastSeen = record.GetString("last_seen")
+	d.Enabled = record.GetBool("enabled")
+	d.Created = record.GetString("created")
+	d.Updated = record.GetString("updated")
+	d.Events = stringSliceFromJSONField(record.Get("events"))
+
+	return nil
+}
+
+// stringSliceFromJSONField normalises the value returned by a JSON field
+// holding a string array into a []string, regardless of whether pocketbase
+// hands it back as raw JSON text, a decoded []interface{}, or a []string.
+func stringSliceFromJSONField(v any) []string {
+	switch val := v.(type) {
+	case []string:
+		return val
+	case []interface{}:
+		out := make([]string, 0, len(val))
+		for _, item := range val {
+			if s, ok := item.(string); ok {
+				out = append(out, s)
+			}
+		}
+		return out
+	case string:
+		var out []string
+		if err := json.Unmarshal([]byte(val), &out); err == nil {
+			return out
+		}
+	case []byte:
+		var out []string
+		if err := json.Unmarshal(val, &out); err == nil {
+			return out
+		}
+	}
+	return nil
+}
+
 // TimeSlot represents a calendar booking slot in the database.
 type TimeSlot struct {
 	ID        string `json:"id" db:"id"`

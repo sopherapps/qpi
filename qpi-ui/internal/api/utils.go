@@ -176,7 +176,9 @@ func getAddrFromReq(re *core.RequestEvent) string {
 }
 
 // findFreePorts searches for free TCP ports within the configuration range,
-// excluding ports currently reserved/allocated in the QPUs database table.
+// excluding ports currently reserved/allocated by QPUs or, once the driver
+// framework is on, by drivers — both bind on the same host, so neither may
+// steal the other's port (RFC 0001 §7).
 func findFreePorts(app core.App, count int) ([]int, error) {
 	cfg, err := config.GetConfigFromApp(app)
 	if err != nil {
@@ -184,20 +186,8 @@ func findFreePorts(app core.App, count int) ([]int, error) {
 	}
 
 	allocated := make(map[int]bool)
-	filter := fmt.Sprintf("nng_command_port >= %d || nng_result_port >= %d", cfg.PortRangeStart, cfg.PortRangeStart)
-	records, err := app.FindRecordsByFilter(cfg.CollectionQPUs, filter, "", 0, 0)
-	if err == nil {
-		for _, r := range records {
-			cmd := r.GetInt("nng_command_port")
-			res := r.GetInt("nng_result_port")
-			if cmd > 0 {
-				allocated[cmd] = true
-			}
-			if res > 0 {
-				allocated[res] = true
-			}
-		}
-	}
+	collectAllocatedPorts(app, cfg.CollectionQPUs, allocated, "nng_command_port", "nng_result_port")
+	collectAllocatedPorts(app, cfg.CollectionDrivers, allocated, "nng_in_port", "nng_out_port")
 
 	var ports []int
 	for port := cfg.PortRangeStart; port < cfg.PortRangeEnd; port++ {
@@ -216,6 +206,34 @@ func findFreePorts(app core.App, count int) ([]int, error) {
 		}
 	}
 	return nil, fmt.Errorf("could not find %d free ports in range %d-%d", count, cfg.PortRangeStart, cfg.PortRangeEnd)
+}
+
+// collectAllocatedPorts records the ports already stored in the given fields
+// of a collection's records into allocated. A collection that doesn't exist
+// yet (e.g. drivers with the flag off) is silently skipped, so this stays a
+// no-op for QPU port allocation until the driver framework is enabled.
+func collectAllocatedPorts(app core.App, collectionName string, allocated map[int]bool, fields ...string) {
+	if collectionName == "" {
+		return
+	}
+
+	filterParts := make([]string, len(fields))
+	for i, field := range fields {
+		filterParts[i] = fmt.Sprintf("%s > 0", field)
+	}
+	filter := strings.Join(filterParts, " || ")
+
+	records, err := app.FindRecordsByFilter(collectionName, filter, "", 0, 0)
+	if err != nil {
+		return
+	}
+	for _, r := range records {
+		for _, field := range fields {
+			if port := r.GetInt(field); port > 0 {
+				allocated[port] = true
+			}
+		}
+	}
 }
 
 // generateAPIToken creates a new random API token string.
