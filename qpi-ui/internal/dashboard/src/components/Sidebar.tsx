@@ -7,6 +7,7 @@ import {
   ShieldAlert,
   User,
   Workflow,
+  Thermometer,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -32,7 +33,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: "overview", label: "Overview", icon: LayoutDashboard },
     { id: "qpus", label: "QPU Registry", icon: Cpu },
     ...(isAdmin && driverFrameworkEnabled
-      ? [{ id: "drivers", label: "Drivers", icon: Workflow }]
+      ? [
+          { id: "drivers", label: "Drivers", icon: Workflow },
+          { id: "monitoring", label: "Monitoring", icon: Thermometer },
+        ]
       : []),
     { id: "jobs", label: "Jobs Console", icon: Terminal },
     { id: "bookings", label: "Bookings", icon: Calendar },

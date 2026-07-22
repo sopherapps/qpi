@@ -38,6 +38,35 @@ dispatch/listen goroutines that push `JobDispatch` envelopes and route emitted `
 through the event registry to persist outcomes and deduct QPU-seconds (mirrors the legacy QPU path).
 - `e2e`: Added a `QPI_DRIVER_FRAMEWORK=1` mode (`make test-e2e-driver-framework`) that registers a driver
 and runs the QPU on the driver framework, so the driver suite can run on both paths.
+- `qpi-ui`: Added the `events` collection (behind `enable-driver-framework`) — the single trace log for
+driver-originated events, keyed by `source`/`driver`/`qpu`/`type`/`payload`/`ts`, per RFC 0001 §7. Added
+`events-collection` flag (`QPI_EVENTS_COLLECTION` env var / `eventsCollection` config file key), mirroring
+`drivers-collection`.
+- `qpi-ui`: Added the `CryostatReading` event type and a server handler that appends valid readings to the
+`events` log; a payload with no readings is logged and dropped rather than persisted.
+- `qpi-ui`: Added the `bluefors_gen1` driver kind (RFC 0001 §7, Phase 3) — a driver that only emits
+`CryostatReading` on a timer and never handles `JobDispatch`, for the Bluefors Remote Access Control API Gen.
+1 (Bluefors also ships an unrelated Gen. 2 Control Software with a different API, hence the explicit
+version in the name). It is an officially maintained driver, installed the same way as `qblox`/`quantify`/
+`qiskit_aer` via the `qpi-driver[cli,bluefors_gen1]` extra, and its setup snippet runs the new
+`qpi-driver monitor --kind bluefors_gen1` subcommand instead of the executor CLI's `start --executor`.
+- `qpi-driver`: Restructured the built-in drivers (`QpuDriver` and the new `BlueforsGen1Driver`) into a
+`qpi_driver/builtins/` package, and added a `bluefors_gen1` optional-dependencies group to `pyproject.toml`
+(empty beyond the base install — the Control API is plain HTTP, already covered by the base `requests`
+dependency — but present so the extra installs like the other official drivers).
+- `qpi-driver`: Added the `monitor` CLI command (`qpi-driver monitor --kind bluefors_gen1 ...`) for driver
+kinds that only report upward and never handle `JobDispatch`, alongside the existing executor-shaped `start`
+command. `BlueforsGen1Driver` polls the Bluefors Remote Access Control API Gen. 1's HTTP `values` endpoint
+for a configurable set of value-tree channels on a timer and emits their readings as `CryostatReading`.
+- `qpi-ui`: Added the Monitoring dashboard page (RFC 0001 §10) — live per-channel charts of `CryostatReading`
+readings from the `events` collection over PocketBase realtime, gated the same way as the Drivers page.
+- `e2e`: Added `mock_bluefors_server.py` (a stand-in Bluefors HTTP server) and `test_bluefors_gen1_events`,
+which registers its own `bluefors_gen1` driver, asserts its readings land in `events`, and confirms killing
+it does not disturb its QPU; runs automatically under `make test-e2e-driver-framework` when the framework is
+enabled.
+- `qpi-ui`: Added `install-systemd.sh` support for `EXECUTOR=bluefors_gen1` — prompts for the Bluefors Control
+API base URL and channels, installs the `bluefors_gen1` extra, and generates a systemd unit that runs
+`qpi-driver monitor --kind bluefors_gen1` instead of `start --executor`.
 
 ### Changed
 

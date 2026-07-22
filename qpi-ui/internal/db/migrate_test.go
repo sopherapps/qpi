@@ -21,6 +21,7 @@ func testConfig() *config.AppConfig {
 		CollectionNotifications:   config.DefaultNotificationsCollection,
 		CollectionQPUTimeRequests: config.DefaultQPUTimeRequestsCollection,
 		CollectionDrivers:         config.DefaultDriversCollection,
+		CollectionEvents:          config.DefaultEventsCollection,
 	}
 }
 
@@ -88,6 +89,81 @@ func TestEnsureSchema_DriversCollectionOnWithFlag(t *testing.T) {
 
 	if rulesBefore != rulesAfter {
 		t.Errorf("expected qpus collection rules unchanged, before=%q after=%q", rulesBefore, rulesAfter)
+	}
+}
+
+// TestEnsureSchema_EventsCollectionOffByDefault proves the events collection
+// is additive just like drivers: it does not exist while
+// EnableDriverFramework is off (RFC 0001 §5, §7, §11).
+func TestEnsureSchema_EventsCollectionOffByDefault(t *testing.T) {
+	app, err := tests.NewTestApp()
+	if err != nil {
+		t.Fatalf("failed to create test app: %v", err)
+	}
+	defer app.Cleanup()
+
+	cfg := testConfig()
+	cfg.EnableDriverFramework = false
+	config.SaveConfigOnApp(app, cfg)
+
+	if err := EnsureSchema(app); err != nil {
+		t.Fatalf("failed to ensure schema: %v", err)
+	}
+
+	if _, err := app.FindCollectionByNameOrId(config.DefaultEventsCollection); err == nil {
+		t.Errorf("expected no events collection to exist while EnableDriverFramework is off")
+	}
+}
+
+// TestEnsureSchema_EventsCollectionOnWithFlag proves turning the flag on
+// creates the events collection without touching the drivers collection's
+// rules.
+func TestEnsureSchema_EventsCollectionOnWithFlag(t *testing.T) {
+	app, err := tests.NewTestApp()
+	if err != nil {
+		t.Fatalf("failed to create test app: %v", err)
+	}
+	defer app.Cleanup()
+
+	cfg := testConfig()
+	cfg.EnableDriverFramework = true
+	config.SaveConfigOnApp(app, cfg)
+	if err := EnsureSchema(app); err != nil {
+		t.Fatalf("failed to ensure schema with flag on: %v", err)
+	}
+
+	driversBefore, err := app.FindCollectionByNameOrId(config.DefaultDriversCollection)
+	if err != nil {
+		t.Fatalf("drivers collection not found: %v", err)
+	}
+	rulesBefore := collectionRuleSnapshot(driversBefore)
+
+	col, err := app.FindCollectionByNameOrId(config.DefaultEventsCollection)
+	if err != nil {
+		t.Fatalf("expected events collection to exist with flag on: %v", err)
+	}
+
+	wantFields := []string{"source", "driver", "qpu", "type", "payload", "ts", "created"}
+	for _, name := range wantFields {
+		found := false
+		for _, f := range col.Fields {
+			if f.GetName() == name {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("expected events collection to have field %q", name)
+		}
+	}
+
+	driversAfter, err := app.FindCollectionByNameOrId(config.DefaultDriversCollection)
+	if err != nil {
+		t.Fatalf("drivers collection not found after ensuring events: %v", err)
+	}
+	rulesAfter := collectionRuleSnapshot(driversAfter)
+	if rulesBefore != rulesAfter {
+		t.Errorf("expected drivers collection rules unchanged, before=%q after=%q", rulesBefore, rulesAfter)
 	}
 }
 

@@ -21,6 +21,7 @@ class EventType(str, Enum):
 
     JOB_DISPATCH = "JobDispatch"
     JOB_RESULT = "JobResult"
+    CRYOSTAT_READING = "CryostatReading"
 
 
 @dataclass

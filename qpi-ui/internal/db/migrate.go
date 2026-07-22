@@ -61,6 +61,9 @@ func EnsureSchema(app core.App) error {
 		if err := ensureDriversCollection(app, cfg); err != nil {
 			return fmt.Errorf("drivers collection: %w", err)
 		}
+		if err := ensureEventsCollection(app, cfg); err != nil {
+			return fmt.Errorf("events collection: %w", err)
+		}
 	}
 
 	log.Println("[QPI] Schema OK")
@@ -258,6 +261,28 @@ func ensureDriversCollection(app core.App, cfg *config.AppConfig) error {
 	}
 
 	// Public read, superuser-only CUD — mirrors qpus (RFC 0001 §9).
+	col.ListRule = types.Pointer("")
+	col.ViewRule = types.Pointer("")
+	col.CreateRule = nil
+	col.UpdateRule = nil
+	col.DeleteRule = nil
+
+	return app.Save(col)
+}
+
+// ensureEventsCollection creates the collection storing the `events` trace
+// log — every driver→UI event a handler chooses to persist, e.g. a cryostat
+// monitor's readings (RFC 0001 §7, Phase 3). Only reached when
+// EnableDriverFramework is on.
+func ensureEventsCollection(app core.App, cfg *config.AppConfig) error {
+	col, err := initCollection(app, cfg.CollectionEvents, &Event{})
+	if err != nil {
+		return err
+	}
+
+	// Public read, superuser-only CUD — mirrors drivers/qpus (RFC 0001 §9).
+	// The server itself writes rows through the admin app instance, which
+	// bypasses these API rules entirely.
 	col.ListRule = types.Pointer("")
 	col.ViewRule = types.Pointer("")
 	col.CreateRule = nil

@@ -33,8 +33,23 @@ var (
 var driverEventRegistry = func() *EventRegistry {
 	registry := NewEventRegistry()
 	registry.Register(EventJobResult, handleDriverJobResult)
+	registry.Register(EventCryostatReading, handleCryostatReading)
 	return registry
 }()
+
+// driverIDContextKey is how runDriverListener passes the calling driver's
+// record id to handlers through ctx, without widening the EventHandler
+// signature every existing handler and test would need to update (RFC 0001
+// §7). A handler that needs it (e.g. to persist to the events log) reads it
+// back with driverIDFromContext.
+type driverIDContextKey struct{}
+
+// driverIDFromContext extracts the driver id runDriverListener attached to
+// ctx, or "" if it is missing (e.g. a handler invoked directly from a test).
+func driverIDFromContext(ctx context.Context) string {
+	id, _ := ctx.Value(driverIDContextKey{}).(string)
+	return id
+}
 
 // StartDriverDistribution starts the dispatch/listen goroutines for a connected
 // driver if not already running, mirroring StartQPUDistribution for QPUs.
@@ -232,7 +247,8 @@ func runDriverListener(ctx context.Context, app core.App, driverID, qpuID string
 
 		// A handler that rejects an event just logs and drops it; the loop
 		// keeps listening (RFC 0001 §4).
-		_ = driverEventRegistry.Dispatch(ctx, app, qpuID, &event)
+		dispatchCtx := context.WithValue(ctx, driverIDContextKey{}, driverID)
+		_ = driverEventRegistry.Dispatch(dispatchCtx, app, qpuID, &event)
 	}
 }
 
@@ -317,5 +333,39 @@ func applyJobResult(app core.App, qpuID string, result ResultPayload) error {
 		return fmt.Errorf("cannot save result for job %s: %w", result.JobID, err)
 	}
 	log.Printf("[DriverListener %s] job %s %s", qpuID, result.JobID, finalStatus)
+	return nil
+}
+
+// handleCryostatReading validates a monitoring driver's reading snapshot and
+// appends it to the `events` trace log for the dashboard to chart. Unlike
+// JobResult it updates no domain record — the events log is its only
+// destination (RFC 0001 §7, Phase 3). A payload with no readings is rejected,
+// which the registry logs and drops rather than crashing the listener loop.
+func handleCryostatReading(ctx context.Context, app core.App, qpuID string, event *Event) error {
+	var reading CryostatReadingPayload
+	if err := json.Unmarshal(event.Payload, &reading); err != nil {
+		return fmt.Errorf("cannot parse CryostatReading payload: %w", err)
+	}
+	if len(reading.Readings) == 0 {
+		return fmt.Errorf("CryostatReading payload has no readings")
+	}
+
+	return appendEvent(app, driverIDFromContext(ctx), qpuID, event)
+}
+
+// appendEvent persists an inbound event to the `events` trace log, keyed by
+// the driver that sent it and the QPU that driver belongs to (RFC 0001 §7).
+func appendEvent(app core.App, driverID, qpuID string, event *Event) error {
+	record := &db.Event{
+		Source:  driverID,
+		Driver:  driverID,
+		QPU:     qpuID,
+		Type:    string(event.Type),
+		Payload: event.Payload,
+		Ts:      event.Ts,
+	}
+	if err := saveToDb(app, record); err != nil {
+		return fmt.Errorf("cannot persist %s event: %w", event.Type, err)
+	}
 	return nil
 }

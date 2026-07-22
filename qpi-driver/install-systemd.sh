@@ -34,8 +34,16 @@ while [ -z "$CA_FINGERPRINT" ]; do read -p "Enter CA Fingerprint: " CA_FINGERPRI
 while [ -z "$QPU_NAME" ]; do read -p "Enter QPU Name (e.g. rigetti-aspen-1): " QPU_NAME; done
 
 # Optional
-[ -z "$EXECUTOR" ] && read -p "Enter Executor (mock, qiskit_aer, quantify, qblox, presto) [mock]: " EXECUTOR
+[ -z "$EXECUTOR" ] && read -p "Enter Executor (mock, qiskit_aer, quantify, qblox, presto, bluefors_gen1) [mock]: " EXECUTOR
 EXECUTOR=${EXECUTOR:-mock}
+
+# bluefors_gen1 is a monitor, not an executor, but reuses the EXECUTOR
+# variable to pick the extra + service shape below. It needs its own Control
+# API config instead of the QPU/executor settings above.
+if [ "$EXECUTOR" = "bluefors_gen1" ]; then
+    [ -z "$BLUEFORS_BASE_URL" ] && read -p "Enter Bluefors Control API base URL (e.g. http://localhost:49099): " BLUEFORS_BASE_URL
+    [ -z "$BLUEFORS_CHANNELS" ] && read -p "Enter Bluefors channels to poll, optionally suffixed with :unit (e.g. mapper.bf.tmc:K,mapper.bf.pmc:mbar): " BLUEFORS_CHANNELS
+fi
 
 # The version of qpi-driver to install.
 # This should match the qpi-ui version if provided via environment variable.
@@ -78,6 +86,8 @@ elif [ "$EXECUTOR" = "quantify" ]; then
     sudo -u "$REAL_USER" "$UV_PATH" tool install --python 3.12 "qpi-driver[cli,quantify]${VERSION_SUFFIX}"
 elif [ "$EXECUTOR" = "qiskit_aer" ]; then
     sudo -u "$REAL_USER" "$UV_PATH" tool install --python 3.12 "qpi-driver[cli,aer]${VERSION_SUFFIX}"
+elif [ "$EXECUTOR" = "bluefors_gen1" ]; then
+    sudo -u "$REAL_USER" "$UV_PATH" tool install --python 3.12 "qpi-driver[cli,bluefors_gen1]${VERSION_SUFFIX}"
 else
     sudo -u "$REAL_USER" "$UV_PATH" tool install --python 3.12 "qpi-driver[cli]${VERSION_SUFFIX}"
 fi
@@ -85,6 +95,27 @@ fi
 # 4. Create systemd unit file
 SERVICE_FILE="/etc/systemd/system/${QPU_NAME}.qpi-driver.service"
 echo "Creating systemd service at $SERVICE_FILE..."
+
+# bluefors_gen1 is a monitor, so it runs through `qpi-driver monitor --kind`
+# with its own Control API config, instead of `start --executor` (RFC 0001
+# §7, Phase 3).
+if [ "$EXECUTOR" = "bluefors_gen1" ]; then
+    BLUEFORS_ENV_LINES="Environment=\"BLUEFORS_BASE_URL=$BLUEFORS_BASE_URL\"
+Environment=\"BLUEFORS_CHANNELS=$BLUEFORS_CHANNELS\"
+Environment=\"BLUEFORS_API_KEY=$BLUEFORS_API_KEY\""
+    EXEC_START_CMD="$REAL_HOME/.local/bin/qpi-driver monitor \\
+        --kind bluefors_gen1 \\
+        --ca-fingerprint $CA_FINGERPRINT \\
+        --qpi-addr $QPI_ADDR \\
+        --name \"$QPU_NAME\""
+else
+    BLUEFORS_ENV_LINES=""
+    EXEC_START_CMD="$REAL_HOME/.local/bin/qpi-driver start \\
+        --ca-fingerprint $CA_FINGERPRINT \\
+        --qpi-addr $QPI_ADDR \\
+        --name \"$QPU_NAME\" \\
+        --executor \"$EXECUTOR\""
+fi
 
 cat > "$SERVICE_FILE" <<EOF
 [Unit]
@@ -99,14 +130,11 @@ Environment="QPI_DATA_DIR=$QPI_DATA_DIR"
 Environment="QPI_CA_FILE=$QPI_CA_FILE"
 Environment="QPI_QUANTIFY_DEVICE_CONFIG=$QPI_QUANTIFY_DEVICE_CONFIG"
 Environment="QPI_QUANTIFY_HARDWARE_CONFIG=$QPI_QUANTIFY_HARDWARE_CONFIG"
+$BLUEFORS_ENV_LINES
 # Standard Python output buffering disabled to ensure logs appear immediately in journalctl
 Environment=PYTHONUNBUFFERED=1
 
-ExecStart=$REAL_HOME/.local/bin/qpi-driver start \\
-        --ca-fingerprint $CA_FINGERPRINT \\
-        --qpi-addr $QPI_ADDR \\
-        --name "$QPU_NAME" \\
-        --executor "$EXECUTOR"
+ExecStart=$EXEC_START_CMD
 
 Restart=on-failure
 User=$REAL_USER

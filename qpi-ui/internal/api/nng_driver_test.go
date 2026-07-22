@@ -1,11 +1,13 @@
 package api
 
 import (
+	"context"
 	"testing"
 
 	"qpi/internal/config"
 	"qpi/internal/db"
 
+	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 )
@@ -133,5 +135,135 @@ func TestHandleDriverJobResult_ParsesEnvelope(t *testing.T) {
 	}
 	if updated.GetString("status") != "completed" {
 		t.Errorf("job status = %q, want completed", updated.GetString("status"))
+	}
+}
+
+// seedDriverForEvents builds a test app with a QPU and a bluefors_gen1
+// driver belonging to it, ready for a CryostatReading event to be attributed
+// to (RFC 0001 §7, Phase 3).
+func seedDriverForEvents(t *testing.T) (*tests.TestApp, *config.AppConfig, *core.Record, *core.Record) {
+	t.Helper()
+
+	app, err := tests.NewTestApp()
+	if err != nil {
+		t.Fatalf("failed to create test app: %v", err)
+	}
+	t.Cleanup(app.Cleanup)
+
+	cfg := testConfig()
+	config.SaveConfigOnApp(app, cfg)
+	if err := db.EnsureSchema(app); err != nil {
+		t.Fatalf("failed to ensure schema: %v", err)
+	}
+
+	qpuRec := core.NewRecord(getCollectionByName(t, app, cfg.CollectionQPUs))
+	qpuRec.Set("name", "qpu_monitor")
+	qpuRec.Set("access_token", db.HashToken("tok"))
+	qpuRec.Set("status", "online")
+	qpuRec.Set("enabled", true)
+	if err := app.Save(qpuRec); err != nil {
+		t.Fatalf("failed to create qpu: %v", err)
+	}
+
+	driverRec := core.NewRecord(getCollectionByName(t, app, cfg.CollectionDrivers))
+	driverRec.Set("name", "cryostat-1")
+	driverRec.Set("qpu", qpuRec.Id)
+	driverRec.Set("kind", string(DriverKindBlueforsGen1))
+	driverRec.Set("language", string(DriverLanguagePython))
+	driverRec.Set("events", []string{string(EventCryostatReading)})
+	driverRec.Set("token", db.HashToken("drv-tok"))
+	driverRec.Set("status", "online")
+	driverRec.Set("enabled", true)
+	if err := app.Save(driverRec); err != nil {
+		t.Fatalf("failed to create driver: %v", err)
+	}
+
+	return app, cfg, driverRec, qpuRec
+}
+
+func floatPtr(v float64) *float64 { return &v }
+
+// TestHandleCryostatReading_PersistsToEventsLog proves a valid reading is
+// appended to the events log, attributed to the driver that sent it and its
+// QPU (RFC 0001 §7, Phase 3).
+func TestHandleCryostatReading_PersistsToEventsLog(t *testing.T) {
+	app, cfg, driverRec, qpuRec := seedDriverForEvents(t)
+
+	event, err := NewEvent(driverRec.Id, EventCryostatReading, CryostatReadingPayload{
+		Readings: map[string]ChannelReading{
+			"mapper.bf.tmc": {Value: floatPtr(0.0123), Unit: "K", Status: "SYNCHRONIZED"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("build event: %v", err)
+	}
+
+	ctx := context.WithValue(context.Background(), driverIDContextKey{}, driverRec.Id)
+	if err := handleCryostatReading(ctx, app, qpuRec.Id, event); err != nil {
+		t.Fatalf("handleCryostatReading: %v", err)
+	}
+
+	var rows []db.Event
+	err = db.FindMany(app, cfg.CollectionEvents, &rows, "type = {:type}", "", 10, 0, dbx.Params{"type": string(EventCryostatReading)})
+	if err != nil {
+		t.Fatalf("find events: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("expected 1 event row, got %d", len(rows))
+	}
+	if rows[0].Driver != driverRec.Id {
+		t.Errorf("event driver = %q, want %q", rows[0].Driver, driverRec.Id)
+	}
+	if rows[0].QPU != qpuRec.Id {
+		t.Errorf("event qpu = %q, want %q", rows[0].QPU, qpuRec.Id)
+	}
+	if rows[0].Source != driverRec.Id {
+		t.Errorf("event source = %q, want %q", rows[0].Source, driverRec.Id)
+	}
+}
+
+// TestHandleCryostatReading_RejectsEmptyReadings proves a payload with no
+// readings is rejected — the registry logs and drops it rather than the
+// listener crashing (RFC 0001 §4).
+func TestHandleCryostatReading_RejectsEmptyReadings(t *testing.T) {
+	app, _, driverRec, qpuRec := seedDriverForEvents(t)
+
+	event, err := NewEvent(driverRec.Id, EventCryostatReading, CryostatReadingPayload{
+		Readings: map[string]ChannelReading{},
+	})
+	if err != nil {
+		t.Fatalf("build event: %v", err)
+	}
+
+	if err := handleCryostatReading(context.Background(), app, qpuRec.Id, event); err == nil {
+		t.Errorf("expected empty readings to be rejected")
+	}
+}
+
+// TestDriverEventRegistry_DispatchesCryostatReading proves the production
+// registry routes CryostatReading to its handler and persists it, exercising
+// the same path runDriverListener uses (RFC 0001 §4, §7).
+func TestDriverEventRegistry_DispatchesCryostatReading(t *testing.T) {
+	app, cfg, driverRec, qpuRec := seedDriverForEvents(t)
+
+	event, err := NewEvent(driverRec.Id, EventCryostatReading, CryostatReadingPayload{
+		Readings: map[string]ChannelReading{"mapper.bf.pmc": {Value: floatPtr(1.2e-6), Unit: "mbar"}},
+	})
+	if err != nil {
+		t.Fatalf("build event: %v", err)
+	}
+
+	ctx := context.WithValue(context.Background(), driverIDContextKey{}, driverRec.Id)
+	if err := driverEventRegistry.Dispatch(ctx, app, qpuRec.Id, event); err != nil {
+		t.Fatalf("dispatch: %v", err)
+	}
+
+	var rows []db.Event
+	err = db.FindMany(app, cfg.CollectionEvents, &rows, "type = {:type}", "", 10, 0, dbx.Params{"type": string(EventCryostatReading)})
+	if err != nil {
+		t.Fatalf("find events: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("expected 1 event row, got %d", len(rows))
 	}
 }
