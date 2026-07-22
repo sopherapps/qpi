@@ -37,7 +37,23 @@ TEST_API_TOKEN = "test-api-token-abc-123"
 TEST_USER_EMAIL = "user@example.com"
 ACCESS_TOKEN = "my-super-secret-token-12345"
 
+# Driver-framework mode (RFC 0001): when enabled, the QPU is backed by a
+# registered driver. Toggling and (re)connection then happen at the driver
+# level (drivers/toggle, drivers/connect) rather than on the QPU itself.
+DRIVER_FRAMEWORK = os.getenv("QPI_DRIVER_FRAMEWORK", "0") == "1"
+
 s = requests.Session()
+
+
+def read_driver_token():
+    """Read the one-time driver token seed.py wrote for the framework harness."""
+    qpi_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    path = os.path.join(qpi_dir, "data", "driver_token.txt")
+    try:
+        with open(path) as f:
+            return f.read().strip()
+    except OSError:
+        return None
 
 
 def admin_auth():
@@ -1395,13 +1411,38 @@ def test_driver_snippet_connection():
     fingerprint = data["ca_fingerprint"]
     qpu_name = data["name"]
     executor = data["executor_type"]
-    
+
+    # On the framework path the QPU is reached through a registered driver: the
+    # snippet the dashboard hands out uses the driver's token and --use-sdk, and
+    # connects over drivers/connect rather than qpus/connect. Success is the SDK
+    # PULL channel coming up rather than the legacy "Handshake OK" line.
+    sdk_flags = []
+    success_marker = "Handshake OK"
+    if DRIVER_FRAMEWORK:
+        resp = admin_session.post(
+            f"{BASE}/api/op/drivers/create",
+            json={
+                "name": f"{qpu_name}_driver",
+                "qpu": data["id"],
+                "kind": executor,
+                "language": "python",
+            },
+        )
+        if resp.status_code != 201:
+            print(f"[verify] ✗ Failed to register driver: {resp.text}")
+            return False
+        driver_data = resp.json()
+        token = driver_data["token"]
+        fingerprint = driver_data["ca_fingerprint"]
+        sdk_flags = ["--use-sdk"]
+        success_marker = "NNG PULL connected"
+
     script_dir = os.path.dirname(os.path.abspath(__file__))
     qpi_dir = os.path.dirname(script_dir)
-    
+
     import queue
     import threading
-    
+
     def wait_for_handshake(p, timeout_sec=10):
         start_time = time.time()
         output = []
@@ -1420,7 +1461,7 @@ def test_driver_snippet_connection():
             try:
                 line = q.get(timeout=0.1)
                 output.append(line)
-                if "Handshake OK" in line:
+                if success_marker in line:
                     success = True
                     break
                 if "401 Client Error" in line:
@@ -1441,7 +1482,8 @@ def test_driver_snippet_connection():
         "--ca-fingerprint", fingerprint,
         "--qpi-addr", qpi_addr_direct,
         "--name", f"{qpu_name}_direct",
-        "--executor", executor
+        "--executor", executor,
+        *sdk_flags,
     ]
     env = os.environ.copy()
     env["QPI_ACCESS_TOKEN"] = token
@@ -1502,7 +1544,8 @@ def test_driver_snippet_connection():
         "--ca-fingerprint", fingerprint,
         "--qpi-addr", qpi_addr_proxy,
         "--name", f"{qpu_name}_proxy",
-        "--executor", executor
+        "--executor", executor,
+        *sdk_flags,
     ]
     env_proxy = env.copy()
     env_proxy["REQUESTS_CA_BUNDLE"] = cert_path
@@ -1582,6 +1625,9 @@ def run_driver_tests():
 
 def test_qpu_toggle_switch():
     """Verify that disabling and re-enabling a QPU toggles its status and goroutines."""
+    if DRIVER_FRAMEWORK:
+        return test_driver_toggle_switch()
+
     print("\n[verify] Testing QPU enabled/disabled toggle switch …")
 
     # 1. Fetch QPU and verify it is initially enabled and online
@@ -1667,6 +1713,126 @@ def test_qpu_toggle_switch():
 
     print("[verify] ✓ QPU successfully re-enabled and transitioned back to online.")
     return True
+
+
+def test_driver_toggle_switch():
+    """Framework path (RFC 0001): toggle a driver-backed QPU at the driver level.
+
+    The QPU itself is never toggled or reconnected directly on the framework
+    path — its driver is. Disabling the driver stops its distribution goroutines
+    and takes both the driver and its QPU offline; a fresh drivers/connect
+    restarts distribution and brings them back, which is the RFC reconnect model.
+    """
+    print("\n[verify] Testing driver enabled/disabled toggle switch (framework path) …")
+
+    # 1. Fetch the seeded driver and verify it is initially enabled and online.
+    resp = s.get(f"{BASE}/api/collections/drivers/records")
+    resp.raise_for_status()
+    drivers = resp.json()["items"]
+    if not drivers:
+        print("[verify] ✗ No drivers found")
+        return False
+    driver = drivers[0]
+    driver_id = driver["id"]
+    qpu_id = driver["qpu"]
+
+    if driver.get("status") != "online" or not driver.get("enabled"):
+        print(
+            f"[verify] ✗ Precondition failed: driver {driver_id} is "
+            f"status={driver.get('status')} enabled={driver.get('enabled')}"
+        )
+        return False
+    print(f"[verify] Driver {driver_id} is online and enabled. Testing toggle switch …")
+
+    # 2a. Verify an unauthorized toggle request is rejected.
+    unauth_resp = requests.post(
+        f"{BASE}/api/op/drivers/toggle", json={"id": driver_id, "enabled": False}
+    )
+    if unauth_resp.status_code != 403:
+        print(
+            f"[verify] ✗ Unauthorized driver toggle was not blocked (expected 403, got {unauth_resp.status_code})"
+        )
+        return False
+    print("[verify] ✓ Unauthorized driver toggle blocked successfully with 403 Forbidden.")
+
+    # 2b. Disable the driver via POST /api/op/drivers/toggle (authorized as admin).
+    resp = s.post(f"{BASE}/api/op/drivers/toggle", json={"id": driver_id, "enabled": False})
+    resp.raise_for_status()
+
+    # Give the backend a moment to close the goroutines and mirror the status.
+    time.sleep(1.5)
+
+    resp = s.get(f"{BASE}/api/collections/drivers/records/{driver_id}")
+    resp.raise_for_status()
+    driver = resp.json()
+    if driver.get("status") != "offline" or driver.get("enabled") is not False:
+        print(
+            f"[verify] ✗ Driver did not transition to offline/disabled: "
+            f"status={driver.get('status')} enabled={driver.get('enabled')}"
+        )
+        return False
+
+    # The QPU tracks its driver: disabling the driver takes the QPU offline too.
+    resp = s.get(f"{BASE}/api/collections/qpus/records/{qpu_id}")
+    resp.raise_for_status()
+    qpu_status = resp.json().get("status")
+    if qpu_status != "offline":
+        print(f"[verify] ✗ QPU did not follow the driver offline: status={qpu_status}")
+        return False
+
+    print("[verify] ✓ Driver and its QPU transitioned to offline. Testing reconnect block …")
+
+    # 3. Verify a disabled driver's reconnect is rejected with 403 Forbidden.
+    token = read_driver_token()
+    if not token:
+        print("[verify] ✗ Driver token file not found — cannot test reconnect")
+        return False
+
+    resp = requests.post(
+        f"{BASE}/api/op/drivers/connect", json={"token": token, "name": driver["name"]}
+    )
+    if resp.status_code != 403:
+        print(
+            f"[verify] ✗ Disabled driver reconnect was not blocked "
+            f"(expected 403, got {resp.status_code}): {resp.text}"
+        )
+        return False
+    print("[verify] ✓ Disabled driver reconnect blocked successfully with 403 Forbidden.")
+
+    # 4. Re-enable the driver.
+    print("[verify] Re-enabling driver …")
+    resp = s.post(f"{BASE}/api/op/drivers/toggle", json={"id": driver_id, "enabled": True})
+    resp.raise_for_status()
+
+    time.sleep(1.0)
+    resp = s.get(f"{BASE}/api/collections/drivers/records/{driver_id}")
+    resp.raise_for_status()
+    if resp.json().get("enabled") is not True:
+        print(f"[verify] ✗ Driver was not re-enabled: enabled={resp.json().get('enabled')}")
+        return False
+
+    # 5. A fresh connect restarts distribution; the still-running driver process
+    #    reattaches and both the driver and its QPU return online.
+    resp = requests.post(
+        f"{BASE}/api/op/drivers/connect", json={"token": token, "name": driver["name"]}
+    )
+    if resp.status_code != 200:
+        print(
+            f"[verify] ✗ Re-enabled driver reconnect failed "
+            f"(expected 200, got {resp.status_code}): {resp.text}"
+        )
+        return False
+
+    for _ in range(10):
+        time.sleep(1)
+        driver_now = s.get(f"{BASE}/api/collections/drivers/records/{driver_id}").json()
+        qpu_now = s.get(f"{BASE}/api/collections/qpus/records/{qpu_id}").json()
+        if driver_now.get("status") == "online" and qpu_now.get("status") == "online":
+            print("[verify] ✓ Driver and QPU successfully back online after reconnect.")
+            return True
+
+    print("[verify] ✗ Driver/QPU did not return online within 10s after reconnect")
+    return False
 
 
 def main():

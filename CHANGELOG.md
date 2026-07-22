@@ -28,6 +28,24 @@ last-seen update live via PocketBase realtime.
 - `e2e`: Added Cypress specs for the Drivers dashboard page (register, custom-driver event validation,
 toggle, delete, and non-admin inertness) and started the dashboard E2E server with
 `--enable-driver-framework` so they run alongside the existing QPU Registry specs.
+- `qpi-driver`: Added the `QpiDriver` SDK base class (`handle_event()`, `emit()`, `every()`) and
+re-expressed the QPU as a `QpuDriver` handling `JobDispatch` and emitting `JobResult` over the event
+envelope, per RFC 0001 Phase 2.
+- `qpi-driver`: Added `--use-sdk` (`QPI_USE_SDK`) to `qpi-driver start` to run the QPU on the driver
+framework; the legacy runner stays the default.
+- `qpi-ui`: Added the driver job flow behind `enable-driver-framework` — on connect a driver gets
+dispatch/listen goroutines that push `JobDispatch` envelopes and route emitted `JobResult` envelopes
+through the event registry to persist outcomes and deduct QPU-seconds (mirrors the legacy QPU path).
+- `e2e`: Added a `QPI_DRIVER_FRAMEWORK=1` mode (`make test-e2e-driver-framework`) that registers a driver
+and runs the QPU on the driver framework, so the driver suite can run on both paths.
+
+### Changed
+
+- `e2e`: Adapted the two legacy-QPU-specific driver sub-tests to pass on the framework path — under
+`QPI_DRIVER_FRAMEWORK`, `test_qpu_toggle_switch` now toggles and reconnects the driver via
+`drivers/toggle` + `drivers/connect` (asserting the QPU tracks its driver offline/online), and
+`test_driver_snippet_connection` registers a driver and connects the snippet with `--use-sdk` over
+`drivers/connect`. The legacy path is unchanged.
 
 ## [0.0.42] - 2026-07-21
 

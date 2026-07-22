@@ -24,7 +24,7 @@ run_driver_e2e() {
     install_driver "$executor"
 
     start_pocketbase
-    seed_database
+    seed_database "$executor"
     start_driver "$executor"
 
     # Allow driver time to register and start polling

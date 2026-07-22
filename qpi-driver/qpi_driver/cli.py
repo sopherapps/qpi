@@ -2,8 +2,9 @@ import importlib.metadata
 from pathlib import Path
 from typing import Annotated
 
+import qpi_driver.driver as non_sdk_driver
+import qpi_driver.qpu as sdk_driver
 from qpi_driver.compat import typer
-from qpi_driver.driver import run_driver
 
 app = None
 if typer.IS_TYPER_INSTALLED:
@@ -114,6 +115,14 @@ if typer.IS_TYPER_INSTALLED:
             envvar="QPI_CA_FINGERPRINT",
             help="The fingerprint to verify the authenticity the automatically downloaded root CA certificate of the QPI server.",
         ),
+        use_sdk: Annotated[
+            bool,
+            typer.Option(
+                "--use-sdk",
+                envvar="QPI_USE_SDK",
+                help="Run the QPU on the experimental driver framework (RFC 0001) instead of the legacy runner.",
+            ),
+        ] = False,
     ):
         """
         Start the QPI driver.
@@ -131,12 +140,27 @@ if typer.IS_TYPER_INSTALLED:
 
         typer.rich_print(_banner())
 
-        run_driver(
-            qpi_addr=qpi_addr,
-            token=token,
-            name=name,
-            executor=executor,
+        if use_sdk:
+            sdk_driver.run_qpu_driver(
+                qpi_addr=qpi_addr,
+                token=token,
+                name=name,
+                executor=executor,
             data_dir=data_dir,
+            ca_fingerprint=ca_fingerprint,
+            ca_file_path=ca_file,
+            is_dummy=is_dummy,
+            quantify_hardware_config=quantify_hardware_config,
+            quantify_device_config=quantify_device_config,
+            job_timeout=job_timeout,
+        )
+        else:
+            non_sdk_driver.run_driver(
+                qpi_addr=qpi_addr,
+                token=token,
+                name=name,
+                executor=executor,
+                data_dir=data_dir,
             ca_fingerprint=ca_fingerprint,
             ca_file_path=ca_file,
             is_dummy=is_dummy,

@@ -30,6 +30,12 @@ ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "supersecretpassword1234")
 ACCESS_TOKEN = "my-super-secret-token-12345"
 TEST_API_TOKEN = "test-api-token-abc-123"
 
+# Driver-framework mode (RFC 0001): when enabled, also register a driver against
+# the QPU and write its one-time token out for the harness to start it with.
+DRIVER_FRAMEWORK = os.getenv("QPI_DRIVER_FRAMEWORK", "0") == "1"
+DRIVER_KIND = os.getenv("DRIVER_KIND", "mock")
+DRIVER_TOKEN_FILE = os.getenv("DRIVER_TOKEN_FILE", "")
+
 s = requests.Session()
 
 
@@ -60,6 +66,23 @@ def create_qpu():
     qpu = resp.json()
     print(f"[seed] QPU created: {qpu['id']}")
     return qpu
+
+
+def create_driver(qpu_id, kind):
+    """Register a driver against the QPU and return its one-time token (RFC 0001 §3)."""
+    resp = s.post(
+        f"{BASE}/api/op/drivers/create",
+        json={
+            "name": "driver_sim_01",
+            "qpu": qpu_id,
+            "kind": kind,
+            "language": "python",
+        },
+    )
+    resp.raise_for_status()
+    driver = resp.json()
+    print(f"[seed] Driver created: {driver['id']} (kind={kind})")
+    return driver
 
 
 def create_user(email="user@example.com", password="userpassword1234"):
@@ -201,6 +224,14 @@ measure q -> c;"""
 if __name__ == "__main__":
     admin_auth()
     qpu = create_qpu()
+
+    if DRIVER_FRAMEWORK:
+        driver = create_driver(qpu["id"], DRIVER_KIND)
+        if DRIVER_TOKEN_FILE:
+            with open(DRIVER_TOKEN_FILE, "w") as f:
+                f.write(driver.get("token", ""))
+            print(f"[seed] Wrote driver token to {DRIVER_TOKEN_FILE}")
+
     user = create_user()
     grant_user_qpu_time(user["id"], qpu_seconds=1000.0, api_tokens=[TEST_API_TOKEN])
     create_time_slot(user["id"])
