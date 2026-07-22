@@ -6,6 +6,7 @@ except importlib.metadata.PackageNotFoundError:
     __version__ = "0.0.42"
 
 from qpi_driver.driver import run_driver
+from qpi_driver.events import Event, EventType
 from qpi_driver.executors.base import Executor
 from qpi_driver.executors.mock import MockExecutor
 from qpi_driver.executors.presto import PrestoExecutor
@@ -16,6 +17,8 @@ from qpi_driver.executors.quantify import QuantifyExecutor
 __all__ = [
     "__version__",
     "run_driver",
+    "Event",
+    "EventType",
     "Executor",
     "MockExecutor",
     "QiskitAerExecutor",

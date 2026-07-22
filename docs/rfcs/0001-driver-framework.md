@@ -1,6 +1,6 @@
 # RFC 0001 — Driver Framework
 
-- **Status:** Draft (first pass — nothing here is decided yet)
+- **Status:** Draft
 - **Author:** Martin Ahindura 
 - **Created:** 2026-07-22
 - **Touches:** `qpi-ui` (Go/PocketBase), the driver SDKs (Python today), dashboard (React)
@@ -122,7 +122,7 @@ events," carried by one envelope (§6). Job dispatch **stays push** — the sche
 still decides and QPI-UI sends `JobDispatch`; nothing about the scheduler or
 online-detection changes. `qpi-driver` becomes the **Python SDK**, and a QPU
 becomes a driver that handles `JobDispatch` and emits `JobResult`. Everything is
-additive and behind an `EnableDrivers` flag; with the flag off the server behaves
+additive and behind an `EnableDriverFramework` flag; with the flag off the server behaves
 exactly as now.
 
 **Packaging.** `qpi-driver` grows the same per-language layout as `qpi-client`
@@ -220,7 +220,7 @@ and no per-event ownership check to get wrong.
 ## 11. Implementation plan
 
 Shared rules per phase: **additive only** (never change current QPU behaviour);
-**everything behind `EnableDrivers`**; **copy the named precedent**; update
+**everything behind `EnableDriverFramework`**; **copy the named precedent**; update
 `CHANGELOG.md`; idiomatic Go/Python, names over comments. Each phase ends with a
 verification step and is independently shippable.
 
@@ -231,7 +231,7 @@ for work mirroring existing code; **Haiku** for boilerplate, fixtures, examples,
 
 | Phase | Objective & work (copy from …) | Done when / verify | Model |
 | --- | --- | --- | --- |
-| **0 Event core** | Define the Event envelope (§4, §6); the static event-type registry + handler dispatch (Go); add `EnableDrivers`. Prove one UI→driver and one driver→UI event over a spike of the existing NNG channel (copy `nng.go` + `driver.py`). | Both events round-trip under verified TLS; `make test` green; server identical with flag off. | **Opus** |
+| **0 Event core** | Define the Event envelope (§4, §6); the static event-type registry + handler dispatch (Go); add `EnableDriverFramework`. Prove one UI→driver and one driver→UI event over a spike of the existing NNG channel (copy `nng.go` + `driver.py`). | Both events round-trip under verified TLS; `make test` green; server identical with flag off. | **Opus** |
 | **1 Registration** | `drivers` collection with required `qpu` relation + `kind`/`language` (copy `QPU`); `drivers/create` + `connect` + `toggle` (copy QPU handlers); the static kind×language catalog + token issue + snippet resolution. | Handler tests pass; a driver registers against a QPU, gets a one-time token (hash stored) + the right snippet per kind×language, and connects; QPU collection/rules unchanged with flag on. | **Sonnet** (+Opus review of token/connect; +Haiku fixtures) |
 | **2 Python SDK + QPU as a driver** | Generalise `qpi-driver` into the SDK: base class mirroring events, `on_<event>` handlers, `emit()`/`every()`. Re-express the QPU as a driver handling `JobDispatch`, emitting `JobResult`. Legacy path stays default until parity. | Existing QPU e2e suite passes on the new path unchanged; run both and diff. | **Opus** (regression-critical) |
 | **3 Monitoring driver (example)** | Add a separate monitoring driver (e.g. cryostat) with its own driver→UI event + handler; persist to the `events` log; dashboard live chart via realtime. | Its readings land and stream live; bad payloads logged and dropped; killing it doesn't affect other drivers. | **Sonnet** (+Haiku example/docs) |

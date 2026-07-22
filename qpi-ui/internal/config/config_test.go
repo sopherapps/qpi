@@ -492,3 +492,119 @@ func TestAppConfig_GetDefaultCollectionName(t *testing.T) {
 		}
 	}
 }
+
+// TestNewFromFlags_EnableDriverFrameworkDefault verifies the driver framework is off by default.
+func TestNewFromFlags_EnableDriverFrameworkDefault(t *testing.T) {
+	tmpDir := t.TempDir()
+	emptyConfig := tmpDir + "/empty.yaml"
+	if err := os.WriteFile(emptyConfig, []byte{}, 0644); err != nil {
+		t.Fatalf("failed to create empty config: %v", err)
+	}
+	t.Setenv("QPI_TLS_CERT_FILE", tmpDir+"/d.cert.pem")
+	t.Setenv("QPI_TLS_KEY_FILE", tmpDir+"/d.key")
+	t.Setenv("QPI_TLS_CA_CERT_FILE", tmpDir+"/d.ca.pem")
+	t.Setenv("QPI_TLS_CA_KEY_FILE", tmpDir+"/d.ca.key")
+	t.Setenv("QPI_CONFIG_FILE", emptyConfig)
+
+	cmd := &cobra.Command{}
+	BindFlags(cmd)
+
+	cfg, err := NewFromFlags(cmd)
+	if err != nil {
+		t.Fatalf("failed to load config from flags: %v", err)
+	}
+
+	if cfg.EnableDriverFramework {
+		t.Errorf("expected EnableDriverFramework to default to false, got true")
+	}
+}
+
+// TestNewFromFlags_EnableDriverFrameworkPrecedence verifies the strict resolution order
+// CLI flag > env var > config file for EnableDriverFramework.
+func TestNewFromFlags_EnableDriverFrameworkPrecedence(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	t.Run("from config file", func(t *testing.T) {
+		configFile := tmpDir + "/framework.yaml"
+		yamlContent := `
+enableDriverFramework: true
+tlsCertFile: "` + tmpDir + `/f.cert.pem"
+tlsKeyFile: "` + tmpDir + `/f.key"
+tlsCaCertFile: "` + tmpDir + `/f.ca.pem"
+tlsCaKeyFile: "` + tmpDir + `/f.ca.key"
+ipAddr: "127.0.0.1"
+`
+		if err := os.WriteFile(configFile, []byte(yamlContent), 0644); err != nil {
+			t.Fatalf("failed to write config file: %v", err)
+		}
+
+		cmd := &cobra.Command{}
+		BindFlags(cmd)
+		if err := cmd.PersistentFlags().Set("config-file", configFile); err != nil {
+			t.Fatalf("failed to set config-file flag: %v", err)
+		}
+
+		cfg, err := NewFromFlags(cmd)
+		if err != nil {
+			t.Fatalf("failed to load config from flags: %v", err)
+		}
+		if !cfg.EnableDriverFramework {
+			t.Errorf("expected EnableDriverFramework true from config file, got false")
+		}
+	})
+
+	t.Run("env overrides config file", func(t *testing.T) {
+		configFile := tmpDir + "/framework_off.yaml"
+		yamlContent := `
+enableDriverFramework: false
+tlsCertFile: "` + tmpDir + `/e.cert.pem"
+tlsKeyFile: "` + tmpDir + `/e.key"
+tlsCaCertFile: "` + tmpDir + `/e.ca.pem"
+tlsCaKeyFile: "` + tmpDir + `/e.ca.key"
+ipAddr: "127.0.0.1"
+`
+		if err := os.WriteFile(configFile, []byte(yamlContent), 0644); err != nil {
+			t.Fatalf("failed to write config file: %v", err)
+		}
+		t.Setenv("QPI_CONFIG_FILE", configFile)
+		t.Setenv("QPI_ENABLE_DRIVER_FRAMEWORK", "true")
+
+		cmd := &cobra.Command{}
+		BindFlags(cmd)
+
+		cfg, err := NewFromFlags(cmd)
+		if err != nil {
+			t.Fatalf("failed to load config from flags: %v", err)
+		}
+		if !cfg.EnableDriverFramework {
+			t.Errorf("expected EnableDriverFramework true from env override, got false")
+		}
+	})
+
+	t.Run("flag overrides env", func(t *testing.T) {
+		emptyConfig := tmpDir + "/empty2.yaml"
+		if err := os.WriteFile(emptyConfig, []byte{}, 0644); err != nil {
+			t.Fatalf("failed to create empty config: %v", err)
+		}
+		t.Setenv("QPI_TLS_CERT_FILE", tmpDir+"/g.cert.pem")
+		t.Setenv("QPI_TLS_KEY_FILE", tmpDir+"/g.key")
+		t.Setenv("QPI_TLS_CA_CERT_FILE", tmpDir+"/g.ca.pem")
+		t.Setenv("QPI_TLS_CA_KEY_FILE", tmpDir+"/g.ca.key")
+		t.Setenv("QPI_CONFIG_FILE", emptyConfig)
+		t.Setenv("QPI_ENABLE_DRIVER_FRAMEWORK", "false")
+
+		cmd := &cobra.Command{}
+		BindFlags(cmd)
+		if err := cmd.PersistentFlags().Set("enable-driver-framework", "true"); err != nil {
+			t.Fatalf("failed to set enable-driver-framework flag: %v", err)
+		}
+
+		cfg, err := NewFromFlags(cmd)
+		if err != nil {
+			t.Fatalf("failed to load config from flags: %v", err)
+		}
+		if !cfg.EnableDriverFramework {
+			t.Errorf("expected EnableDriverFramework true from flag override, got false")
+		}
+	})
+}
