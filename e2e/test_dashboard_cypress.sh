@@ -25,7 +25,10 @@ echo "[e2e] Compiling static assets..."
 build_server
 install_driver
 
-start_pocketbase
+# --enable-driver-framework is on so the Drivers registration page (RFC 0001
+# Phase 1) is exercised alongside the legacy dashboard specs; the flag is
+# additive and does not change existing QPU/job behaviour.
+start_pocketbase --enable-driver-framework
 seed_database
 start_driver "mock"
 

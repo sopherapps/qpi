@@ -4,6 +4,7 @@ import { Sidebar } from "./components/Sidebar";
 import { Header } from "./components/Header";
 import { OverviewTab } from "./components/tabs/OverviewTab";
 import { QpuRegistryTab } from "./components/tabs/QpuRegistryTab";
+import { DriversTab } from "./components/tabs/DriversTab";
 import { JobsConsoleTab } from "./components/tabs/JobsConsoleTab";
 import { BookingsTab } from "./components/tabs/BookingsTab";
 import { AdminPanelTab } from "./components/tabs/AdminPanelTab";
@@ -19,6 +20,9 @@ import type {
   TimeRequest,
   CreateQpuResponse,
   NotificationRequest,
+  Driver,
+  CreateDriverRequest,
+  CreateDriverResponse,
 } from "./types";
 
 export const App: React.FC = () => {
@@ -28,6 +32,7 @@ export const App: React.FC = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [qpuSeconds, setQpuSeconds] = useState(0);
   const [version, setVersion] = useState<string>("");
+  const [driverFrameworkEnabled, setDriverFrameworkEnabled] = useState(false);
 
   // Tab routing
   const [activeTab, setActiveTab] = useState("overview");
@@ -35,6 +40,7 @@ export const App: React.FC = () => {
 
   // Data collections
   const [qpus, setQpus] = useState<QPU[]>([]);
+  const [drivers, setDrivers] = useState<Driver[]>([]);
   const [jobs, setJobs] = useState<QuantumJob[]>([]);
   const [bookings, setBookings] = useState<TimeSlot[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -51,9 +57,15 @@ export const App: React.FC = () => {
       if (!hash) hash = "overview";
 
       if (
-        ["overview", "qpus", "jobs", "bookings", "settings", "admin"].includes(
-          hash,
-        )
+        [
+          "overview",
+          "qpus",
+          "drivers",
+          "jobs",
+          "bookings",
+          "settings",
+          "admin",
+        ].includes(hash)
       ) {
         setActiveTab(hash as string);
       }
@@ -97,6 +109,18 @@ export const App: React.FC = () => {
       setQpus(records as unknown as QPU[]);
     } catch (err) {
       console.error("Failed to load QPUs:", err);
+    }
+  }, []);
+
+  const loadDrivers = useCallback(async () => {
+    try {
+      const records = await pb.collection("drivers").getFullList({
+        sort: "+name",
+        expand: "qpu",
+      });
+      setDrivers(records as unknown as Driver[]);
+    } catch (err) {
+      console.error("Failed to load drivers:", err);
     }
   }, []);
 
@@ -181,10 +205,14 @@ export const App: React.FC = () => {
 
   const loadVersion = useCallback(async () => {
     try {
-      const res = await pb.send<{ version: string }>("/api/op/version", {
+      const res = await pb.send<{
+        version: string;
+        driver_framework_enabled?: boolean;
+      }>("/api/op/version", {
         method: "GET",
       });
       setVersion(res.version);
+      setDriverFrameworkEnabled(!!res.driver_framework_enabled);
     } catch (err) {
       console.error("Failed to load version:", err);
     }
@@ -204,7 +232,12 @@ export const App: React.FC = () => {
     ]);
 
     if (isSuper) {
-      await Promise.all([loadAdminUsers(), loadTimeRequests(), loadVersion()]);
+      await Promise.all([
+        loadAdminUsers(),
+        loadTimeRequests(),
+        loadVersion(),
+        loadDrivers(),
+      ]);
     }
   }, [
     loadUserQuota,
@@ -215,6 +248,7 @@ export const App: React.FC = () => {
     loadAdminUsers,
     loadTimeRequests,
     loadVersion,
+    loadDrivers,
   ]);
 
   // Real-time Subscriptions setup
@@ -247,6 +281,9 @@ export const App: React.FC = () => {
       pb.collection("qpu_time_requests").subscribe("*", () => {
         loadTimeRequests();
       });
+      pb.collection("drivers").subscribe("*", () => {
+        loadDrivers();
+      });
     }
 
     return () => {
@@ -257,6 +294,7 @@ export const App: React.FC = () => {
       if (isSuper) {
         pb.collection("users").unsubscribe();
         pb.collection("qpu_time_requests").unsubscribe();
+        pb.collection("drivers").unsubscribe();
       }
     };
   }, [
@@ -269,6 +307,7 @@ export const App: React.FC = () => {
     loadQpus,
     loadAdminUsers,
     loadTimeRequests,
+    loadDrivers,
   ]);
 
   // Synchronize auth sessions across tabs (e.g. from /_/)
@@ -287,11 +326,13 @@ export const App: React.FC = () => {
         setAuthValid(false);
         setSelectedJobId(null);
         setQpus([]);
+        setDrivers([]);
         setJobs([]);
         setBookings([]);
         setNotifications([]);
         setUsersList([]);
         setTimeRequests([]);
+        setDriverFrameworkEnabled(false);
       }
     }, true);
   }, []);
@@ -372,6 +413,36 @@ export const App: React.FC = () => {
       headers: { "Content-Type": "application/json" },
     });
     loadQpus();
+    return res;
+  };
+
+  const handleToggleDriver = async (id: string, enabled: boolean) => {
+    await pb.send("/api/op/drivers/toggle", {
+      method: "POST",
+      body: JSON.stringify({ id: id, enabled: enabled }),
+      headers: { "Content-Type": "application/json" },
+    });
+    loadDrivers();
+  };
+
+  const handleDeleteDriver = async (id: string) => {
+    try {
+      await pb.collection("drivers").delete(id);
+      loadDrivers();
+    } catch (err: unknown) {
+      alert(`Failed to delete driver: ${(err as Error).message}`);
+    }
+  };
+
+  const handleCreateDriver = async (
+    req: CreateDriverRequest,
+  ): Promise<CreateDriverResponse> => {
+    const res = await pb.send<CreateDriverResponse>("/api/op/drivers/create", {
+      method: "POST",
+      body: JSON.stringify(req),
+      headers: { "Content-Type": "application/json" },
+    });
+    loadDrivers();
     return res;
   };
 
@@ -473,6 +544,19 @@ export const App: React.FC = () => {
             onDeleteQpu={handleDeleteQpu}
           />
         );
+      case "drivers":
+        return isAdmin && driverFrameworkEnabled ? (
+          <DriversTab
+            drivers={drivers}
+            qpus={qpus}
+            isAdmin={isAdmin}
+            onToggleDriver={handleToggleDriver}
+            onRegisterDriver={handleCreateDriver}
+            onDeleteDriver={handleDeleteDriver}
+          />
+        ) : (
+          <div className="text-gray-400 dark:text-zinc-500">Access Denied.</div>
+        );
       case "jobs":
         return (
           <JobsConsoleTab
@@ -547,6 +631,7 @@ export const App: React.FC = () => {
             qpuSeconds={qpuSeconds}
             onRequestTimeClick={() => setIsRequestTimeOpen(true)}
             version={version}
+            driverFrameworkEnabled={driverFrameworkEnabled}
           />
 
           <div className="flex-1 flex flex-col min-w-0 h-full">

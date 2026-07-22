@@ -6,6 +6,7 @@ import {
   Calendar,
   ShieldAlert,
   User,
+  Workflow,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -15,6 +16,7 @@ interface SidebarProps {
   qpuSeconds: number;
   onRequestTimeClick: () => void;
   version?: string;
+  driverFrameworkEnabled?: boolean;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -24,10 +26,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
   qpuSeconds,
   onRequestTimeClick,
   version,
+  driverFrameworkEnabled,
 }) => {
   const navItems = [
     { id: "overview", label: "Overview", icon: LayoutDashboard },
     { id: "qpus", label: "QPU Registry", icon: Cpu },
+    ...(isAdmin && driverFrameworkEnabled
+      ? [{ id: "drivers", label: "Drivers", icon: Workflow }]
+      : []),
     { id: "jobs", label: "Jobs Console", icon: Terminal },
     { id: "bookings", label: "Bookings", icon: Calendar },
     ...(isAdmin

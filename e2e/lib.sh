@@ -118,6 +118,10 @@ install_py_client() {
 # PocketBase lifecycle
 # ---------------------------------------------------------------------------
 start_pocketbase() {
+    # Extra flags forwarded verbatim to `qpi serve`, e.g. --enable-driver-framework
+    # for suites exercising the driver framework (RFC 0001).
+    local extra_serve_flags=("$@")
+
     # Kill any existing process on port 8090 to prevent connecting to stale servers
     local existing_pid
     existing_pid=$(lsof -ti:8090 2>/dev/null || true)
@@ -129,7 +133,7 @@ start_pocketbase() {
 
     echo "[e2e] Initializing database and creating superuser..."
     rm -rf "${PROJECT_ROOT}/bin/pb_data" "${PROJECT_ROOT}/bin/data"
-    
+
     # Create a unique temp directory for this test run to isolate TLS certificates
     local tmp_dir
     tmp_dir="$(mktemp -d)"
@@ -141,7 +145,7 @@ start_pocketbase() {
     mkdir -p "${DATA_DIR}"
 
     # Run from the same temp directory so it reuses the newly generated certs
-    (cd "$tmp_dir" && "${PROJECT_ROOT}/bin/qpi" serve --dir "${PROJECT_ROOT}/bin/pb_data" --dev > "${DATA_DIR}/pocketbase.log" 2>&1) &
+    (cd "$tmp_dir" && "${PROJECT_ROOT}/bin/qpi" serve --dir "${PROJECT_ROOT}/bin/pb_data" --dev "${extra_serve_flags[@]}" > "${DATA_DIR}/pocketbase.log" 2>&1) &
     PB_PID=$!
 
     echo "[e2e] Waiting for PocketBase to be ready..."
