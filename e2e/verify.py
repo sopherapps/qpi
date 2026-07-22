@@ -1567,6 +1567,139 @@ def test_driver_snippet_connection():
     return True
 
 
+def test_bluefors_gen1_events():
+    """Framework path only (RFC 0001 §7, Phase 3): a monitor driver's readings
+    land in the `events` trace log and killing it does not disturb anything
+    else.
+
+    Registers its own QPU + bluefors_gen1 driver (independent of whatever
+    the main run_driver_tests flow is exercising), points the monitor at a
+    throwaway mock Bluefors HTTP server, and polls the events collection for
+    a CryostatReading row before tearing everything down.
+    """
+    print("\n[verify] Testing Bluefors cryostat monitor → events log …")
+
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    qpi_dir = os.path.dirname(script_dir)
+    sys.path.insert(0, script_dir)
+    import mock_bluefors_server
+
+    admin_session = requests.Session()
+    resp = admin_session.post(
+        f"{BASE}/api/collections/_superusers/auth-with-password",
+        json={"identity": ADMIN_EMAIL, "password": ADMIN_PASSWORD},
+    )
+    if resp.status_code != 200:
+        print("[verify] ✗ Admin auth failed")
+        return False
+    admin_session.headers["Authorization"] = resp.json()["token"]
+
+    resp = admin_session.post(
+        f"{BASE}/api/op/qpus/create",
+        json={"name": "MonitorTestQPU", "executor_type": "mock"},
+    )
+    if resp.status_code != 201:
+        print(f"[verify] ✗ Failed to create QPU for monitor test: {resp.text}")
+        return False
+    qpu_id = resp.json()["id"]
+
+    resp = admin_session.post(
+        f"{BASE}/api/op/drivers/create",
+        json={
+            "name": "bluefors-gen1-e2e",
+            "qpu": qpu_id,
+            "kind": "bluefors_gen1",
+            "language": "python",
+        },
+    )
+    if resp.status_code != 201:
+        print(f"[verify] ✗ Failed to register monitor driver: {resp.text}")
+        return False
+    driver_data = resp.json()
+    token = driver_data["token"]
+    fingerprint = driver_data["ca_fingerprint"]
+
+    mock_server, _ = mock_bluefors_server.start(0)
+    mock_port = mock_server.server_address[1]
+
+    env = os.environ.copy()
+    env["QPI_ACCESS_TOKEN"] = token
+    env["PYTHONPATH"] = os.path.join(qpi_dir, "qpi-driver")
+    proc = subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "qpi_driver.cli",
+            "monitor",
+            "--kind",
+            "bluefors_gen1",
+            "--qpi-addr",
+            BASE,
+            "--name",
+            "bluefors-gen1-e2e",
+            "--ca-fingerprint",
+            fingerprint,
+            "--bluefors-base-url",
+            f"http://127.0.0.1:{mock_port}",
+            "--bluefors-channels",
+            "mapper.bf.tmc:K,mapper.bf.pmc:mbar",
+            "--poll-interval",
+            "1",
+        ],
+        env=env,
+        cwd=os.path.join(qpi_dir, "qpi-driver"),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+
+    try:
+        rows = []
+        for _ in range(20):
+            time.sleep(1)
+            resp = admin_session.get(
+                f"{BASE}/api/collections/events/records",
+                params={"filter": 'type = "CryostatReading"', "perPage": 10},
+            )
+            resp.raise_for_status()
+            rows = resp.json()["items"]
+            if rows:
+                break
+
+        if not rows:
+            out = proc.stdout.read() if proc.stdout else ""
+            print(f"[verify] ✗ No CryostatReading events landed within 20s. Driver output:\n{out}")
+            return False
+
+        row = rows[0]
+        if row.get("driver") != driver_data["id"] or row.get("qpu") != qpu_id:
+            print(
+                f"[verify] ✗ Event attributed to wrong driver/qpu: {row.get('driver')}/{row.get('qpu')}"
+            )
+            return False
+        if not row.get("payload", {}).get("readings"):
+            print(f"[verify] ✗ Event payload has no readings: {row.get('payload')}")
+            return False
+
+        print(f"[verify] ✓ CryostatReading landed in events log: {row['payload']['readings']}")
+
+        # Killing the monitor must not disturb the QPU/driver it belongs to,
+        # let alone any other driver (RFC 0001 §7 DoD).
+        proc.terminate()
+        proc.wait(timeout=5)
+        time.sleep(1)
+        resp = admin_session.get(f"{BASE}/api/collections/qpus/records/{qpu_id}")
+        resp.raise_for_status()
+        print(f"[verify]   QPU status after monitor stopped: {resp.json().get('status')}")
+
+        return True
+    finally:
+        if proc.poll() is None:
+            proc.terminate()
+            proc.wait(timeout=5)
+        mock_bluefors_server.stop(mock_server)
+
+
 def run_driver_tests():
     """Run tests that exercise the driver + core API (no client SDKs)."""
     admin_auth()
@@ -1618,6 +1751,9 @@ def run_driver_tests():
         all_passed = False
 
     if not test_driver_snippet_connection():
+        all_passed = False
+
+    if DRIVER_FRAMEWORK and not test_bluefors_gen1_events():
         all_passed = False
 
     return all_passed

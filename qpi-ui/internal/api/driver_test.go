@@ -21,6 +21,7 @@ func testConfig() *config.AppConfig {
 		CollectionNotifications:   config.DefaultNotificationsCollection,
 		CollectionQPUTimeRequests: config.DefaultQPUTimeRequestsCollection,
 		CollectionDrivers:         config.DefaultDriversCollection,
+		CollectionEvents:          config.DefaultEventsCollection,
 		EnableDriverFramework:     true,
 		PortRangeStart:            6100,
 		PortRangeEnd:              6200,

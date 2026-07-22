@@ -8,7 +8,7 @@ import type {
   QPU,
 } from "@/types";
 
-const KNOWN_EVENTS = ["JobDispatch", "JobResult"];
+const KNOWN_EVENTS = ["JobDispatch", "JobResult", "CryostatReading"];
 
 interface Props {
   qpus: QPU[];
@@ -255,6 +255,9 @@ export function RegisterDriverModal({ qpus, onClose, onRegister }: Props) {
               <option value="quantify">quantify (Quantify Driver)</option>
               <option value="qblox">qblox (Qblox Driver)</option>
               <option value="presto">presto (Presto Driver)</option>
+              <option value="bluefors_gen1">
+                bluefors_gen1 (Bluefors Gen. 1 Cryostat Monitor)
+              </option>
               <option value="custom">custom (Bring your own driver)</option>
             </select>
           </div>

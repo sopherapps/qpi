@@ -17,11 +17,17 @@ const (
 	EventJobDispatch EventType = "JobDispatch"
 	// EventJobResult is emitted by a driver back to QPI-UI with a job's outcome.
 	EventJobResult EventType = "JobResult"
+	// EventCryostatReading is emitted by a monitoring driver (e.g. a Bluefors
+	// cryostat monitor) on its own schedule with one or more channel readings.
+	// Unlike JobResult it is not applied to a domain record — its handler
+	// appends it to the `events` trace log for the dashboard to chart
+	// (RFC 0001 §7, Phase 3).
+	EventCryostatReading EventType = "CryostatReading"
 )
 
 // AllEventTypes lists every event type QPI-UI knows about in this version.
 // Registration validates a custom driver's chosen events against this list.
-var AllEventTypes = []EventType{EventJobDispatch, EventJobResult}
+var AllEventTypes = []EventType{EventJobDispatch, EventJobResult, EventCryostatReading}
 
 // Event is the single envelope carried on the wire in either direction between
 // QPI-UI and a driver (RFC 0001 §6). Payload is left as raw JSON because its
@@ -126,6 +132,36 @@ func (rp *ResultPayload) ToMap() map[string]any {
 	return map[string]any{
 		"job_id":  rp.JobID,
 		"results": rp.Results,
+	}
+}
+
+// ChannelReading is a single value-tree channel's reading at the time it was
+// read, mirroring the value/status shape the Bluefors Control API returns for
+// a node under its `values` endpoint (Bluefors Remote Access Control API Gen.
+// 1 Technical Reference §4.3.1). Value is a pointer so a channel that failed
+// to read (e.g. DISCONNECTED) can be reported with no numeric value rather
+// than a misleading zero.
+type ChannelReading struct {
+	Value  *float64 `json:"value"`
+	Unit   string   `json:"unit,omitempty"`
+	Status string   `json:"status,omitempty"`
+}
+
+// CryostatReadingPayload is the payload of a CryostatReading event: a
+// monitoring driver's periodic snapshot of one or more channels, keyed by
+// channel path (e.g. "mapper.bf.tmc") so it self-describes regardless of how
+// a particular cryostat's value tree is configured (RFC 0001 §7, Phase 3).
+type CryostatReadingPayload struct {
+	Readings map[string]ChannelReading `json:"readings"`
+}
+
+func (crp *CryostatReadingPayload) SetDefaults() {
+}
+
+// ToMap converts the DTO to a map of field values
+func (crp *CryostatReadingPayload) ToMap() map[string]any {
+	return map[string]any{
+		"readings": crp.Readings,
 	}
 }
 

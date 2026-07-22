@@ -219,7 +219,7 @@ type Driver struct {
 	ID         string   `json:"id" db:"id"`
 	Name       string   `json:"name" db:"name" required:"true"`
 	QPU        string   `json:"qpu" db:"qpu" type:"relation" required:"true" maxSelect:"1" collection:"qpus"`
-	Kind       string   `json:"kind" db:"kind" type:"select" required:"true" maxSelect:"1" values:"mock,qiskit_aer,quantify,qblox,presto,custom"`
+	Kind       string   `json:"kind" db:"kind" type:"select" required:"true" maxSelect:"1" values:"mock,qiskit_aer,quantify,qblox,presto,bluefors_gen1,custom"`
 	Language   string   `json:"language" db:"language" type:"select" required:"true" maxSelect:"1" values:"python,typescript,go"`
 	Events     []string `json:"events" db:"events" type:"json"`
 	Token      string   `json:"token" db:"token" required:"true" hidden:"true"`
@@ -332,6 +332,78 @@ func stringSliceFromJSONField(v any) []string {
 			return out
 		}
 	}
+	return nil
+}
+
+// Event represents a single logged entry in the `events` trace collection
+// (RFC 0001 §7) — the single log of typed messages exchanged with drivers.
+// Phase 3 is its first writer: a driver→UI event whose handler chooses to
+// persist it (e.g. CryostatReading), keyed by the driver that sent it and the
+// QPU that driver belongs to. Behind the EnableDriverFramework flag.
+type Event struct {
+	ID      string `json:"id" db:"id"`
+	Source  string `json:"source" db:"source" required:"true"`
+	Driver  string `json:"driver" db:"driver" type:"relation" maxSelect:"1" collection:"drivers"`
+	QPU     string `json:"qpu" db:"qpu" type:"relation" maxSelect:"1" collection:"qpus"`
+	Type    string `json:"type" db:"type" required:"true"`
+	Payload any    `json:"payload" db:"payload" type:"json"`
+	Ts      string `json:"ts" db:"ts" required:"true"`
+	Created string `json:"created" db:"created" type:"autodate" onCreate:"true"`
+}
+
+// ToRecord converts this model into a pocketbase record
+func (ev *Event) ToRecord(app core.App) (*core.Record, error) {
+	if ev == nil {
+		return nil, nil
+	}
+	cfg, err := config.GetConfigFromApp(app)
+	if err != nil {
+		return nil, err
+	}
+
+	col_name := cfg.CollectionEvents
+	col, err := app.FindCollectionByNameOrId(col_name)
+	if err != nil {
+		return nil, fmt.Errorf("error finding collection %s: %w", col_name, err)
+	}
+
+	record, err := getOrCreateRecord(app, col_name, ev.ID, col)
+	if err != nil {
+		return nil, err
+	}
+	record.Set("source", ev.Source)
+	record.Set("driver", ev.Driver)
+	record.Set("qpu", ev.QPU)
+	record.Set("type", ev.Type)
+	record.Set("ts", ev.Ts)
+	record.Set("created", ev.Created)
+
+	if ev.Payload != nil {
+		payloadJSON, err := json.Marshal(ev.Payload)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling payload: %w", err)
+		}
+		record.Set("payload", payloadJSON)
+	}
+
+	return record, nil
+}
+
+// RefreshFromRecord updates this model using the values from a pocketbase record
+func (ev *Event) RefreshFromRecord(record *core.Record) error {
+	if ev == nil || record == nil {
+		return errors.New("cannot refresh from nil record")
+	}
+
+	ev.ID = record.Id
+	ev.Source = record.GetString("source")
+	ev.Driver = record.GetString("driver")
+	ev.QPU = record.GetString("qpu")
+	ev.Type = record.GetString("type")
+	ev.Ts = record.GetString("ts")
+	ev.Created = record.GetString("created")
+	ev.Payload = record.Get("payload")
+
 	return nil
 }
 

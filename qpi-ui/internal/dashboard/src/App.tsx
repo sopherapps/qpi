@@ -5,6 +5,7 @@ import { Header } from "./components/Header";
 import { OverviewTab } from "./components/tabs/OverviewTab";
 import { QpuRegistryTab } from "./components/tabs/QpuRegistryTab";
 import { DriversTab } from "./components/tabs/DriversTab";
+import { MonitoringTab } from "./components/tabs/MonitoringTab";
 import { JobsConsoleTab } from "./components/tabs/JobsConsoleTab";
 import { BookingsTab } from "./components/tabs/BookingsTab";
 import { AdminPanelTab } from "./components/tabs/AdminPanelTab";
@@ -23,6 +24,7 @@ import type {
   Driver,
   CreateDriverRequest,
   CreateDriverResponse,
+  EventRow,
 } from "./types";
 
 export const App: React.FC = () => {
@@ -41,6 +43,7 @@ export const App: React.FC = () => {
   // Data collections
   const [qpus, setQpus] = useState<QPU[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [events, setEvents] = useState<EventRow[]>([]);
   const [jobs, setJobs] = useState<QuantumJob[]>([]);
   const [bookings, setBookings] = useState<TimeSlot[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -61,6 +64,7 @@ export const App: React.FC = () => {
           "overview",
           "qpus",
           "drivers",
+          "monitoring",
           "jobs",
           "bookings",
           "settings",
@@ -121,6 +125,19 @@ export const App: React.FC = () => {
       setDrivers(records as unknown as Driver[]);
     } catch (err) {
       console.error("Failed to load drivers:", err);
+    }
+  }, []);
+
+  const loadEvents = useCallback(async () => {
+    try {
+      const records = await pb.collection("events").getList(1, 200, {
+        filter: 'type = "CryostatReading"',
+        sort: "-ts",
+        expand: "driver",
+      });
+      setEvents(records.items as unknown as EventRow[]);
+    } catch (err) {
+      console.error("Failed to load events:", err);
     }
   }, []);
 
@@ -237,6 +254,7 @@ export const App: React.FC = () => {
         loadTimeRequests(),
         loadVersion(),
         loadDrivers(),
+        loadEvents(),
       ]);
     }
   }, [
@@ -249,6 +267,7 @@ export const App: React.FC = () => {
     loadTimeRequests,
     loadVersion,
     loadDrivers,
+    loadEvents,
   ]);
 
   // Real-time Subscriptions setup
@@ -284,6 +303,9 @@ export const App: React.FC = () => {
       pb.collection("drivers").subscribe("*", () => {
         loadDrivers();
       });
+      pb.collection("events").subscribe("*", () => {
+        loadEvents();
+      });
     }
 
     return () => {
@@ -295,6 +317,7 @@ export const App: React.FC = () => {
         pb.collection("users").unsubscribe();
         pb.collection("qpu_time_requests").unsubscribe();
         pb.collection("drivers").unsubscribe();
+        pb.collection("events").unsubscribe();
       }
     };
   }, [
@@ -308,6 +331,7 @@ export const App: React.FC = () => {
     loadAdminUsers,
     loadTimeRequests,
     loadDrivers,
+    loadEvents,
   ]);
 
   // Synchronize auth sessions across tabs (e.g. from /_/)
@@ -327,6 +351,7 @@ export const App: React.FC = () => {
         setSelectedJobId(null);
         setQpus([]);
         setDrivers([]);
+        setEvents([]);
         setJobs([]);
         setBookings([]);
         setNotifications([]);
@@ -554,6 +579,12 @@ export const App: React.FC = () => {
             onRegisterDriver={handleCreateDriver}
             onDeleteDriver={handleDeleteDriver}
           />
+        ) : (
+          <div className="text-gray-400 dark:text-zinc-500">Access Denied.</div>
+        );
+      case "monitoring":
+        return isAdmin && driverFrameworkEnabled ? (
+          <MonitoringTab events={events} drivers={drivers} />
         ) : (
           <div className="text-gray-400 dark:text-zinc-500">Access Denied.</div>
         );

@@ -11,9 +11,8 @@ import threading
 import time
 
 import pytest
-
+from qpi_driver.builtins.qpu import QpuDriver
 from qpi_driver.events import Event, EventType
-from qpi_driver.qpu import QpuDriver
 from qpi_driver.sdk import QpiDriver
 
 
@@ -85,7 +84,9 @@ def test_every_runs_registered_callback():
     ticks: list[int] = []
     driver.every(0.01, lambda: ticks.append(1))
 
-    thread = threading.Thread(target=driver._run_periodic, args=(0.01, lambda: ticks.append(1)))
+    thread = threading.Thread(
+        target=driver._run_periodic, args=(0.01, lambda: ticks.append(1))
+    )
     thread.start()
     time.sleep(0.05)
     driver._stop.set()
@@ -97,7 +98,8 @@ def test_every_runs_registered_callback():
 def test_decode_inbound_parses_envelope():
     driver = RecordingDriver()
     envelope = Event(
-        type=EventType.JOB_DISPATCH, payload={"job_id": "j1", "payload": {"circuits": []}}
+        type=EventType.JOB_DISPATCH,
+        payload={"job_id": "j1", "payload": {"circuits": []}},
     ).to_json()
 
     event = driver._decode_inbound(envelope.encode())

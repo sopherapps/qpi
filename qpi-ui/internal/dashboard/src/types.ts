@@ -102,6 +102,7 @@ export type DriverKind =
   | "quantify"
   | "qblox"
   | "presto"
+  | "bluefors_gen1"
   | "custom";
 
 export type DriverLanguage = "python" | "typescript" | "go";
@@ -140,6 +141,29 @@ export interface DriverSnippets {
   install_and_run?: string;
   install?: string;
   stub?: string;
+}
+
+export interface ChannelReading {
+  value: number | null;
+  unit?: string;
+  status?: string;
+}
+
+/** A row from the `events` trace log (RFC 0001 §7). Phase 3's only writer is
+ * the CryostatReading handler, so `payload.readings` is what a monitoring
+ * driver read on that tick, keyed by channel path. */
+export interface EventRow {
+  id: string;
+  source: string;
+  driver: string;
+  qpu: string;
+  type: string;
+  payload: { readings?: Record<string, ChannelReading> };
+  ts: string;
+  created: string;
+  expand?: {
+    driver?: Driver;
+  };
 }
 
 export interface CreateDriverResponse {

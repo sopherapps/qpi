@@ -3,8 +3,15 @@ from pathlib import Path
 from typing import Annotated
 
 import qpi_driver.driver as non_sdk_driver
-import qpi_driver.qpu as sdk_driver
+from qpi_driver.builtins import bluefors_gen1
+from qpi_driver.builtins import qpu as sdk_driver
 from qpi_driver.compat import typer
+
+# Kinds runnable through the `monitor` command — driver kinds that only
+# report upward and never handle JobDispatch, so they do not fit the
+# executor-shaped `start` command (RFC 0001 §4, §7). Grows as more monitor
+# kinds ship.
+_MONITOR_KINDS = {"bluefors_gen1"}
 
 app = None
 if typer.IS_TYPER_INSTALLED:
@@ -146,14 +153,14 @@ if typer.IS_TYPER_INSTALLED:
                 token=token,
                 name=name,
                 executor=executor,
-            data_dir=data_dir,
-            ca_fingerprint=ca_fingerprint,
-            ca_file_path=ca_file,
-            is_dummy=is_dummy,
-            quantify_hardware_config=quantify_hardware_config,
-            quantify_device_config=quantify_device_config,
-            job_timeout=job_timeout,
-        )
+                data_dir=data_dir,
+                ca_fingerprint=ca_fingerprint,
+                ca_file_path=ca_file,
+                is_dummy=is_dummy,
+                quantify_hardware_config=quantify_hardware_config,
+                quantify_device_config=quantify_device_config,
+                job_timeout=job_timeout,
+            )
         else:
             non_sdk_driver.run_driver(
                 qpi_addr=qpi_addr,
@@ -161,13 +168,149 @@ if typer.IS_TYPER_INSTALLED:
                 name=name,
                 executor=executor,
                 data_dir=data_dir,
-            ca_fingerprint=ca_fingerprint,
-            ca_file_path=ca_file,
-            is_dummy=is_dummy,
-            quantify_hardware_config=quantify_hardware_config,
-            quantify_device_config=quantify_device_config,
-            job_timeout=job_timeout,
-        )
+                ca_fingerprint=ca_fingerprint,
+                ca_file_path=ca_file,
+                is_dummy=is_dummy,
+                quantify_hardware_config=quantify_hardware_config,
+                quantify_device_config=quantify_device_config,
+                job_timeout=job_timeout,
+            )
+
+    @app.command()
+    def monitor(
+        kind: Annotated[
+            str,
+            typer.Option(
+                "--kind",
+                "-k",
+                envvar="DRIVER_KIND",
+                help="Which monitor driver to run (bluefors_gen1)",
+            ),
+        ] = "bluefors_gen1",
+        qpi_addr: Annotated[
+            str,
+            typer.Option(
+                "--qpi-addr",
+                "-a",
+                envvar="QPI_ADDR",
+                help="Full URL of the QPI server (e.g. http://localhost:8090 or https://qpi.example.com)",
+            ),
+        ] = "http://127.0.0.1:8090",
+        token: Annotated[
+            str,
+            typer.Option(
+                "--token",
+                "-t",
+                envvar="QPI_ACCESS_TOKEN",
+                help="Driver access token matching a drivers.token record",
+            ),
+        ] = "",
+        name: Annotated[
+            str,
+            typer.Option(
+                "--name",
+                "-n",
+                envvar="DRIVER_NAME",
+                help="Human-readable name for this driver",
+            ),
+        ] = "bluefors-gen1-monitor",
+        ca_file: Annotated[
+            Path,
+            typer.Option(
+                envvar="QPI_CA_FILE",
+                help="The path to the downloaded CA certificate of the server.",
+                writable=True,
+                readable=True,
+                dir_okay=False,
+                file_okay=True,
+                resolve_path=True,
+            ),
+        ] = Path("./bin/qpi.ca.pem"),
+        ca_fingerprint: str = typer.Option(
+            default=...,
+            envvar="QPI_CA_FINGERPRINT",
+            help="The fingerprint to verify the authenticity the automatically downloaded root CA certificate of the QPI server.",
+        ),
+        bluefors_base_url: Annotated[
+            str,
+            typer.Option(
+                envvar="BLUEFORS_BASE_URL",
+                help="Base URL of the Bluefors Control API (bluefors_gen1 only)",
+            ),
+        ] = "http://127.0.0.1:49099",
+        bluefors_api_key: Annotated[
+            str,
+            typer.Option(
+                envvar="BLUEFORS_API_KEY",
+                help="Bluefors Control API access key, if configured (bluefors_gen1 only)",
+            ),
+        ] = "",
+        bluefors_channels: Annotated[
+            str,
+            typer.Option(
+                envvar="BLUEFORS_CHANNELS",
+                help="Comma-separated value-tree channel paths to poll, each optionally "
+                "suffixed with :unit, e.g. mapper.bf.tmc:K,mapper.bf.pmc:mbar (bluefors_gen1 only)",
+            ),
+        ] = "",
+        poll_interval: Annotated[
+            float,
+            typer.Option(
+                envvar="MONITOR_POLL_INTERVAL",
+                help="Seconds between polls",
+            ),
+        ] = bluefors_gen1.DEFAULT_POLL_INTERVAL,
+        timeout: Annotated[
+            float,
+            typer.Option(
+                envvar="MONITOR_TIMEOUT",
+                help="HTTP timeout per channel read, in seconds",
+            ),
+        ] = bluefors_gen1.DEFAULT_TIMEOUT,
+    ):
+        """
+        Start a monitor driver — one that only reports upward on its own
+        schedule and never handles JobDispatch (RFC 0001 §4, §7).
+        """
+        if not token:
+            typer.echo(
+                "Error: access token is required. "
+                "Set it via --token / -t or the QPI_ACCESS_TOKEN environment variable.",
+                err=True,
+            )
+            raise typer.Exit(code=1)
+
+        if kind not in _MONITOR_KINDS:
+            typer.echo(
+                f"Error: unknown monitor kind {kind!r}. Known kinds: {sorted(_MONITOR_KINDS)}",
+                err=True,
+            )
+            raise typer.Exit(code=1)
+
+        _validate_safe_path(ca_file, "--ca-file")
+
+        typer.rich_print(_banner())
+
+        if kind == "bluefors_gen1":
+            if not bluefors_channels:
+                typer.echo(
+                    "Error: --bluefors-channels / BLUEFORS_CHANNELS is required for bluefors_gen1.",
+                    err=True,
+                )
+                raise typer.Exit(code=1)
+
+            bluefors_gen1.run_bluefors_gen1_driver(
+                qpi_addr=qpi_addr,
+                token=token,
+                name=name,
+                bluefors_base_url=bluefors_base_url,
+                channels=bluefors_gen1.parse_channels(bluefors_channels),
+                api_key=bluefors_api_key,
+                poll_interval=poll_interval,
+                timeout=timeout,
+                ca_fingerprint=ca_fingerprint,
+                ca_file_path=ca_file.as_posix(),
+            )
 
     @app.command()
     def version():

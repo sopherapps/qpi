@@ -15,7 +15,8 @@ const (
 	DriverKindQuantify  DriverKind = "quantify"
 	DriverKindQblox     DriverKind = "qblox"
 	DriverKindPresto    DriverKind = "presto"
-	DriverKindCustom    DriverKind = "custom"
+	DriverKindBlueforsGen1 DriverKind = "bluefors_gen1"
+	DriverKindCustom       DriverKind = "custom"
 )
 
 // DriverLanguage identifies one of the SDK languages a driver can be written
@@ -33,9 +34,10 @@ const (
 // branching (RFC 0001 §3). A kind absent here (mock, presto) installs the
 // base cli extra; custom installs the bare SDK.
 var driverKindExtras = map[DriverKind]string{
-	DriverKindQblox:     "qpi-driver[cli,qblox]",
-	DriverKindQuantify:  "qpi-driver[cli,quantify]",
-	DriverKindQiskitAer: "qpi-driver[cli,aer]",
+	DriverKindQblox:        "qpi-driver[cli,qblox]",
+	DriverKindQuantify:     "qpi-driver[cli,quantify]",
+	DriverKindQiskitAer:    "qpi-driver[cli,aer]",
+	DriverKindBlueforsGen1: "qpi-driver[cli,bluefors_gen1]",
 }
 
 // baseCliExtra is installed for official kinds with no dedicated extra.
@@ -49,11 +51,12 @@ const baseSdkPackage = "qpi-driver"
 // participates in. A custom driver instead has its events chosen at
 // registration (RFC 0001 §7).
 var driverKindEvents = map[DriverKind][]EventType{
-	DriverKindMock:      {EventJobDispatch, EventJobResult},
-	DriverKindQiskitAer: {EventJobDispatch, EventJobResult},
-	DriverKindQuantify:  {EventJobDispatch, EventJobResult},
-	DriverKindQblox:     {EventJobDispatch, EventJobResult},
-	DriverKindPresto:    {EventJobDispatch, EventJobResult},
+	DriverKindMock:         {EventJobDispatch, EventJobResult},
+	DriverKindQiskitAer:    {EventJobDispatch, EventJobResult},
+	DriverKindQuantify:     {EventJobDispatch, EventJobResult},
+	DriverKindQblox:        {EventJobDispatch, EventJobResult},
+	DriverKindPresto:       {EventJobDispatch, EventJobResult},
+	DriverKindBlueforsGen1: {EventCryostatReading},
 }
 
 // isKnownDriverKind reports whether kind is one this QPI-UI version recognises.
@@ -120,6 +123,16 @@ func hasOfficialBuild(kind DriverKind, language DriverLanguage) bool {
 // name; everything else gets a base install plus a stub with the handlers to
 // fill in.
 func buildDriverSnippets(kind DriverKind, language DriverLanguage, name, token, qpiAddr, caFingerprint string) DriverSnippets {
+	// bluefors_gen1 does not run jobs, so it does not go through the executor
+	// CLI (`qpi-driver start --executor ...`) the snippets below assume; it
+	// runs through its own `qpi-driver monitor --kind` subcommand instead,
+	// with its own required config (RFC 0001 §7, Phase 3).
+	if kind == DriverKindBlueforsGen1 && language == DriverLanguagePython {
+		return blueforsGen1Snippets(name, token, qpiAddr, caFingerprint)
+	}
+
+	// FIXME: Expand this to be more general and not only tailored to builtin QPU drivers
+	//.  the name 'hasOfficialBuild' is misleading
 	if hasOfficialBuild(kind, language) {
 		extra := driverExtraFor(kind)
 		quotedName := shellQuote(name)
@@ -145,6 +158,40 @@ func buildDriverSnippets(kind DriverKind, language DriverLanguage, name, token, 
 	return DriverSnippets{
 		Install: installSnippetFor(language),
 		Stub:    stubSnippetFor(language),
+	}
+}
+
+// blueforsGen1Snippets builds the setup snippets for the officially
+// maintained Bluefors Gen. 1 monitor driver (RFC 0001 §7, Phase 3) — the same
+// three-snippet tier as an executor kind like qblox, just launched through
+// `qpi-driver monitor --kind` instead of `start --executor` since it does not
+// run jobs. BLUEFORS_BASE_URL/BLUEFORS_CHANNELS are placeholders for the
+// operator's own Control API address and value-tree channel paths (e.g.
+// "mapper.bf.tmc"), which are system-specific.
+func blueforsGen1Snippets(name, token, qpiAddr, caFingerprint string) DriverSnippets {
+	extra := driverExtraFor(DriverKindBlueforsGen1)
+	quotedName := shellQuote(name)
+	const blueforsEnv = "BLUEFORS_BASE_URL=http://localhost:49099 BLUEFORS_CHANNELS=mapper.bf.tmc,mapper.bf.tstill"
+
+	return DriverSnippets{
+		Systemd: fmt.Sprintf(
+			"curl -fsSL https://raw.githubusercontent.com/sopherapps/qpi/main/qpi-driver/install-systemd.sh | \\\n"+
+				"  QPI_TOKEN=%s QPI_ADDR=%s CA_FINGERPRINT=%s QPU_NAME=%s EXECUTOR=bluefors_gen1 \\\n"+
+				"  %s sudo -E bash",
+			token, qpiAddr, caFingerprint, quotedName, blueforsEnv,
+		),
+		ManualCLI: fmt.Sprintf(
+			"uv tool install --python 3.12 %q && \\\n"+
+				"%s qpi-driver monitor --kind bluefors_gen1 \\\n"+
+				"  --token %s --qpi-addr %s --ca-fingerprint %s --name %s",
+			extra, blueforsEnv, token, qpiAddr, caFingerprint, quotedName,
+		),
+		InstallAndRun: fmt.Sprintf(
+			"pip install %q && \\\n"+
+				"%s qpi-driver monitor --kind bluefors_gen1 \\\n"+
+				"  --token %s --qpi-addr %s --ca-fingerprint %s --name %s",
+			extra, blueforsEnv, token, qpiAddr, caFingerprint, quotedName,
+		),
 	}
 }
 

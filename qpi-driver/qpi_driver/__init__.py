@@ -5,6 +5,11 @@ try:
 except importlib.metadata.PackageNotFoundError:
     __version__ = "0.0.42"
 
+from qpi_driver.builtins.bluefors_gen1 import (
+    BlueforsGen1Driver,
+    run_bluefors_gen1_driver,
+)
+from qpi_driver.builtins.qpu import QpuDriver, run_qpu_driver
 from qpi_driver.driver import run_driver
 from qpi_driver.events import Event, EventType
 from qpi_driver.executors.base import Executor
@@ -13,7 +18,6 @@ from qpi_driver.executors.presto import PrestoExecutor
 from qpi_driver.executors.qblox import QbloxExecutor
 from qpi_driver.executors.qiskit_aer import QiskitAerExecutor
 from qpi_driver.executors.quantify import QuantifyExecutor
-from qpi_driver.qpu import QpuDriver, run_qpu_driver
 from qpi_driver.sdk import QpiDriver
 
 # FIXME: I expected that qpi-driver would take up a similar folder structure as qpi-client
@@ -27,6 +31,8 @@ __all__ = [
     "QpiDriver",
     "QpuDriver",
     "run_qpu_driver",
+    "BlueforsGen1Driver",
+    "run_bluefors_gen1_driver",
     "Executor",
     "MockExecutor",
     "QiskitAerExecutor",

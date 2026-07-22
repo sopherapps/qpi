@@ -170,7 +170,9 @@ class QpiDriver(ABC):
             self.handle_event(event)
         except Exception:
             log.exception(
-                "dropping event %s of type %s: handler failed", event.id, event.type.value
+                "dropping event %s of type %s: handler failed",
+                event.id,
+                event.type.value,
             )
 
     def _start_periodic(self) -> None:
