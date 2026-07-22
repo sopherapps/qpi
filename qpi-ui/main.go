@@ -79,6 +79,7 @@ func main() {
 		Func: db.RegisterCollectionHooks(app, db.CollectionHookMap{
 			config.DefaultTimeSlotsCollection: db.OnTimeSlotUpsert,
 			config.DefaultQpusCollection:      db.OnQpuCreate,
+			config.DefaultDriversCollection:   db.OnDriverCreate,
 		}),
 	})
 
@@ -86,6 +87,7 @@ func main() {
 		Func: db.RegisterCollectionHooks(app, db.CollectionHookMap{
 			config.DefaultTimeSlotsCollection: db.OnTimeSlotUpsert,
 			config.DefaultQpusCollection:      db.OnQpuUpdate,
+			config.DefaultDriversCollection:   db.OnDriverUpdate,
 		}),
 	})
 

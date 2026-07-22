@@ -14,6 +14,11 @@ framework for supporting custom and extensible drivers.
 - `qpi-ui`: Added the typed event envelope, as part of the experimental driver framework 
 - `qpi-ui`: Added `enable-driver-framework` flag (`QPI_ENABLE_DRIVER_FRAMEWORK` env var / `enableDriverFramework` config file key).
 - `qpi-driver`: Added `Event` and `EventType` to the SDK, mirroring QPI-UI's event envelope.
+- `qpi-ui`: Added the `drivers` collection (behind `enable-driver-framework`) — a driver belongs to exactly
+one QPU, and stores its kind, language, participating events, and hashed token, per RFC 0001 Phase 1.
+- `qpi-ui`: Added `drivers/create`, `drivers/connect`, and `drivers/toggle` endpoints, mirroring the QPU
+registration/connect/toggle handlers; `create` also resolves the kind×language setup snippets (systemd,
+manual CLI, install-and-run, or a base install + stub for pairs with no official build).
 
 ## [0.0.42] - 2026-07-21
 

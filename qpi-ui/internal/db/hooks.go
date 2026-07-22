@@ -71,3 +71,33 @@ func OnQpuUpdate(e *core.RecordEvent) error {
 	}
 	return e.Next()
 }
+
+// OnDriverCreate runs on driver creation, hashing its token the same way
+// OnQpuCreate hashes a QPU's access_token (RFC 0001 §7, §9).
+func OnDriverCreate(e *core.RecordEvent) error {
+	token := e.Record.GetString("token")
+	if token != "" {
+		e.Record.Set("token", HashToken(token))
+	}
+
+	if !e.Record.GetBool("enabled") {
+		e.Record.Set("status", "offline")
+	}
+	return e.Next()
+}
+
+// OnDriverUpdate runs on driver update, hashing its token if it changed.
+func OnDriverUpdate(e *core.RecordEvent) error {
+	originalToken := e.Record.Original().GetString("token")
+	newToken := e.Record.GetString("token")
+	if newToken != "" && newToken != originalToken {
+		e.Record.Set("token", HashToken(newToken))
+	}
+
+	originalEnabled := e.Record.Original().GetBool("enabled")
+	newEnabled := e.Record.GetBool("enabled")
+	if originalEnabled != newEnabled && !newEnabled {
+		e.Record.Set("status", "offline")
+	}
+	return e.Next()
+}

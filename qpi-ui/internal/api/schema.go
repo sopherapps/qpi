@@ -19,6 +19,10 @@ const (
 	EventJobResult EventType = "JobResult"
 )
 
+// AllEventTypes lists every event type QPI-UI knows about in this version.
+// Registration validates a custom driver's chosen events against this list.
+var AllEventTypes = []EventType{EventJobDispatch, EventJobResult}
+
 // Event is the single envelope carried on the wire in either direction between
 // QPI-UI and a driver (RFC 0001 §6). Payload is left as raw JSON because its
 // shape depends on Type and is validated by the handler that receives it.
@@ -368,6 +372,190 @@ func (qtr *QPUToggleResponse) ToMap() map[string]any {
 		"name":    qtr.Name,
 		"enabled": qtr.Enabled,
 		"status":  qtr.Status,
+	}
+}
+
+// DriverCreateRequest represents the JSON payload for POST /api/op/drivers/create.
+type DriverCreateRequest struct {
+	Name     string   `json:"name" validate:"required"`
+	QPU      string   `json:"qpu" validate:"required"`
+	Kind     string   `json:"kind" validate:"required"`
+	Language string   `json:"language" validate:"required"`
+	Events   []string `json:"events,omitempty"`
+	Enabled  *bool    `json:"enabled,omitempty"`
+}
+
+func (dcr *DriverCreateRequest) SetDefaults() {
+}
+
+// ToMap converts the DTO to a map of field values
+func (dcr *DriverCreateRequest) ToMap() map[string]any {
+	return map[string]any{
+		"name":     dcr.Name,
+		"qpu":      dcr.QPU,
+		"kind":     dcr.Kind,
+		"language": dcr.Language,
+		"events":   dcr.Events,
+		"enabled":  dcr.Enabled,
+	}
+}
+
+// DriverSnippets holds the ready-to-use setup snippets shown once at
+// registration, resolved from the driver's kind×language (RFC 0001 §3). An
+// official build fills Systemd/ManualCLI/InstallAndRun; anything else fills
+// Install/Stub instead.
+type DriverSnippets struct {
+	Systemd       string `json:"systemd,omitempty"`
+	ManualCLI     string `json:"manual_cli,omitempty"`
+	InstallAndRun string `json:"install_and_run,omitempty"`
+	Install       string `json:"install,omitempty"`
+	Stub          string `json:"stub,omitempty"`
+}
+
+// DriverCreateResponse represents the JSON payload returned by POST /api/op/drivers/create.
+type DriverCreateResponse struct {
+	ID            string         `json:"id"`
+	Name          string         `json:"name"`
+	QPU           string         `json:"qpu"`
+	Kind          string         `json:"kind"`
+	Language      string         `json:"language"`
+	Events        []string       `json:"events"`
+	Status        string         `json:"status"`
+	Enabled       bool           `json:"enabled"`
+	Token         string         `json:"token"`
+	CaFingerprint string         `json:"ca_fingerprint"`
+	QpiAddr       string         `json:"qpi_addr"`
+	DriverVersion string         `json:"driver_version"`
+	Snippets      DriverSnippets `json:"snippets"`
+}
+
+// RefreshFromDbModel refreshes this DTO's field values from a database model
+func (dcr *DriverCreateResponse) RefreshFromDbModel(v *db.Driver) error {
+	dcr.ID = v.ID
+	dcr.Name = v.Name
+	dcr.QPU = v.QPU
+	dcr.Kind = v.Kind
+	dcr.Language = v.Language
+	dcr.Events = v.Events
+	dcr.Status = v.Status
+	dcr.Enabled = v.Enabled
+	return nil
+}
+
+func (dcr *DriverCreateResponse) SetDefaults() {
+}
+
+// ToMap converts the DTO to a map of field values
+func (dcr *DriverCreateResponse) ToMap() map[string]any {
+	return map[string]any{
+		"id":             dcr.ID,
+		"name":           dcr.Name,
+		"qpu":            dcr.QPU,
+		"kind":           dcr.Kind,
+		"language":       dcr.Language,
+		"events":         dcr.Events,
+		"status":         dcr.Status,
+		"enabled":        dcr.Enabled,
+		"token":          dcr.Token,
+		"ca_fingerprint": dcr.CaFingerprint,
+		"qpi_addr":       dcr.QpiAddr,
+		"driver_version": dcr.DriverVersion,
+		"snippets":       dcr.Snippets,
+	}
+}
+
+// DriverConnectRequest represents the JSON payload for POST /api/op/drivers/connect.
+// Uses "token" (not "access_token") to match the field DriverCreateResponse
+// returns it under, since a driver's own DB field is "token".
+type DriverConnectRequest struct {
+	AccessToken string `json:"token" validate:"required"`
+	Name        string `json:"name,omitempty"`
+	Host        string `json:"host,omitempty"`
+	Version     string `json:"version,omitempty"`
+}
+
+func (dcr *DriverConnectRequest) SetDefaults() {
+}
+
+// ToMap converts the DTO to a map of field values
+func (dcr *DriverConnectRequest) ToMap() map[string]any {
+	return map[string]any{
+		"token":   dcr.AccessToken,
+		"name":    dcr.Name,
+		"host":    dcr.Host,
+		"version": dcr.Version,
+	}
+}
+
+// DriverConnectResponse represents the JSON payload returned by POST /api/op/drivers/connect.
+type DriverConnectResponse struct {
+	Status     string `json:"status"`
+	NNGInPort  int    `json:"nng_in_port"`
+	NNGOutPort int    `json:"nng_out_port"`
+	TLSHash    string `json:"tls_hash"`
+	AuthToken  string `json:"auth_token"`
+	NNGHost    string `json:"nng_host"`
+}
+
+func (dcr *DriverConnectResponse) SetDefaults() {
+}
+
+// ToMap converts the DTO to a map of field values
+func (dcr *DriverConnectResponse) ToMap() map[string]any {
+	return map[string]any{
+		"status":       dcr.Status,
+		"nng_in_port":  dcr.NNGInPort,
+		"nng_out_port": dcr.NNGOutPort,
+		"tls_hash":     dcr.TLSHash,
+		"auth_token":   dcr.AuthToken,
+		"nng_host":     dcr.NNGHost,
+	}
+}
+
+// DriverToggleRequest represents the JSON payload for POST /api/op/drivers/toggle.
+type DriverToggleRequest struct {
+	ID      string `json:"id" validate:"required"`
+	Enabled bool   `json:"enabled"`
+}
+
+func (dtr *DriverToggleRequest) SetDefaults() {
+}
+
+// ToMap converts the DTO to a map of field values
+func (dtr *DriverToggleRequest) ToMap() map[string]any {
+	return map[string]any{
+		"id":      dtr.ID,
+		"enabled": dtr.Enabled,
+	}
+}
+
+// DriverToggleResponse represents the JSON payload returned by POST /api/op/drivers/toggle.
+type DriverToggleResponse struct {
+	ID      string `json:"id"`
+	Name    string `json:"name"`
+	Enabled bool   `json:"enabled"`
+	Status  string `json:"status"`
+}
+
+// RefreshFromDbModel refreshes this DTO's field values from a database model
+func (dtr *DriverToggleResponse) RefreshFromDbModel(v *db.Driver) error {
+	dtr.ID = v.ID
+	dtr.Name = v.Name
+	dtr.Enabled = v.Enabled
+	dtr.Status = v.Status
+	return nil
+}
+
+func (dtr *DriverToggleResponse) SetDefaults() {
+}
+
+// ToMap converts the DTO to a map of field values
+func (dtr *DriverToggleResponse) ToMap() map[string]any {
+	return map[string]any{
+		"id":      dtr.ID,
+		"name":    dtr.Name,
+		"enabled": dtr.Enabled,
+		"status":  dtr.Status,
 	}
 }
 

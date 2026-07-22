@@ -438,6 +438,7 @@ func TestAppConfig_GetCollectionName(t *testing.T) {
 		CollectionAPITokens:       "custom_tokens",
 		CollectionQPUTimeRequests: "custom_requests",
 		CollectionNotifications:   "custom_notifications",
+		CollectionDrivers:         "custom_drivers",
 	}
 
 	tests := []struct {
@@ -450,6 +451,7 @@ func TestAppConfig_GetCollectionName(t *testing.T) {
 		{DefaultAPITokensCollection, "custom_tokens"},
 		{DefaultQPUTimeRequestsCollection, "custom_requests"},
 		{DefaultNotificationsCollection, "custom_notifications"},
+		{DefaultDriversCollection, "custom_drivers"},
 		{"unknown", "unknown"},
 	}
 
@@ -470,6 +472,7 @@ func TestAppConfig_GetDefaultCollectionName(t *testing.T) {
 		CollectionAPITokens:       "custom_tokens",
 		CollectionQPUTimeRequests: "custom_requests",
 		CollectionNotifications:   "custom_notifications",
+		CollectionDrivers:         "custom_drivers",
 	}
 
 	tests := []struct {
@@ -482,6 +485,7 @@ func TestAppConfig_GetDefaultCollectionName(t *testing.T) {
 		{"custom_tokens", DefaultAPITokensCollection},
 		{"custom_requests", DefaultQPUTimeRequestsCollection},
 		{"custom_notifications", DefaultNotificationsCollection},
+		{"custom_drivers", DefaultDriversCollection},
 		{"unknown", "unknown"},
 	}
 

@@ -57,6 +57,11 @@ func EnsureSchema(app core.App) error {
 	if err := ensureNotificationsCollection(app, cfg); err != nil {
 		return fmt.Errorf("notifications collection: %w", err)
 	}
+	if cfg.EnableDriverFramework {
+		if err := ensureDriversCollection(app, cfg); err != nil {
+			return fmt.Errorf("drivers collection: %w", err)
+		}
+	}
 
 	log.Println("[QPI] Schema OK")
 	return nil
@@ -235,6 +240,26 @@ func ensureNotificationsCollection(app core.App, cfg *config.AppConfig) error {
 	col.ListRule = types.Pointer(visibilityRule)
 	col.ViewRule = types.Pointer(visibilityRule)
 	// nil = disabled for regular users; superusers bypass API rules
+	col.CreateRule = nil
+	col.UpdateRule = nil
+	col.DeleteRule = nil
+
+	return app.Save(col)
+}
+
+// ensureDriversCollection creates the collection storing registered drivers —
+// external processes that exchange typed events with QPI-UI (RFC 0001 §7).
+// Only reached when EnableDriverFramework is on; QPU collections/rules are
+// untouched by this.
+func ensureDriversCollection(app core.App, cfg *config.AppConfig) error {
+	col, err := initCollection(app, cfg.CollectionDrivers, &Driver{})
+	if err != nil {
+		return err
+	}
+
+	// Public read, superuser-only CUD — mirrors qpus (RFC 0001 §9).
+	col.ListRule = types.Pointer("")
+	col.ViewRule = types.Pointer("")
 	col.CreateRule = nil
 	col.UpdateRule = nil
 	col.DeleteRule = nil
