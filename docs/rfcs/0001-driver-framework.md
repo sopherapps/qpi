@@ -219,27 +219,9 @@ and no per-event ownership check to get wrong.
 
 ## 11. Implementation plan
 
-Shared rules per phase: **additive only** (never change current QPU behaviour);
-**everything behind `EnableDriverFramework`**; **copy the named precedent**; update
-`CHANGELOG.md`; idiomatic Go/Python, names over comments. Each phase ends with a
-verification step and is independently shippable.
-
-Model policy (cost-effective; cheapest→most capable for this work: **Haiku 4.5** →
-**Sonnet 5** → **Opus 4.8**; Fable 5 is not for systems work): **Opus** for the
-irreversible envelope/event core and the regression-critical QPU move; **Sonnet**
-for work mirroring existing code; **Haiku** for boilerplate, fixtures, examples, docs.
-
-| Phase | Objective & work (copy from …) | Done when / verify | Model |
-| --- | --- | --- | --- |
-| **0 Event core** | Define the Event envelope (§4, §6); the static event-type registry + handler dispatch (Go); add `EnableDriverFramework`. Prove one UI→driver and one driver→UI event over a spike of the existing NNG channel (copy `nng.go` + `driver.py`). | Both events round-trip under verified TLS; `make test` green; server identical with flag off. | **Opus** |
-| **1 Registration** | `drivers` collection with required `qpu` relation + `kind`/`language` (copy `QPU`); `drivers/create` + `connect` + `toggle` (copy QPU handlers); the static kind×language catalog + token issue + snippet resolution. | Handler tests pass; a driver registers against a QPU, gets a one-time token (hash stored) + the right snippet per kind×language, and connects; QPU collection/rules unchanged with flag on. | **Sonnet** (+Opus review of token/connect; +Haiku fixtures) |
-| **2 Python SDK + QPU as a driver** | Generalise `qpi-driver` into the SDK: base class mirroring events, `on_<event>` handlers, `emit()`/`every()`. Re-express the QPU as a driver handling `JobDispatch`, emitting `JobResult`. Legacy path stays default until parity. | Existing QPU e2e suite passes on the new path unchanged; run both and diff. | **Opus** (regression-critical) |
-| **3 Monitoring driver (example)** | Add a separate monitoring driver (e.g. cryostat) with its own driver→UI event + handler; persist to the `events` log; dashboard live chart via realtime. | Its readings land and stream live; bad payloads logged and dropped; killing it doesn't affect other drivers. | **Sonnet** (+Haiku example/docs) |
-| **4 More language SDKs** | TypeScript and Go SDKs mirroring the same events; per-language snippets. | A TS and a Go driver each round-trip an inbound event and an emitted event. | **Sonnet** (+Haiku scaffolding) |
-| **5 Ops & scale** | `events` retention/pruning (copy `scheduler.go` loop) + `(type, ts)` index + per-driver rate limit; runbook. | Sustained-load test shows flat `events` growth after pruning. | **Sonnet** / **Haiku** (docs) |
-
-Sequencing: 0→1→2 proves the framework by moving the QPU onto it (first
-milestone). 3 delivers monitoring. 4–5 broaden and harden.
+The phased implementation plan — per-phase objectives, current status, remaining
+work, definition-of-done checklists, verification commands, and recommended
+cost-effective models — is maintained separately from this RFC.
 
 ## 12. Notes
 
