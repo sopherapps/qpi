@@ -54,6 +54,7 @@ var (
 	flagPortRangeStart           int
 	flagPortRangeEnd             int
 	flagDisableEmailPasswordAuth bool
+	flagEnableDriverFramework    bool
 	flagOAuth2Providers          string // JSON array string
 	flagTLSCertFile              string
 	flagTLSKeyFile               string
@@ -79,6 +80,7 @@ type AppConfig struct {
 	PortRangeStart            int
 	PortRangeEnd              int
 	DisableEmailPasswordAuth  bool
+	EnableDriverFramework     bool
 	OAuth2Providers           []core.OAuth2ProviderConfig
 	Validator                 *validator.Validate
 	TlsCertFile               string
@@ -332,6 +334,7 @@ func BindFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().IntVar(&flagPortRangeStart, "port-range-start", 6000, "NNG port range start")
 	cmd.PersistentFlags().IntVar(&flagPortRangeEnd, "port-range-end", 7000, "NNG port range end")
 	cmd.PersistentFlags().BoolVar(&flagDisableEmailPasswordAuth, "disable-email-password-auth", false, "Disable email/password auth on users collection")
+	cmd.PersistentFlags().BoolVar(&flagEnableDriverFramework, "enable-driver-framework", false, "Enable the experimental extensible driver framework (RFC 0001); off by default")
 	cmd.PersistentFlags().StringVar(&flagOAuth2Providers, "oauth2-providers", "", "JSON array of OAuth2 providers: '[{\"name\":\"github\",\"clientId\":\"...\",\"clientSecret\":\"...\",\"authURL\":\"...\",\"tokenURL\":\"...\",\"userInfoURL\":\"...\",\"displayName\":\"...\",\"pkce\":true}]'")
 }
 
@@ -362,6 +365,7 @@ func NewFromFlags(cmd *cobra.Command) (*AppConfig, error) {
 	cfg.PortRangeEnd = 7000
 	cfg.ServerPort = 8090
 	cfg.DisableEmailPasswordAuth = false
+	cfg.EnableDriverFramework = false
 	cfg.Validator = validator.New(validator.WithRequiredStructEnabled())
 	cfg.TlsCertFile = DefaultTLSCertFile
 	cfg.TlsKeyFile = DefaultTLSKeyFile
@@ -410,6 +414,7 @@ func NewFromFlags(cmd *cobra.Command) (*AppConfig, error) {
 			PortRangeStart           *int                        `json:"portRangeStart" yaml:"portRangeStart"`
 			PortRangeEnd             *int                        `json:"portRangeEnd" yaml:"portRangeEnd"`
 			DisableEmailPasswordAuth *bool                       `json:"disableEmailPasswordAuth" yaml:"disableEmailPasswordAuth"`
+			EnableDriverFramework    *bool                       `json:"enableDriverFramework" yaml:"enableDriverFramework"`
 			OAuth2Providers          []oauth2ProviderConfigLocal `json:"oauth2Providers" yaml:"oauth2Providers"`
 		}
 
@@ -488,6 +493,9 @@ func NewFromFlags(cmd *cobra.Command) (*AppConfig, error) {
 		}
 		if fileCfg.DisableEmailPasswordAuth != nil {
 			cfg.DisableEmailPasswordAuth = *fileCfg.DisableEmailPasswordAuth
+		}
+		if fileCfg.EnableDriverFramework != nil {
+			cfg.EnableDriverFramework = *fileCfg.EnableDriverFramework
 		}
 		if len(fileCfg.OAuth2Providers) > 0 {
 			cfg.OAuth2Providers = make([]core.OAuth2ProviderConfig, len(fileCfg.OAuth2Providers))
@@ -579,6 +587,7 @@ func NewFromFlags(cmd *cobra.Command) (*AppConfig, error) {
 	cfg.PortRangeStart = resolveInt("port-range-start", "QPI_PORT_RANGE_START", cfg.PortRangeStart)
 	cfg.PortRangeEnd = resolveInt("port-range-end", "QPI_PORT_RANGE_END", cfg.PortRangeEnd)
 	cfg.DisableEmailPasswordAuth = resolveBool("disable-email-password-auth", "QPI_DISABLE_EMAIL_PASSWORD_AUTH", cfg.DisableEmailPasswordAuth)
+	cfg.EnableDriverFramework = resolveBool("enable-driver-framework", "QPI_ENABLE_DRIVER_FRAMEWORK", cfg.EnableDriverFramework)
 
 	// Merge OAuth2 providers JSON from CLI or Env
 	oauth2ProvidersRaw := ""

@@ -11,6 +11,9 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 
 - `docs`: Added `docs/rfcs/` with RFC 0001 (Driver Framework — design plus phased plan) describing the
 framework for supporting custom and extensible drivers.
+- `qpi-ui`: Added the typed event envelope, as part of the experimental driver framework 
+- `qpi-ui`: Added `enable-driver-framework` flag (`QPI_ENABLE_DRIVER_FRAMEWORK` env var / `enableDriverFramework` config file key).
+- `qpi-driver`: Added `Event` and `EventType` to the SDK, mirroring QPI-UI's event envelope.
 
 ## [0.0.42] - 2026-07-21
 

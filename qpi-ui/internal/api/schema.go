@@ -1,6 +1,55 @@
 package api
 
-import "qpi/internal/db"
+import (
+	"encoding/json"
+	"time"
+
+	"qpi/internal/db"
+)
+
+// EventType identifies one of the fixed set of typed messages exchanged with a
+// driver over NNG. The set is defined per QPI-UI version and known at compile
+// time; QPI-UI holds a server-side handler for each type (RFC 0001 §4, §7).
+type EventType string
+
+const (
+	// EventJobDispatch is pushed from QPI-UI to a driver to run a job.
+	EventJobDispatch EventType = "JobDispatch"
+	// EventJobResult is emitted by a driver back to QPI-UI with a job's outcome.
+	EventJobResult EventType = "JobResult"
+)
+
+// Event is the single envelope carried on the wire in either direction between
+// QPI-UI and a driver (RFC 0001 §6). Payload is left as raw JSON because its
+// shape depends on Type and is validated by the handler that receives it.
+type Event struct {
+	ID      string          `json:"id"`
+	Driver  string          `json:"driver"`
+	Type    EventType       `json:"type"`
+	Ts      string          `json:"ts"`
+	Payload json.RawMessage `json:"payload"`
+}
+
+// SetDefaults assigns a fresh id and timestamp when they are missing.
+func (e *Event) SetDefaults() {
+	if e.ID == "" {
+		e.ID = generateEventID()
+	}
+	if e.Ts == "" {
+		e.Ts = time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
+	}
+}
+
+// ToMap converts the envelope to a map of field values.
+func (e *Event) ToMap() map[string]any {
+	return map[string]any{
+		"id":      e.ID,
+		"driver":  e.Driver,
+		"type":    e.Type,
+		"ts":      e.Ts,
+		"payload": e.Payload,
+	}
+}
 
 type GeneralDTO interface {
 	// SetDefaults sets the default values for the DTO.
