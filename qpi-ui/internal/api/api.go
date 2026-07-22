@@ -790,6 +790,8 @@ func handleDriverConnect(re *core.RequestEvent) error {
 		token = req.AccessToken
 	}
 
+	StartDriverDistribution(re.App, cfg, driver.ID, driver.QPU, driver.NNGInPort, driver.NNGOutPort)
+
 	resp := DriverConnectResponse{
 		Status:     "success",
 		NNGInPort:  driver.NNGInPort,
@@ -829,6 +831,10 @@ func handleDriverToggle(re *core.RequestEvent) error {
 			return re.Error(http.StatusNotFound, "driver not found", err)
 		}
 		return re.Error(http.StatusInternalServerError, "failed to update driver status", err)
+	}
+
+	if !req.Enabled {
+		StopDriverDistribution(req.ID)
 	}
 
 	var resp DriverToggleResponse
