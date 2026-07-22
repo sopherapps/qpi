@@ -7,12 +7,17 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 
 ## [Unreleased]
 
+### Added
+
+- `docs`: Added `docs/rfcs/` with RFC 0001 (Driver Framework — design plus phased plan) describing the
+framework for supporting custom and extensible drivers.
+
 ## [0.0.42] - 2026-07-21
 
 ### Added
 
-- `qpi-driver`: Added `CRZGate` and `CPhaseGate` support to both the qblox and quantify executors' gate conversion, decomposed via the standard CZ-based identity (`Rz(theta/2)` on target, CNOT, `Rz(-theta/2)` on target, CNOT, plus an extra `Rz(theta/2)` on the control for `CPhaseGate`). These are handled separately from the standalone `RZGate`/`PhaseGate` mapping because the global phase difference between the two gates becomes an observable, control-conditioned phase once controlled.
-- `qpi-driver`: Replaced the one-off Toffoli-only unitary test with a parametrized `GATE_CONVERSION_CASES` table in `tests/utils.py`, covering every unitary gate branch in `to_qblox_gates`/`to_quantify_gates` (single- and multi-qubit) against qiskit's own reference unitary via a new `qiskit_unitary` helper, run for both the qblox and quantify executors.
+- `qpi-driver`: Added `CRZGate` and `CPhaseGate` support to both the qblox and quantify executors' gate conversion.
+- `qpi-driver`: Replaced the one-off Toffoli-only unitary test with at a test covering every unitary gate branch in `to_qblox_gates`/`to_quantify_gates`.
 
 ### Fixed
 
