@@ -15,10 +15,19 @@ framework for supporting custom and extensible drivers.
 - `qpi-ui`: Added `enable-driver-framework` flag (`QPI_ENABLE_DRIVER_FRAMEWORK` env var / `enableDriverFramework` config file key).
 - `qpi-driver`: Added `Event` and `EventType` to the SDK, mirroring QPI-UI's event envelope.
 - `qpi-ui`: Added the `drivers` collection (behind `enable-driver-framework`) — a driver belongs to exactly
-one QPU, and stores its kind, language, participating events, and hashed token, per RFC 0001 Phase 1.
+one QPU, and stores its kind, language, participating events, and hashed token, per RFC 0001.
 - `qpi-ui`: Added `drivers/create`, `drivers/connect`, and `drivers/toggle` endpoints, mirroring the QPU
 registration/connect/toggle handlers; `create` also resolves the kind×language setup snippets (systemd,
 manual CLI, install-and-run, or a base install + stub for pairs with no official build).
+- `qpi-ui`: Added `driver_framework_enabled` to `GET /api/op/version` so the dashboard can gate the Drivers
+page without probing a `drivers/*` route directly.
+- `qpi-ui`: Added the Drivers dashboard page (RFC 0001 §10) — a full page mirroring the QPU
+Registry, admin-only and gated behind the driver framework flag. Register a driver by name/QPU/kind/language,
+reveal its one-time token and kind×language setup snippets once, and toggle/delete it afterwards; status and
+last-seen update live via PocketBase realtime.
+- `e2e`: Added Cypress specs for the Drivers dashboard page (register, custom-driver event validation,
+toggle, delete, and non-admin inertness) and started the dashboard E2E server with
+`--enable-driver-framework` so they run alongside the existing QPU Registry specs.
 
 ## [0.0.42] - 2026-07-21
 

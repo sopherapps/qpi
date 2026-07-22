@@ -450,13 +450,24 @@ func handleTokenDelete(re *core.RequestEvent) error {
 	return re.JSON(http.StatusOK, map[string]string{"status": "deleted"})
 }
 
-// handleOpVersion handles GET /api/op/version — returns the current application version
+// handleOpVersion handles GET /api/op/version — returns the current
+// application version, plus whether the driver framework (RFC 0001) is
+// enabled so the dashboard can gate the Drivers page without probing a
+// drivers/* route directly.
 func handleOpVersion(re *core.RequestEvent) error {
 	if !re.HasSuperuserAuth() {
 		return re.Error(http.StatusForbidden, "admin access required", nil)
 	}
 
-	return re.JSON(http.StatusOK, map[string]string{"version": Version})
+	cfg, err := config.GetConfigFromApp(re.App)
+	if err != nil {
+		return re.Error(http.StatusInternalServerError, "failed to retrieve configuration", err)
+	}
+
+	return re.JSON(http.StatusOK, map[string]any{
+		"version":                  Version,
+		"driver_framework_enabled": cfg.EnableDriverFramework,
+	})
 }
 
 // handleQPUCreate creates a new QPU record (admin-only), generating a random

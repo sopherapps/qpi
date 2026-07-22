@@ -95,3 +95,65 @@ export interface CreateQpuResponse {
   ca_fingerprint: string;
   driver_version: string;
 }
+
+export type DriverKind =
+  | "mock"
+  | "qiskit_aer"
+  | "quantify"
+  | "qblox"
+  | "presto"
+  | "custom";
+
+export type DriverLanguage = "python" | "typescript" | "go";
+
+export interface Driver {
+  id: string;
+  name: string;
+  qpu: string;
+  kind: DriverKind;
+  language: DriverLanguage;
+  events: string[];
+  status: "offline" | "online" | "maintenance";
+  nng_in_port: number;
+  nng_out_port: number;
+  host?: string;
+  version?: string;
+  last_seen?: string;
+  enabled: boolean;
+  created: string;
+  expand?: {
+    qpu?: QPU;
+  };
+}
+
+export interface CreateDriverRequest {
+  name: string;
+  qpu: string;
+  kind: DriverKind;
+  language: DriverLanguage;
+  events?: string[];
+}
+
+export interface DriverSnippets {
+  systemd?: string;
+  manual_cli?: string;
+  install_and_run?: string;
+  install?: string;
+  stub?: string;
+}
+
+export interface CreateDriverResponse {
+  id: string;
+  name: string;
+  qpu: string;
+  kind: DriverKind;
+  language: DriverLanguage;
+  events: string[];
+  status: string;
+  enabled: boolean;
+  token: string;
+  ca_fingerprint: string;
+  qpi_addr: string;
+  driver_version: string;
+  snippets: DriverSnippets;
+}
