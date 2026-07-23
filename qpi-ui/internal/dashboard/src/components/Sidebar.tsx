@@ -9,6 +9,7 @@ import {
   Workflow,
   Thermometer,
 } from "lucide-react";
+import { useTheme } from "../lib/ThemeContext";
 
 interface SidebarProps {
   activeTab: string;
@@ -27,6 +28,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onRequestTimeClick,
   version,
 }) => {
+  const { siteName, tagline, logoUrl } = useTheme();
+
   const navItems = [
     { id: "overview", label: "Overview", icon: LayoutDashboard },
     { id: "qpus", label: "QPU Registry", icon: Cpu },
@@ -48,13 +51,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
     <aside className="w-sidebar-width h-full border-r border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/40 flex flex-col z-50">
       {/* Brand */}
       <div className="px-6 py-6 border-b border-gray-200 dark:border-zinc-800/50 flex items-center gap-3">
-        <Cpu className="w-6 h-6 text-gray-900 dark:text-white" />
+        {logoUrl ? (
+          <img
+            src={logoUrl}
+            alt={siteName}
+            className="w-6 h-6 object-contain"
+          />
+        ) : (
+          <Cpu className="w-6 h-6 text-gray-900 dark:text-white" />
+        )}
         <div>
           <h1 className="font-geist text-lg font-bold text-gray-900 dark:text-white leading-none tracking-tight">
-            QPI Interface
+            {siteName}
           </h1>
           <p className="text-[10px] text-gray-500 dark:text-zinc-400 uppercase tracking-widest mt-1">
-            Control Hub
+            {tagline}
           </p>
         </div>
       </div>

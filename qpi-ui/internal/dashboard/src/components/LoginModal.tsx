@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { pb } from "../lib/pb";
 import { Lock } from "lucide-react";
 import type { AuthMethodsList } from "pocketbase";
+import { useTheme } from "../lib/ThemeContext";
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -12,6 +13,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   isOpen,
   onLoginSuccess,
 }) => {
+  const { siteName, logoUrl } = useTheme();
   const [role, setRole] = useState<"user" | "admin">("user");
   const [identity, setIdentity] = useState("");
   const [password, setPassword] = useState("");
@@ -90,10 +92,18 @@ export const LoginModal: React.FC<LoginModalProps> = ({
       <div className="w-full max-w-md bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-lg shadow-2xl p-8 space-y-6">
         <div className="text-center">
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gray-100 dark:bg-zinc-800 text-gray-900 dark:text-white mb-4 border border-gray-300 dark:border-zinc-700">
-            <Lock className="w-6 h-6" />
+            {logoUrl ? (
+              <img
+                src={logoUrl}
+                alt={siteName}
+                className="w-6 h-6 object-contain"
+              />
+            ) : (
+              <Lock className="w-6 h-6" />
+            )}
           </div>
           <h2 className="text-2xl font-geist font-bold text-gray-900 dark:text-white">
-            Sign in to QPI
+            Sign in to {siteName || "QPI"}
           </h2>
           <p className="text-sm text-gray-500 dark:text-zinc-400 mt-1">
             Access your quantum computing environment

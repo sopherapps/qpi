@@ -130,6 +130,23 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
     ? `/api/files/themes/${theme.id}/${theme.favicon}`
     : null;
 
+  useEffect(() => {
+    document.title = siteName
+      ? `${siteName} Dashboard`
+      : "QPI Dashboard — Obsidian Precision";
+  }, [siteName]);
+
+  useEffect(() => {
+    if (!faviconUrl) return;
+    let link = document.querySelector("link[rel='icon']") as HTMLLinkElement;
+    if (!link) {
+      link = document.createElement("link");
+      link.rel = "icon";
+      document.head.appendChild(link);
+    }
+    link.href = faviconUrl;
+  }, [faviconUrl]);
+
   const value: ThemeContextValue = {
     theme,
     siteName,
@@ -146,6 +163,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
   );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useTheme() {
   const context = useContext(ThemeContext);
   if (context === undefined) {
