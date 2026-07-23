@@ -1,0 +1,58 @@
+{
+  "name": "qpi-driver",
+  "version": "0.0.42",
+  "description": "TypeScript/JavaScript SDK for building QPI quantum platform drivers",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "qpi-driver": "dist/builtins/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./builtins/bluefors-gen1": {
+      "types": "./dist/builtins/bluefors-gen1.d.ts",
+      "default": "./dist/builtins/bluefors-gen1.js"
+    }
+  },
+  "files": [
+    "dist/",
+    "README.md"
+  ],
+  "dependencies": {
+    "commander": "^12.1.0"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "lint": "tsc --noEmit",
+    "format": "prettier --write 'src/**/*.ts'",
+    "prepublishOnly": "npm run build && npm test"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.0",
+    "@types/node": "^20.0.0",
+    "jest": "^29.7.0",
+    "prettier": "^3.0.0",
+    "ts-jest": "^29.1.0",
+    "typescript": "^5.0.0"
+  },
+  "keywords": [
+    "quantum",
+    "qpi",
+    "quantum-computing",
+    "driver",
+    "sdk"
+  ],
+  "license": "MIT",
+  "homepage": "https://sopherapps.github.io/qpi/driver/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sopherapps/qpi"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -3,12 +3,10 @@ package drivers
 import (
 	"fmt"
 	"strings"
+	"text/template"
 )
 
 const (
-	// scriptURL is where install-systemd.sh is fetched from in the systemd
-	// snippet.
-	scriptURL = "https://raw.githubusercontent.com/sopherapps/qpi/main/qpi-driver/install-systemd.sh"
 	// baseCliExtra is installed for an official kind with no dedicated extra.
 	baseCliExtra = "qpi-driver[cli]"
 	// baseSdkPackage is installed for a custom driver, which depends on the SDK
@@ -17,7 +15,24 @@ const (
 	// optionFlag is the CLI flag an operation's per-kind config is passed
 	// under, once per option.
 	optionFlag = "-o"
+	// gitRawBaseUrl is the base URL where the raw content of the git repo can be got
+	gitRawBaseUrl = "https://raw.githubusercontent.com/sopherapps/qpi/main/qpi-driver"
 )
+
+// scriptURLs maps language to where its install-systemd.sh is fetched from in the systemd
+// snippet for its drivers.
+var scriptUrls = map[Language]string{
+	Python:     gitRawBaseUrl + "/py/install-systemd.sh",
+	Go:         gitRawBaseUrl + "/go/install-systemd.sh",
+	TypeScript: gitRawBaseUrl + "/js/install-systemd.sh",
+}
+
+// manualCLITmpls is the mapping for languages and the manual CLI templates
+var manualCLITmpls = map[Language]*template.Template{
+	Python:     manualPyCLITmpl,
+	Go:         manualGoCLITmpl,
+	TypeScript: manualTsCLITmpl,
+}
 
 // Params carries the per-registration values spliced into the setup snippets.
 type Params struct {
@@ -28,9 +43,10 @@ type Params struct {
 }
 
 // Snippets are the ready-to-use setup commands shown once at registration
-// (RFC 0001 §3). An official Python backend fills Systemd and ManualCLI; every
-// other case — a custom driver, or a language with no official build yet —
-// fills Install and Stub instead.
+// (RFC 0001 §3). A custom driver — code the operator writes — fills Install and
+// Stub. An official Python backend, which is run rather than written, fills
+// Systemd and ManualCLI. An official backend in another language fills Install
+// alone: its SDK ships the driver, so there is nothing to write and no stub.
 type Snippets struct {
 	Systemd   string `json:"systemd,omitempty"`
 	ManualCLI string `json:"manual_cli,omitempty"`
@@ -38,25 +54,30 @@ type Snippets struct {
 	Stub      string `json:"stub,omitempty"`
 }
 
-// Snippets resolves the kind×language setup snippets for a registration. An
-// official kind registered in this catalog, written in Python, gets the
-// prefilled systemd + manual-CLI commands; anything else gets a bare SDK
-// install plus a stub of the driver to fill in.
+// Snippets resolves the kind×language setup snippets for a registration:
+//
+//   - A custom driver is code the operator writes, so it gets the SDK install
+//     command and a stub to extend, in the chosen language (RFC 0001 §5).
+//   - An official driver is run, not written, so it gets the prefilled
+//     systemd + manual-CLI commands.
 func (r *Registry) Snippets(kind Kind, language Language, p Params) Snippets {
-	if spec, ok := r.Lookup(kind); ok && language == Python {
-		return officialSnippets(spec, p)
+	if kind == Custom {
+		return Snippets{
+			Install: installCommand(language),
+			Stub:    stub(language),
+		}
 	}
-	return Snippets{
-		Install: installCommand(language),
-		Stub:    stub(language),
+	if spec, ok := r.Lookup(kind); ok {
+		return officialSnippets(spec, p, language)
 	}
+	return Snippets{Install: installCommand(language)}
 }
 
 // officialSnippets renders the systemd + manual-CLI commands for an official
-// Python backend, from the spec's operation, device, and install extra.
-func officialSnippets(spec Spec, p Params) Snippets {
+// drivers, from the spec's operation, device, and install extra.
+func officialSnippets(spec Spec, p Params, l Language) Snippets {
 	data := snippetData{
-		ScriptURL:     scriptURL,
+		ScriptURL:     scriptUrls[l],
 		Token:         p.Token,
 		QpiAddr:       p.QpiAddr,
 		CaFingerprint: p.CaFingerprint,
@@ -70,7 +91,7 @@ func officialSnippets(spec Spec, p Params) Snippets {
 	}
 	return Snippets{
 		Systemd:   mustRender(systemdTmpl, data),
-		ManualCLI: mustRender(manualCLITmpl, data),
+		ManualCLI: mustRender(manualCLITmpls[l], data),
 	}
 }
 
@@ -126,9 +147,8 @@ func installCommand(language Language) string {
 	}
 }
 
-// stub sketches a custom driver in a language: subclass the SDK base, dispatch
-// on the event type in handle_event, and emit results. For a language without
-// an SDK yet it shows the same shape the Python SDK exposes.
+// stub sketches a custom driver — subclass the SDK base, dispatch on the event type, emit
+// results.
 func stub(language Language) string {
 	switch language {
 	case TypeScript:
@@ -155,9 +175,9 @@ type MyDriver struct{ qpidriver.Base }
 func (d *MyDriver) HandleEvent(event qpidriver.Event) {
 	if event.Type == qpidriver.JobDispatch {
 		results := runMyBackend(event.Payload)
-		d.Emit(qpidriver.Event{Type: qpidriver.JobResult, Payload: map[string]any{
+		_ = d.Emit(qpidriver.NewEvent(qpidriver.JobResult, d.DriverName(), map[string]any{
 			"job_id": event.Payload["job_id"], "status": "completed", "results": results,
-		}})
+		}))
 	}
 }
 `

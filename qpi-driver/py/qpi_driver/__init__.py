@@ -19,12 +19,9 @@ from qpi_driver.executors.qiskit_aer import QiskitAerExecutor
 from qpi_driver.executors.quantify import QuantifyExecutor
 from qpi_driver.sdk import QpiDriver
 
-# qpi-driver is intentionally still a single Python package today, unlike
-# qpi-client's per-language `go/`, `js/`, `py/` layout — there is only one
-# driver SDK language so far. Growing qpi-driver into that same per-language
-# layout (moving this package to `qpi-driver/py/qpi_driver/` and adding
-# `qpi-driver/go/`, `qpi-driver/js/`) is planned in ROADMAP.md Phase 4 ("More
-# language SDKs"), once TypeScript and Go SDKs actually exist to justify it.
+# The Python SDK lives at `qpi-driver/py/`, alongside the TypeScript
+# (`qpi-driver/js/`) and Go (`qpi-driver/go/`) SDKs, mirroring qpi-client's
+# per-language layout (RFC 0001 §2, ROADMAP.md Phase 4).
 
 __all__ = [
     "__version__",

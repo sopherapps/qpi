@@ -42,50 +42,52 @@ OPERATION=${OPERATION:-process}
 [ -z "$DEVICE" ] && read -p "Enter Device (mock, qiskit_aer, quantify, qblox, presto, bluefors_gen1) [mock]: " DEVICE
 DEVICE=${DEVICE:-mock}
 
-# FIXME: this may not only be for monitor operations
-# A monitor's config (e.g. bluefors_gen1's base_url/channels) is passed as
-# generic DRIVER_OPTIONS ("key=value;key=value"). A process auto-fills its own
-# runtime options (data dir, quantify configs) below, so it is not prompted.
-if [ "$OPERATION" = "monitor" ]; then
-    [ -z "$DRIVER_OPTIONS" ] && read -p "Enter $DEVICE options as key=value;key=value (e.g. base_url=http://localhost:49099;channels=mapper.bf.tmc:K): " DRIVER_OPTIONS
-fi
+# A driver's device settings (e.g. bluefors_gen1's base_url/channels) are passed
+# as generic DRIVER_OPTIONS ("key=value;key=value"), rendered as -o flags below.
+# This applies to any operation; leave blank for a device that needs none.
+[ -z "$DRIVER_OPTIONS" ] && read -p "Enter $DEVICE options as key=value;key=value (e.g. base_url=http://localhost:49099;channels=mapper.bf.tmc:K), or leave blank: " DRIVER_OPTIONS
 
 # The version of qpi-driver to install.
 # This should match the qpi-ui version if provided via environment variable.
 QPI_DRIVER_VERSION="${QPI_DRIVER_VERSION:-}"
 QPI_DATA_DIR="${QPI_DATA_DIR:-"/var/qpi-driver/${QPU_NAME}"}"
 QPI_CA_FILE="${QPI_CA_FILE:-"${QPI_DATA_DIR}/qpi.ca.pem"}"
-QPI_QUANTIFY_DEVICE_CONFIG="${QPI_QUANTIFY_DEVICE_CONFIG:-"${QPI_DATA_DIR}/quantify.device.yml"}"
-QPI_QUANTIFY_HARDWARE_CONFIG="${QPI_QUANTIFY_HARDWARE_CONFIG:-"${QPI_DATA_DIR}/quantify.hardware.json"}"
-
-# 2. Locate or install uv
-if sudo -u "$REAL_USER" command -v uv >/dev/null 2>&1; then
-    UV_PATH=$(sudo -u "$REAL_USER" command -v uv)
-elif [ -f "$REAL_HOME/.local/bin/uv" ]; then
-    UV_PATH="$REAL_HOME/.local/bin/uv"
-else
-    echo "Installing 'uv' for fast python package management..."
-    sudo -u "$REAL_USER" bash -c "curl -LsSf https://astral.sh/uv/install.sh | sh"
-    UV_PATH="$REAL_HOME/.local/bin/uv"
-    [ -f "$REAL_HOME/.local/bin/env" ] && source "$REAL_HOME/.local/bin/env" || true
-fi
 
 # Ensure data directory exists and is owned by the real user
 echo "Creating data directory at $QPI_DATA_DIR..."
 mkdir -p "$QPI_DATA_DIR"
 chown -R "$REAL_USER" "$QPI_DATA_DIR"
 
-# 3. Install qpi-driver using uv tool
-echo "Installing qpi-driver via uv tool..."
-
-if [ -z "$QPI_DRIVER_VERSION" ]; then
-    VERSION_SUFFIX=""
+# 2/3. Install the qpi-driver CLI from npm (unless it is already installed).
+# QPI_SKIP_INSTALL=1 skips the install step and uses the qpi-driver already on
+# PATH (or QPI_DRIVER_BIN), for operators who manage installs themselves.
+if [ "${QPI_SKIP_INSTALL:-0}" = "1" ]; then
+    echo "QPI_SKIP_INSTALL=1: skipping install; using an already-installed qpi-driver."
+    QPI_DRIVER_BIN="${QPI_DRIVER_BIN:-qpi-driver}"
 else
-    VERSION_SUFFIX="==$QPI_DRIVER_VERSION"
-fi
+    # Locate npm (required to install the driver CLI)
+    if sudo -u "$REAL_USER" command -v npm >/dev/null 2>&1; then
+        NPM_BIN=$(sudo -u "$REAL_USER" command -v npm)
+    else
+        echo "Error: Node.js/npm is required but was not found for $REAL_USER."
+        echo "Install Node.js (https://nodejs.org/) and re-run this script."
+        exit 1
+    fi
 
-# Install qpi-driver
-sudo -u "$REAL_USER" "$UV_PATH" tool install --python 3.12 --prerelease allow "qpi-driver[cli,${DEVICE}]${VERSION_SUFFIX}"
+    # Where 'npm install -g' drops the CLI binary.
+    NPM_PREFIX=$(sudo -u "$REAL_USER" "$NPM_BIN" prefix -g)
+    GLOBAL_BIN_DIR="${NPM_PREFIX}/bin"
+
+    if [ -z "$QPI_DRIVER_VERSION" ]; then
+        PKG_SPEC="qpi-driver@latest"
+    else
+        PKG_SPEC="qpi-driver@${QPI_DRIVER_VERSION#v}"
+    fi
+    echo "Installing ${PKG_SPEC} via npm install -g..."
+    sudo -u "$REAL_USER" "$NPM_BIN" install -g "$PKG_SPEC"
+
+    QPI_DRIVER_BIN="${QPI_DRIVER_BIN:-${GLOBAL_BIN_DIR}/qpi-driver}"
+fi
 
 
 # 4. Create systemd unit file
@@ -93,29 +95,20 @@ SERVICE_FILE="/etc/systemd/system/${QPU_NAME}.qpi-driver.service"
 echo "Creating systemd service at $SERVICE_FILE..."
 
 # Every operation is launched the same way: `qpi-driver <operation> --device
-# <device> … -o key=value`. A process auto-fills the runtime options this
-# installer manages (data dir, and quantify configs for qblox/quantify); any
-# DRIVER_OPTIONS (how a monitor gets its base_url/channels) are appended after.
+# <device> … -o key=value`. The device's DRIVER_OPTIONS (e.g. a monitor's
+# base_url/channels) are rendered as trailing -o flags.
 OPT_ARGS=""
 add_opt() {
     [ -n "$1" ] && OPT_ARGS="$OPT_ARGS \\
         -o $1"
 }
 
-if [ "$OPERATION" = "process" ]; then
-    add_opt "data_dir=$QPI_DATA_DIR"
-    if [ "$DEVICE" = "qblox" ] || [ "$DEVICE" = "quantify" ]; then
-        add_opt "quantify_device_config=$QPI_QUANTIFY_DEVICE_CONFIG"
-        add_opt "quantify_hardware_config=$QPI_QUANTIFY_HARDWARE_CONFIG"
-    fi
-fi
-
 IFS=';' read -ra _DRIVER_OPTS <<< "$DRIVER_OPTIONS"
 for _opt in "${_DRIVER_OPTS[@]}"; do
     add_opt "$_opt"
 done
 
-EXEC_START_CMD="$REAL_HOME/.local/bin/qpi-driver $OPERATION \\
+EXEC_START_CMD="$QPI_DRIVER_BIN $OPERATION \\
         --device \"$DEVICE\" \\
         --ca-fingerprint $CA_FINGERPRINT \\
         --qpi-addr $QPI_ADDR \\
@@ -131,8 +124,6 @@ Type=simple
 
 Environment="QPI_ACCESS_TOKEN=$QPI_TOKEN"
 Environment="QPI_CA_FILE=$QPI_CA_FILE"
-# Standard Python output buffering disabled to ensure logs appear immediately in journalctl
-Environment=PYTHONUNBUFFERED=1
 
 ExecStart=$EXEC_START_CMD
 

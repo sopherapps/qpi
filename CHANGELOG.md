@@ -51,8 +51,50 @@ handling `JobDispatch`. Installed via the `qpi-driver[cli,bluefors_gen1]` extra 
 realtime, gated like the Drivers page.
 - `e2e`: Added `mock_bluefors_server.py` and `test_bluefors_gen1_events`, exercising the monitor end to end
 under `make test-e2e-driver-framework`.
+- `qpi-driver`: Added the TypeScript driver SDK (`qpi-driver/js`, npm `qpi-driver`) mirroring the Python SDK —
+`QpiDriver` (`handleEvent`/`emit`/`every`), the `drivers/connect` handshake, and TLS with the pinned root CA.
+The NNG (nanomsg SP) pipeline is implemented over Node's built-in `tls`, so the package has zero runtime
+dependencies (RFC 0001 Phase 4).
+- `qpi-driver`: Added the Go driver SDK (`qpi-driver/go`, `go get github.com/sopherapps/qpi/qpi-driver/go`)
+mirroring the Python SDK — `Base` (`HandleEvent`/`Emit`/`Every`) with `Run`, the `drivers/connect` handshake,
+and TLS with the pinned root CA over `go.nanomsg.org/mangos` (the same NNG library as the server).
+- `qpi-driver`: Added the `bluefors_gen1` monitor as a built-in of both new SDKs, each in its own
+tree-shakeable module so it is only pulled in when used — a Go sub-package
+(`.../qpi-driver/go/qpi-driver/bluefors`) and a TypeScript sub-path export (`qpi-driver/builtins/bluefors-gen1`),
+the equivalent of the Python `qpi-driver[bluefors_gen1]` extra.
+- `qpi-driver`: Added a `qpi-driver` CLI for the Go and TypeScript built-ins, mirroring the Python CLI
+(operation subcommands `process`/`monitor`/`version`, shared universal flags with `QPI_*` env fallbacks,
+repeatable `-o key=value`): a cobra CLI at `qpi-driver/go/qpi-driver`
+(`go install …/go/qpi-driver@latest`) and a commander CLI exposed as the npm package's `qpi-driver`
+bin (`npm i -g qpi-driver` / `npx -y qpi-driver …`).
+- `qpi-driver`: Added per-language `install-systemd.sh` for the Go and TypeScript drivers
+(`qpi-driver/{go,js}/install-systemd.sh`), installing the CLI via `go install` / `npm install -g` rather than
+`uv tool install`, and dropping the Python-only bits (uv, quantify configs, `PYTHONUNBUFFERED`).
+- `qpi-ui`: The kind×language setup snippets now resolve for TypeScript and Go, not just Python — an official
+driver gets per-language systemd + manual-CLI commands (Python via `uv tool`, Go via `go install`, TypeScript
+via `npm i -g`), while a custom driver gets the SDK install command plus a stub to extend. A built-in is run,
+not written, so it has no stub.
+- `e2e`/`ci`: Added `make test-js-driver` / `make test-go-driver` (plus lint/format/package targets) and CI
+jobs for the new TypeScript and Go driver SDKs.
+- `e2e`: The `bluefors_gen1` monitor end-to-end test now runs across all three SDK languages — each registers
+its own driver and launches that language's `qpi-driver` CLI (the Python CLI, `go run ./qpi-driver`,
+or the built TypeScript CLI at `dist/builtins/cli.js`), then asserts a `CryostatReading` attributed to it lands
+in the `events` log and that killing it leaves its QPU untouched. A language whose toolchain or built CLI is
+absent is skipped rather than failing.
+- `qpi-driver`: `install-systemd.sh` (all languages) now honours `QPI_SKIP_INSTALL=1` (with an optional
+`QPI_DRIVER_BIN`) to skip the package-install step and use a `qpi-driver` that is already installed.
+- `e2e`: The systemd installer test now also covers the Go and TypeScript `install-systemd.sh` — unit-file
+generation and service start are verified with `QPI_SKIP_INSTALL=1` and a stub `qpi-driver` (a real
+`go install`/`npm install -g` needs published artifacts), alongside the existing real Python install.
+- `ci`: Added the `publish-npm-driver` job (gated on `vars.PUBLISH_JS_DRIVER`) and `make publish-driver-js`
+to publish `qpi-driver/js` to npm, mirroring the `qpi-client/js` publish flow.
 
 ### Changed
+
+- `qpi-driver`: Moved the Python SDK from `qpi-driver/` to `qpi-driver/py/`, so all three driver SDKs sit
+side by side (`qpi-driver/py`, `qpi-driver/js`, `qpi-driver/go`) mirroring `qpi-client`'s per-language layout
+(RFC 0001 Phase 4). Build, CI, e2e, and the systemd-installer URL were updated to the new path; the Python
+package, extras, and CLI are otherwise unchanged.
 
 - `qpi-driver`: Reorganised the CLI around driver *operations*. The subcommand is now the operation —
 `process` (a QPU, formerly `start`) or `monitor` — run on a `--device` (generalising `--executor`/`--kind`).
