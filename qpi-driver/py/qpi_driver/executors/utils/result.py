@@ -18,37 +18,22 @@ def build_qiskit_result(
         backend: Backend name string.
 
     Returns:
-        dict: Qiskit-compatible result dict with top-level keys and optional 'circuit_results'.
+        dict: Qiskit-compatible result dict with 'circuit_results' always present.
     """
-    first = experiment_results[0]
+    first = experiment_results[0] if experiment_results else {}
     out = {
-        "shots": first["shots"],
+        "shots": first.get("shots", 0),
         "backend": backend,
         "success": True,
+        "circuit_results": experiment_results,
     }
-
-    if len(experiment_results) > 1:
-        out["circuit_results"] = experiment_results
 
     if "counts" in first:
         out["counts"] = first["counts"]
-        out["hex_counts"] = counts_to_hex(first["counts"])
     if "memory" in first:
         out["memory"] = first["memory"]
 
     return out
-
-
-def counts_to_hex(counts_dict: dict[str, int]) -> dict[str, int]:
-    """Convert binary-string-keyed counts to hex-string-keyed counts.
-
-    Args:
-        counts_dict: Dict mapping binary strings (e.g. '01') to counts.
-
-    Returns:
-        Dict mapping hex strings (e.g. '0x1') to counts.
-    """
-    return {hex(int(s, 2)): c for s, c in counts_dict.items()}
 
 
 def iq_memory_avg(

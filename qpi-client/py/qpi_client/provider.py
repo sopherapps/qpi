@@ -136,11 +136,10 @@ class QPIJob(JobV1):
     def _build_result(self, data: dict[str, Any]) -> Result:
         """Construct a :class:`qiskit.result.Result` from the API response.
 
-        The server ``results`` payload may be:
-        * A dict with a top-level ``"circuit_results"`` list (one entry per
+        The server ``results`` payload is:
+        * A dict containing a top-level ``"circuit_results"`` list (one entry per
           submitted circuit).
-        * A single dict with ``"counts"``/``"hex_counts"``/``"memory"`` keys
-          when only one circuit was submitted.
+        * For legacy/fallback server responses, a single dict or list of dicts.
         * ``None`` (edge-case) — we still return a valid *Result* with no
           experiment data.
         """
@@ -152,7 +151,7 @@ class QPIJob(JobV1):
                 "circuit_results", []
             )
             if not circuit_results:
-                # Treat the whole dict as a single-circuit result.
+                # Fall back to treating the whole dict as a single-circuit result.
                 circuit_results = [results_payload]
         elif isinstance(results_payload, list):
             circuit_results = results_payload
