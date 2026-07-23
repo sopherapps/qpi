@@ -23,6 +23,7 @@ func retentionConfig(retention time.Duration) *config.AppConfig {
 		CollectionQPUTimeRequests: config.DefaultQPUTimeRequestsCollection,
 		CollectionDrivers:         config.DefaultDriversCollection,
 		CollectionEvents:          config.DefaultEventsCollection,
+		CollectionThemes:          config.DefaultThemesCollection,
 		EventsRetention:           retention,
 		EventsPruneInterval:       time.Hour,
 	}

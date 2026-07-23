@@ -72,3 +72,66 @@ func TestOnDriverCreate_HashesTokenOnSave(t *testing.T) {
 		t.Errorf("expected the raw token not to be stored as-is")
 	}
 }
+
+// TestOnThemeUpsert_DeactivatesPreviousActiveTheme proves that when a new theme
+// is saved with is_active=true, any previously active theme is automatically deactivated.
+func TestOnThemeUpsert_DeactivatesPreviousActiveTheme(t *testing.T) {
+	app, err := tests.NewTestApp()
+	if err != nil {
+		t.Fatalf("failed to create test app: %v", err)
+	}
+	defer app.Cleanup()
+
+	cfg := testConfig()
+	config.SaveConfigOnApp(app, cfg)
+	if err := EnsureSchema(app); err != nil {
+		t.Fatalf("failed to ensure schema: %v", err)
+	}
+
+	app.OnRecordCreate().Bind(&hook.Handler[*core.RecordEvent]{
+		Func: RegisterCollectionHooks(app, CollectionHookMap{
+			config.DefaultThemesCollection: OnThemeUpsert,
+		}),
+	})
+	app.OnRecordUpdate().Bind(&hook.Handler[*core.RecordEvent]{
+		Func: RegisterCollectionHooks(app, CollectionHookMap{
+			config.DefaultThemesCollection: OnThemeUpsert,
+		}),
+	})
+
+	themesCol, err := app.FindCollectionByNameOrId(config.DefaultThemesCollection)
+	if err != nil {
+		t.Fatalf("themes collection not found: %v", err)
+	}
+
+	theme1 := core.NewRecord(themesCol)
+	theme1.Set("name", "Theme 1")
+	theme1.Set("is_active", true)
+	if err := app.Save(theme1); err != nil {
+		t.Fatalf("failed to save theme1: %v", err)
+	}
+
+	if !theme1.GetBool("is_active") {
+		t.Fatalf("expected theme1 to be active")
+	}
+
+	theme2 := core.NewRecord(themesCol)
+	theme2.Set("name", "Theme 2")
+	theme2.Set("is_active", true)
+	if err := app.Save(theme2); err != nil {
+		t.Fatalf("failed to save theme2: %v", err)
+	}
+
+	reloadedTheme1, err := app.FindRecordById(config.DefaultThemesCollection, theme1.Id)
+	if err != nil {
+		t.Fatalf("failed to reload theme1: %v", err)
+	}
+
+	if reloadedTheme1.GetBool("is_active") {
+		t.Errorf("expected theme1 to be deactivated after theme2 became active")
+	}
+
+	if !theme2.GetBool("is_active") {
+		t.Errorf("expected theme2 to remain active")
+	}
+}

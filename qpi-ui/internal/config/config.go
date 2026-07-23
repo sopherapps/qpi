@@ -34,6 +34,7 @@ const (
 	DefaultNotificationsCollection   = "notifications"
 	DefaultDriversCollection         = "drivers"
 	DefaultEventsCollection          = "events"
+	DefaultThemesCollection          = "themes"
 	DefaultTLSCertFile               = ".qpi.cert.pem"
 	DefaultTLSKeyFile                = ".qpi.key"
 	DefaultTLSCaCertFile             = ".qpi.ca.pem"
@@ -51,6 +52,7 @@ var (
 	flagCollectionTimeRequests   string
 	flagCollectionDrivers        string
 	flagCollectionEvents         string
+	flagCollectionThemes         string
 	flagIdleThreshold            time.Duration
 	flagRecoveryInterval         time.Duration
 	flagJobTimeout               time.Duration
@@ -81,6 +83,7 @@ type AppConfig struct {
 	CollectionNotifications   string
 	CollectionDrivers         string
 	CollectionEvents          string
+	CollectionThemes          string
 	IdleThreshold             time.Duration
 	RecoveryInterval          time.Duration
 	JobTimeout                time.Duration
@@ -110,23 +113,55 @@ type AppConfig struct {
 
 // GetCollectionName returns the collection name for a given default collection name.
 func (c *AppConfig) GetCollectionName(name string) string {
+	if c == nil {
+		return name
+	}
 	switch name {
 	case DefaultQpusCollection:
-		return c.CollectionQPUs
+		if c.CollectionQPUs != "" {
+			return c.CollectionQPUs
+		}
+		return DefaultQpusCollection
 	case DefaultTimeSlotsCollection:
-		return c.CollectionTimeSlots
+		if c.CollectionTimeSlots != "" {
+			return c.CollectionTimeSlots
+		}
+		return DefaultTimeSlotsCollection
 	case DefaultQuantumJobsCollection:
-		return c.CollectionQuantumJobs
+		if c.CollectionQuantumJobs != "" {
+			return c.CollectionQuantumJobs
+		}
+		return DefaultQuantumJobsCollection
 	case DefaultAPITokensCollection:
-		return c.CollectionAPITokens
+		if c.CollectionAPITokens != "" {
+			return c.CollectionAPITokens
+		}
+		return DefaultAPITokensCollection
 	case DefaultQPUTimeRequestsCollection:
-		return c.CollectionQPUTimeRequests
+		if c.CollectionQPUTimeRequests != "" {
+			return c.CollectionQPUTimeRequests
+		}
+		return DefaultQPUTimeRequestsCollection
 	case DefaultNotificationsCollection:
-		return c.CollectionNotifications
+		if c.CollectionNotifications != "" {
+			return c.CollectionNotifications
+		}
+		return DefaultNotificationsCollection
 	case DefaultDriversCollection:
-		return c.CollectionDrivers
+		if c.CollectionDrivers != "" {
+			return c.CollectionDrivers
+		}
+		return DefaultDriversCollection
 	case DefaultEventsCollection:
-		return c.CollectionEvents
+		if c.CollectionEvents != "" {
+			return c.CollectionEvents
+		}
+		return DefaultEventsCollection
+	case DefaultThemesCollection:
+		if c.CollectionThemes != "" {
+			return c.CollectionThemes
+		}
+		return DefaultThemesCollection
 	default:
 		return name
 	}
@@ -151,6 +186,8 @@ func (c *AppConfig) GetDefaultCollectionName(name string) string {
 		return DefaultDriversCollection
 	case c.CollectionEvents:
 		return DefaultEventsCollection
+	case c.CollectionThemes:
+		return DefaultThemesCollection
 	default:
 		return name
 	}
@@ -347,6 +384,7 @@ func BindFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().StringVar(&flagCollectionTimeRequests, "qpu-time-requests-collection", DefaultQPUTimeRequestsCollection, "Collection name for QPU Time Requests")
 	cmd.PersistentFlags().StringVar(&flagCollectionDrivers, "drivers-collection", DefaultDriversCollection, "Collection name for Drivers")
 	cmd.PersistentFlags().StringVar(&flagCollectionEvents, "events-collection", DefaultEventsCollection, "Collection name for Events")
+	cmd.PersistentFlags().StringVar(&flagCollectionThemes, "themes-collection", DefaultThemesCollection, "Collection name for Themes")
 	cmd.PersistentFlags().DurationVar(&flagIdleThreshold, "idle-threshold", 5*time.Second, "Idle fallback threshold")
 	cmd.PersistentFlags().DurationVar(&flagRecoveryInterval, "recovery-interval", 10*time.Second, "Stale job recovery check interval")
 	cmd.PersistentFlags().DurationVar(&flagJobTimeout, "job-timeout", 20*time.Second, "Stale job execution timeout")
@@ -371,6 +409,7 @@ func NewDefaultAppConfig() *AppConfig {
 		CollectionNotifications:   DefaultNotificationsCollection,
 		CollectionDrivers:         DefaultDriversCollection,
 		CollectionEvents:          DefaultEventsCollection,
+		CollectionThemes:          DefaultThemesCollection,
 		IdleThreshold:             5 * time.Second,
 		RecoveryInterval:          10 * time.Second,
 		JobTimeout:                20 * time.Second,
@@ -405,6 +444,7 @@ func NewFromFlags(cmd *cobra.Command) (*AppConfig, error) {
 	cfg.CollectionNotifications = DefaultNotificationsCollection
 	cfg.CollectionDrivers = DefaultDriversCollection
 	cfg.CollectionEvents = DefaultEventsCollection
+	cfg.CollectionThemes = DefaultThemesCollection
 	cfg.IdleThreshold = 5 * time.Second
 	cfg.RecoveryInterval = 10 * time.Second
 	cfg.JobTimeout = 20 * time.Second
@@ -459,6 +499,7 @@ func NewFromFlags(cmd *cobra.Command) (*AppConfig, error) {
 			CollectionNotifications  *string                     `json:"notificationsCollection" yaml:"notificationsCollection"`
 			CollectionDrivers        *string                     `json:"driversCollection" yaml:"driversCollection"`
 			CollectionEvents         *string                     `json:"eventsCollection" yaml:"eventsCollection"`
+			CollectionThemes         *string                     `json:"themesCollection" yaml:"themesCollection"`
 			IdleThreshold            *string                     `json:"idleThreshold" yaml:"idleThreshold"`
 			RecoveryInterval         *string                     `json:"recoveryInterval" yaml:"recoveryInterval"`
 			JobTimeout               *string                     `json:"jobTimeout" yaml:"jobTimeout"`
@@ -524,6 +565,9 @@ func NewFromFlags(cmd *cobra.Command) (*AppConfig, error) {
 		}
 		if fileCfg.CollectionEvents != nil {
 			cfg.CollectionEvents = *fileCfg.CollectionEvents
+		}
+		if fileCfg.CollectionThemes != nil {
+			cfg.CollectionThemes = *fileCfg.CollectionThemes
 		}
 		if fileCfg.IdleThreshold != nil {
 			if d, err := time.ParseDuration(*fileCfg.IdleThreshold); err == nil {
@@ -652,6 +696,7 @@ func NewFromFlags(cmd *cobra.Command) (*AppConfig, error) {
 	cfg.CollectionQPUTimeRequests = resolveString("qpu-time-requests-collection", "QPI_QPU_TIME_REQUESTS_COLLECTION", cfg.CollectionQPUTimeRequests)
 	cfg.CollectionDrivers = resolveString("drivers-collection", "QPI_DRIVERS_COLLECTION", cfg.CollectionDrivers)
 	cfg.CollectionEvents = resolveString("events-collection", "QPI_EVENTS_COLLECTION", cfg.CollectionEvents)
+	cfg.CollectionThemes = resolveString("themes-collection", "QPI_THEMES_COLLECTION", cfg.CollectionThemes)
 	cfg.IdleThreshold = resolveDuration("idle-threshold", "QPI_IDLE_THRESHOLD", cfg.IdleThreshold)
 	cfg.RecoveryInterval = resolveDuration("recovery-interval", "QPI_RECOVERY_INTERVAL", cfg.RecoveryInterval)
 	cfg.JobTimeout = resolveDuration("job-timeout", "QPI_JOB_TIMEOUT", cfg.JobTimeout)

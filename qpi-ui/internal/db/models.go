@@ -635,3 +635,85 @@ func (n *Notification) RefreshFromRecord(record *core.Record) error {
 
 	return nil
 }
+
+// Theme represents a dashboard theme record containing both light and dark
+// colour palettes, shared design tokens, branding, and optional custom CSS/JS
+// (RFC 0002 §3.2).
+type Theme struct {
+	ID        string `json:"id"         db:"id"`
+	Name      string `json:"name"       db:"name"       required:"true"`
+	IsActive  bool   `json:"is_active"  db:"is_active"`
+	SiteName  string `json:"site_name"  db:"site_name"`
+	Tagline   string `json:"tagline"    db:"tagline"`
+	Logo      string `json:"logo"       db:"logo"       type:"file" maxSelect:"1" maxSize:"2097152" mimeTypes:"image/png,image/svg+xml,image/webp"`
+	Favicon   string `json:"favicon"    db:"favicon"     type:"file" maxSelect:"1" maxSize:"524288"  mimeTypes:"image/png,image/svg+xml,image/x-icon,image/webp"`
+	Tokens    any    `json:"tokens"     db:"tokens"      type:"json"`
+	CustomCSS string `json:"custom_css" db:"custom_css"`
+	CustomJS  string `json:"custom_js"  db:"custom_js"`
+	Created   string `json:"created"    db:"created"     type:"autodate" onCreate:"true"`
+	Updated   string `json:"updated"    db:"updated"     type:"autodate" onCreate:"true" onUpdate:"true"`
+}
+
+// ToRecord converts this model into a pocketbase record
+func (t *Theme) ToRecord(app core.App) (*core.Record, error) {
+	if t == nil {
+		return nil, nil
+	}
+	cfg, err := config.GetConfigFromApp(app)
+	if err != nil {
+		return nil, err
+	}
+
+	col_name := cfg.CollectionThemes
+	col, err := app.FindCollectionByNameOrId(col_name)
+	if err != nil {
+		return nil, fmt.Errorf("error finding collection %s: %w", col_name, err)
+	}
+
+	record, err := getOrCreateRecord(app, col_name, t.ID, col)
+	if err != nil {
+		return nil, err
+	}
+	record.Set("name", t.Name)
+	record.Set("is_active", t.IsActive)
+	record.Set("site_name", t.SiteName)
+	record.Set("tagline", t.Tagline)
+	record.Set("logo", t.Logo)
+	record.Set("favicon", t.Favicon)
+	record.Set("custom_css", t.CustomCSS)
+	record.Set("custom_js", t.CustomJS)
+	record.Set("created", t.Created)
+	record.Set("updated", t.Updated)
+
+	if t.Tokens != nil {
+		tokensJSON, err := json.Marshal(t.Tokens)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling tokens: %w", err)
+		}
+		record.Set("tokens", tokensJSON)
+	}
+
+	return record, nil
+}
+
+// RefreshFromRecord updates this model using the values from a pocketbase record
+func (t *Theme) RefreshFromRecord(record *core.Record) error {
+	if t == nil || record == nil {
+		return errors.New("cannot refresh from nil record")
+	}
+
+	t.ID = record.Id
+	t.Name = record.GetString("name")
+	t.IsActive = record.GetBool("is_active")
+	t.SiteName = record.GetString("site_name")
+	t.Tagline = record.GetString("tagline")
+	t.Logo = record.GetString("logo")
+	t.Favicon = record.GetString("favicon")
+	t.Tokens = record.Get("tokens")
+	t.CustomCSS = record.GetString("custom_css")
+	t.CustomJS = record.GetString("custom_js")
+	t.Created = record.GetString("created")
+	t.Updated = record.GetString("updated")
+
+	return nil
+}

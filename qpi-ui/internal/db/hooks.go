@@ -3,6 +3,7 @@ package db
 import (
 	"qpi/internal/config"
 
+	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 )
 
@@ -99,5 +100,39 @@ func OnDriverUpdate(e *core.RecordEvent) error {
 	if originalEnabled != newEnabled && !newEnabled {
 		e.Record.Set("status", "offline")
 	}
+	return e.Next()
+}
+
+// OnThemeUpsert enforces that at most one theme is active at any time.
+// When a theme is saved with is_active=true, all other active themes are
+// deactivated (RFC 0002 §3.5).
+func OnThemeUpsert(e *core.RecordEvent) error {
+	if !e.Record.GetBool("is_active") {
+		return e.Next() // nothing to enforce
+	}
+
+	cfg, err := config.GetConfigFromApp(e.App)
+	if err != nil {
+		return err
+	}
+
+	// Deactivate all other active themes
+	records, err := e.App.FindRecordsByFilter(
+		cfg.CollectionThemes,
+		"is_active = true && id != {:id}",
+		"", 0, 0,
+		dbx.Params{"id": e.Record.Id},
+	)
+	if err != nil {
+		return err
+	}
+
+	for _, r := range records {
+		r.Set("is_active", false)
+		if err := e.App.Save(r); err != nil {
+			return err
+		}
+	}
+
 	return e.Next()
 }

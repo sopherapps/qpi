@@ -23,6 +23,7 @@ func testConfig() *config.AppConfig {
 		CollectionQPUTimeRequests: config.DefaultQPUTimeRequestsCollection,
 		CollectionDrivers:         config.DefaultDriversCollection,
 		CollectionEvents:          config.DefaultEventsCollection,
+		CollectionThemes:          config.DefaultThemesCollection,
 	}
 }
 
@@ -42,6 +43,45 @@ func TestEnsureSchema_DriversCollection(t *testing.T) {
 
 	if _, err := app.FindCollectionByNameOrId(config.DefaultDriversCollection); err != nil {
 		t.Fatalf("expected drivers collection to exist: %v", err)
+	}
+}
+
+// TestEnsureSchema_ThemesCollection proves that EnsureSchema creates the themes collection with public read and superuser-only CUD rules.
+func TestEnsureSchema_ThemesCollection(t *testing.T) {
+	app, err := tests.NewTestApp()
+	if err != nil {
+		t.Fatalf("failed to create test app: %v", err)
+	}
+	defer app.Cleanup()
+
+	cfg := testConfig()
+	config.SaveConfigOnApp(app, cfg)
+	if err := EnsureSchema(app); err != nil {
+		t.Fatalf("failed to ensure schema: %v", err)
+	}
+
+	col, err := app.FindCollectionByNameOrId(config.DefaultThemesCollection)
+	if err != nil {
+		t.Fatalf("expected themes collection to exist: %v", err)
+	}
+
+	wantRules := "list= view= create=nil update=nil delete=nil"
+	if got := collectionRuleSnapshot(col); got != wantRules {
+		t.Errorf("themes collection rules = %q, want %q", got, wantRules)
+	}
+
+	wantFields := []string{"name", "is_active", "site_name", "tagline", "logo", "favicon", "tokens", "custom_css", "custom_js", "created", "updated"}
+	for _, name := range wantFields {
+		found := false
+		for _, f := range col.Fields {
+			if f.GetName() == name {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("expected themes collection to have field %q", name)
+		}
 	}
 }
 

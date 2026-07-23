@@ -63,6 +63,9 @@ func EnsureSchema(app core.App) error {
 	if err := ensureEventsCollection(app, cfg); err != nil {
 		return fmt.Errorf("events collection: %w", err)
 	}
+	if err := ensureThemesCollection(app, cfg); err != nil {
+		return fmt.Errorf("themes collection: %w", err)
+	}
 
 	log.Println("[QPI] Schema OK")
 	return nil
@@ -296,6 +299,25 @@ func ensureEventsCollection(app core.App, cfg *config.AppConfig) error {
 		col.Indexes = append(col.Indexes, fmt.Sprintf(
 			"CREATE INDEX `%s` ON `%s` (`type`, `ts`)", indexName, cfg.CollectionEvents))
 	}
+
+	return app.Save(col)
+}
+
+// ensureThemesCollection creates the `themes` collection storing dashboard custom
+// design tokens, branding, and optional custom CSS/JS (RFC 0002 §3.2, §3.4).
+func ensureThemesCollection(app core.App, cfg *config.AppConfig) error {
+	colName := cfg.GetCollectionName(config.DefaultThemesCollection)
+	col, err := initCollection(app, colName, &Theme{})
+	if err != nil {
+		return err
+	}
+
+	// Public read (dashboard needs theme before login), superuser-only CUD (RFC 0002 §3.4).
+	col.ListRule = types.Pointer("")
+	col.ViewRule = types.Pointer("")
+	col.CreateRule = nil
+	col.UpdateRule = nil
+	col.DeleteRule = nil
 
 	return app.Save(col)
 }

@@ -83,6 +83,7 @@ func main() {
 			config.DefaultTimeSlotsCollection: db.OnTimeSlotUpsert,
 			config.DefaultQpusCollection:      db.OnQpuCreate,
 			config.DefaultDriversCollection:   db.OnDriverCreate,
+			config.DefaultThemesCollection:    db.OnThemeUpsert,
 		}),
 	})
 
@@ -91,6 +92,7 @@ func main() {
 			config.DefaultTimeSlotsCollection: db.OnTimeSlotUpsert,
 			config.DefaultQpusCollection:      db.OnQpuUpdate,
 			config.DefaultDriversCollection:   db.OnDriverUpdate,
+			config.DefaultThemesCollection:    db.OnThemeUpsert,
 		}),
 	})
 
