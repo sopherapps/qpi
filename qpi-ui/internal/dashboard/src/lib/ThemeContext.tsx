@@ -147,6 +147,61 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
     link.href = faviconUrl;
   }, [faviconUrl]);
 
+  useEffect(() => {
+    if (isLoading) return;
+
+    const loadThemeCSS = async () => {
+      try {
+        const res = await fetch("/api/theme/css");
+        let styleEl = document.getElementById(
+          "qpi-theme-css",
+        ) as HTMLStyleElement | null;
+
+        if (res.status === 204) {
+          if (styleEl) {
+            styleEl.textContent = "";
+          }
+          return;
+        }
+
+        const cssText = await res.text();
+        if (!styleEl) {
+          styleEl = document.createElement("style");
+          styleEl.id = "qpi-theme-css";
+          document.head.appendChild(styleEl);
+        }
+        styleEl.textContent = cssText;
+      } catch (err) {
+        console.error("Error loading theme CSS:", err);
+      }
+    };
+
+    const loadThemeJS = async () => {
+      try {
+        const oldScript = document.getElementById("qpi-theme-js");
+        if (oldScript) {
+          oldScript.remove();
+        }
+
+        const res = await fetch("/api/theme/js");
+        if (res.status === 204) {
+          return;
+        }
+
+        const jsText = await res.text();
+        const scriptEl = document.createElement("script");
+        scriptEl.id = "qpi-theme-js";
+        scriptEl.textContent = jsText;
+        document.body.appendChild(scriptEl);
+      } catch (err) {
+        console.error("Error loading theme JS:", err);
+      }
+    };
+
+    loadThemeCSS();
+    loadThemeJS();
+  }, [theme?.id, isLoading]);
+
   const value: ThemeContextValue = {
     theme,
     siteName,
