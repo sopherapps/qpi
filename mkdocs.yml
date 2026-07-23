@@ -31,16 +31,19 @@ plugins:
   - mkdocstrings:
       handlers:
         python:
-          paths: [qpi-driver, qpi-client/py]
+          paths: [qpi-driver/py, qpi-client/py]
           options:
             show_root_heading: true
             show_source: true
 
 nav:
   - Home: index.md
-  - Python Driver:
-      - Overview: driver/index.md
-      - API Reference: driver/api.md
+  - Drivers:
+      - Python Driver:
+          - Overview: driver/python.md
+          - API Reference: driver/python_api.md
+      - Go Driver: driver/go.md
+      - JavaScript Driver: driver/javascript.md
       - Operations Runbook: driver/operations.md
   - Clients:
       - Python Client:

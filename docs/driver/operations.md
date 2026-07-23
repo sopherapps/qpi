@@ -26,7 +26,6 @@ limit respectively.
 Example `qpi.config.yml`:
 
 ```yaml
-enableDriverFramework: true
 eventsRetention: "168h"      # keep one week of events
 eventsPruneInterval: "30m"
 eventRateLimit: 50           # 50 events/sec per driver

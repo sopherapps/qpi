@@ -37,6 +37,7 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 - `qpi-ui`: [BREAKING] Stripped removed QPU fields from `QPUCreateResponse`, `QPUUpdateResponse`, etc.
 - `e2e`: Updated the backend/driver integration test (`verify.py`) to correctly retrieve authentication tokens using the new `drivers/create` endpoint rather than the removed fields on the QPU response.
 - `e2e`: Fixed a local environment flakiness in the cypress script by utilizing `npm install --no-package-lock`.
+- `docs`: Change driver docs folder structure to resemble that for clients due to qpi-driver folder restructure.
 
 ### Fixed
 

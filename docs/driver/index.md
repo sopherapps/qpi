@@ -1,1 +1,0 @@
-../../qpi-driver/README.md

@@ -29,6 +29,15 @@ build-dashboard:
 	@echo "Building React dashboard..."
 	(cd qpi-ui/internal/dashboard && CYPRESS_INSTALL_BINARY=0 npm ci && npm run build)
 
+serve-docs:
+	@echo "Building documentation..."
+	@if [ ! -d ".venv" ]; then \
+		echo "Creating virtual environment for docs..."; \
+		$(UV) venv; \
+	fi
+	$(UV) pip install mike mkdocs-material mkdocstrings[python]
+	$(UV) run mike serve
+
 # ---------------------------------------------------------------------------
 # Test targets
 # ---------------------------------------------------------------------------
