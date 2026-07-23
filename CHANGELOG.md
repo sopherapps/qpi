@@ -7,6 +7,8 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-07-23
+
 ### Added
 
 - `qpi-ui`: Added the event-based driver framework (RFC 0001) with the `drivers` collection (`name`, `qpu`, `kind`, `language`, `events`, `token`, `status`, NNG ports) for registering and managing external driver processes.
