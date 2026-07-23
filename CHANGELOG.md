@@ -9,118 +9,37 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 
 ### Added
 
-- `qpi-ui`: Added `events` log retention pruning (RFC 0001 Phase 5) — a background loop deletes entries
-older than `events-retention` (`QPI_EVENTS_RETENTION` / `eventsRetention`, default `720h`) on each
-`events-prune-interval` tick (`QPI_EVENTS_PRUNE_INTERVAL` / `eventsPruneInterval`, default `1h`); a `0`
-window disables it and the flag-off server starts no extra goroutine.
-- `qpi-ui`: Added a composite index `idx_events_type_ts` on `events(type, ts)` for the dashboard's
-per-type, time-ordered reads and the retention scan.
-- `qpi-ui`: Added a per-driver inbound event rate limit (`event-rate-limit` / `QPI_EVENT_RATE_LIMIT` /
-`eventRateLimit`, default `100`/sec, `0` disables) — over-rate events are logged and dropped without
-affecting other drivers.
-- `docs`: Added the driver framework operations runbook (`docs/driver/operations.md`) documenting the
-retention, index, and rate-limit tuning knobs and troubleshooting.
-- `docs`: Added `docs/rfcs/` with RFC 0001 (Driver Framework — design plus phased plan) describing the
-framework for supporting custom and extensible drivers.
-- `qpi-ui`: Added the typed event envelope, as part of the experimental driver framework 
-- `qpi-ui`: Added `enable-driver-framework` flag (`QPI_ENABLE_DRIVER_FRAMEWORK` env var / `enableDriverFramework` config file key).
-- `qpi-driver`: Added `Event` and `EventType` to the SDK, mirroring QPI-UI's event envelope.
-- `qpi-ui`: Added the `drivers` collection (behind `enable-driver-framework`) — a driver belongs to exactly
-one QPU, and stores its kind, language, participating events, and hashed token, per RFC 0001.
-- `qpi-ui`: Added `drivers/create`, `drivers/connect`, and `drivers/toggle` endpoints, mirroring the QPU
-registration/connect/toggle handlers; `create` also resolves the kind×language setup snippets (systemd +
-manual CLI for an official Python driver, or a base install + stub otherwise).
-- `qpi-ui`: Added `driver_framework_enabled` to `GET /api/op/version` so the dashboard can gate the Drivers
-page without probing a `drivers/*` route directly.
-- `qpi-ui`: Added the Drivers dashboard page (RFC 0001 §10) — a full page mirroring the QPU
-Registry, admin-only and gated behind the driver framework flag. Register a driver by name/QPU/kind/language,
-reveal its one-time token and kind×language setup snippets once, and toggle/delete it afterwards; status and
-last-seen update live via PocketBase realtime.
-- `e2e`: Added Cypress specs for the Drivers dashboard page (register, custom-driver event validation,
-toggle, delete, and non-admin inertness) and started the dashboard E2E server with
-`--enable-driver-framework` so they run alongside the existing QPU Registry specs.
-- `qpi-driver`: Added the `QpiDriver` SDK base class (`handle_event()`, `emit()`, `every()`) and
-re-expressed the QPU as a `QpuDriver` handling `JobDispatch` and emitting `JobResult` over the event
-envelope, per RFC 0001 Phase 2.
-- `qpi-driver`: Added an experimental driver-framework mode for the QPU, opted into with the process
-option `-o use_sdk=true`; the legacy runner stays the default.
-- `qpi-ui`: Added the driver job flow behind `enable-driver-framework` — on connect a driver gets
-dispatch/listen goroutines that push `JobDispatch` envelopes and route emitted `JobResult` envelopes
-through the event registry to persist outcomes and deduct QPU-seconds (mirrors the legacy QPU path).
-- `e2e`: Added a `QPI_DRIVER_FRAMEWORK=1` mode (`make test-e2e-driver-framework`) that registers a driver
-and runs the QPU on the driver framework, so the driver suite can run on both paths.
-- `qpi-ui`: Added the `events` collection (behind `enable-driver-framework`) — the trace log for
-driver-originated events (`source`/`driver`/`qpu`/`type`/`payload`/`ts`), with an `events-collection` flag
-(`QPI_EVENTS_COLLECTION` / `eventsCollection`), per RFC 0001 §7.
-- `qpi-ui`: Added the `CryostatReading` event type and a handler that appends readings to the `events` log,
-dropping empty payloads.
-- `qpi-ui`/`qpi-driver`: Added the officially maintained `bluefors_gen1` monitor driver for the Bluefors
-Remote Access Control API Gen. 1 — it polls value-tree channels on a timer and emits `CryostatReading`, never
-handling `JobDispatch`. Installed via the `qpi-driver[cli,bluefors_gen1]` extra and run with
-`qpi-driver monitor --device bluefors_gen1`.
-- `qpi-ui`: Added the Monitoring dashboard page — live per-channel `CryostatReading` charts over PocketBase
-realtime, gated like the Drivers page.
-- `e2e`: Added `mock_bluefors_server.py` and `test_bluefors_gen1_events`, exercising the monitor end to end
-under `make test-e2e-driver-framework`.
-- `qpi-driver`: Added the TypeScript driver SDK (`qpi-driver/js`, npm `qpi-driver`) mirroring the Python SDK —
-`QpiDriver` (`handleEvent`/`emit`/`every`), the `drivers/connect` handshake, and TLS with the pinned root CA.
-The NNG (nanomsg SP) pipeline is implemented over Node's built-in `tls`, so the package has zero runtime
-dependencies (RFC 0001 Phase 4).
-- `qpi-driver`: Added the Go driver SDK (`qpi-driver/go`, `go get github.com/sopherapps/qpi/qpi-driver/go`)
-mirroring the Python SDK — `Base` (`HandleEvent`/`Emit`/`Every`) with `Run`, the `drivers/connect` handshake,
-and TLS with the pinned root CA over `go.nanomsg.org/mangos` (the same NNG library as the server).
-- `qpi-driver`: Added the `bluefors_gen1` monitor as a built-in of both new SDKs, each in its own
-tree-shakeable module so it is only pulled in when used — a Go sub-package
-(`.../qpi-driver/go/qpi-driver/bluefors`) and a TypeScript sub-path export (`qpi-driver/builtins/bluefors-gen1`),
-the equivalent of the Python `qpi-driver[bluefors_gen1]` extra.
-- `qpi-driver`: Added a `qpi-driver` CLI for the Go and TypeScript built-ins, mirroring the Python CLI
-(operation subcommands `process`/`monitor`/`version`, shared universal flags with `QPI_*` env fallbacks,
-repeatable `-o key=value`): a cobra CLI at `qpi-driver/go/qpi-driver`
-(`go install …/go/qpi-driver@latest`) and a commander CLI exposed as the npm package's `qpi-driver`
-bin (`npm i -g qpi-driver` / `npx -y qpi-driver …`).
-- `qpi-driver`: Added per-language `install-systemd.sh` for the Go and TypeScript drivers
-(`qpi-driver/{go,js}/install-systemd.sh`), installing the CLI via `go install` / `npm install -g` rather than
-`uv tool install`, and dropping the Python-only bits (uv, quantify configs, `PYTHONUNBUFFERED`).
-- `qpi-ui`: The kind×language setup snippets now resolve for TypeScript and Go, not just Python — an official
-driver gets per-language systemd + manual-CLI commands (Python via `uv tool`, Go via `go install`, TypeScript
-via `npm i -g`), while a custom driver gets the SDK install command plus a stub to extend. A built-in is run,
-not written, so it has no stub.
-- `e2e`/`ci`: Added `make test-js-driver` / `make test-go-driver` (plus lint/format/package targets) and CI
-jobs for the new TypeScript and Go driver SDKs.
-- `e2e`: The `bluefors_gen1` monitor end-to-end test now runs across all three SDK languages — each registers
-its own driver and launches that language's `qpi-driver` CLI (the Python CLI, `go run ./qpi-driver`,
-or the built TypeScript CLI at `dist/builtins/cli.js`), then asserts a `CryostatReading` attributed to it lands
-in the `events` log and that killing it leaves its QPU untouched. A language whose toolchain or built CLI is
-absent is skipped rather than failing.
-- `qpi-driver`: `install-systemd.sh` (all languages) now honours `QPI_SKIP_INSTALL=1` (with an optional
-`QPI_DRIVER_BIN`) to skip the package-install step and use a `qpi-driver` that is already installed.
-- `e2e`: The systemd installer test now also covers the Go and TypeScript `install-systemd.sh` — unit-file
-generation and service start are verified with `QPI_SKIP_INSTALL=1` and a stub `qpi-driver` (a real
-`go install`/`npm install -g` needs published artifacts), alongside the existing real Python install.
-- `ci`: Added the `publish-npm-driver` job (gated on `vars.PUBLISH_JS_DRIVER`) and `make publish-driver-js`
-to publish `qpi-driver/js` to npm, mirroring the `qpi-client/js` publish flow.
+- `qpi-ui`: Added the event-based driver framework (RFC 0001) with the `drivers` collection (`name`, `qpu`, `kind`, `language`, `events`, `token`, `status`, NNG ports) for registering and managing external driver processes.
+- `qpi-ui`: Added `POST /api/op/drivers/create`, `POST /api/op/drivers/connect`, and `POST /api/op/drivers/toggle` endpoints for driver lifecycle, token issuance, and TLS/NNG port negotiation.
+- `qpi-ui`: Added the `events` trace log collection for driver-to-UI events (`source`, `driver`, `qpu`, `type`, `payload`, `ts`) with composite index `idx_events_type_ts` on `events(type, ts)`.
+- `qpi-ui`: Added background retention pruning for the `events` log (`events-retention` / `QPI_EVENTS_RETENTION`, default `720h`; `events-prune-interval` / `QPI_EVENTS_PRUNE_INTERVAL`, default `1h`).
+- `qpi-ui`: Added per-driver inbound event rate limiting (`event-rate-limit` / `QPI_EVENT_RATE_LIMIT`, default `100`/sec).
+- `qpi-ui`: Added the **Drivers** and **Monitoring** dashboard pages for superusers — managing driver records, copying setup snippets, viewing live status, and displaying real-time `CryostatReading` telemetry charts over PocketBase realtime.
+- `qpi-ui`: Added `CryostatReading` event type and handler that persists telemetry readings to the `events` collection.
+- `qpi-driver`: Added the Python driver SDK (`qpi-driver/py`, `QpiDriver` base class with `handle_event()`, `emit()`, `every()`), typed event envelope (`Event`, `EventType`), and re-expressed QPU execution as `QpuDriver` (`run_driver`).
+- `qpi-driver`: Added the TypeScript driver SDK (`qpi-driver/js`, npm `qpi-driver`) with zero runtime dependencies, implementing NNG PULL/PUSH over Node's built-in `tls`.
+- `qpi-driver`: Added the Go driver SDK (`qpi-driver/go`, `go get github.com/sopherapps/qpi/qpi-driver/go`) implementing `Base` over `go.nanomsg.org/mangos`.
+- `qpi-driver`: Added the official `bluefors_gen1` cryostat monitoring driver across Python (`qpi-driver[cli,bluefors_gen1]`), TypeScript (`qpi-driver/builtins/bluefors-gen1`), and Go (`qpi-driver/go/qpi-driver/bluefors`), polling the Bluefors Remote Access Control API Gen. 1.
+- `qpi-driver`: Added unified CLI runners (`process`, `monitor`, `version`) and systemd installer scripts (`install-systemd.sh`) across Python, TypeScript, and Go.
+- `docs`: Added RFC 0001 (`docs/rfcs/0001-driver-framework.md`) and the driver framework operations runbook (`docs/driver/operations.md`).
 
 ### Changed
 
-- `qpi-driver`: Moved the Python SDK from `qpi-driver/` to `qpi-driver/py/`, so all three driver SDKs sit
-side by side (`qpi-driver/py`, `qpi-driver/js`, `qpi-driver/go`) mirroring `qpi-client`'s per-language layout
-(RFC 0001 Phase 4). Build, CI, e2e, and the systemd-installer URL were updated to the new path; the Python
-package, extras, and CLI are otherwise unchanged.
+- `qpi-ui` & `qpi-driver`: Unified all QPU driver operations on the event-based driver framework (RFC 0001), replacing legacy direct QPU connections with event-driven `QpuDriver` instances.
+- `qpi-driver`: [BREAKING] Reorganised the Python SDK repository directory from `qpi-driver/` to `qpi-driver/py/`, matching `qpi-driver/js` and `qpi-driver/go`.
+- `qpi-driver`: [BREAKING] Reorganised the driver CLI around operations (`process` for QPUs, `monitor` for telemetry sensors) dispatched by `--device` with repeatable `-o key=value` options instead of the legacy `start --executor` interface.
+- `qpi-ui`: Moved driver catalog definitions into a data-driven `internal/drivers` registry keyed by operation.
+- `e2e`: Updated verification suite and test runners to connect all drivers via `POST /api/op/drivers/connect` and validate `bluefors_gen1` monitoring events across Python, TypeScript, and Go.
+- `qpi-ui`: [BREAKING] The `QPU` struct was stripped of connection-related state that is now managed by the Driver framework. Removed `AccessToken`, `NNGCommandPort`, `NNGResultPort`, `DeviceConfig`, and `DriverVersion` fields, converting it into a pure registry entity.
+- `qpi-ui`: [BREAKING] Simplified `handleQPUCreate` as it no longer generates tokens or sets up legacy executor configurations.
+- `qpi-ui`: [BREAKING] Stripped removed QPU fields from `QPUCreateResponse`, `QPUUpdateResponse`, etc.
+- `e2e`: Updated the backend/driver integration test (`verify.py`) to correctly retrieve authentication tokens using the new `drivers/create` endpoint rather than the removed fields on the QPU response.
+- `e2e`: Fixed a local environment flakiness in the cypress script by utilizing `npm install --no-package-lock`.
 
-- `qpi-driver`: Reorganised the CLI around driver *operations*. The subcommand is now the operation —
-`process` (a QPU, formerly `start`) or `monitor` — run on a `--device` (generalising `--executor`/`--kind`).
-Universal flags (token, qpi-addr, name, device, ca) are shared across operations; each device's own settings
-are passed as repeatable `-o key=value`. Adding a device or operation needs no new flags.
-- `qpi-ui`: Moved the driver catalog into a data-driven `internal/drivers` registry keyed by operation — a new
-device is one `Spec` (operation, install extra, events, options) rather than edits across hand-written maps and
-per-kind snippet builders.
-- `qpi-driver`: The systemd installer takes `OPERATION` + `DEVICE` (generalising `INSTRUMENT`) and passes a
-driver's options through a generic `DRIVER_OPTIONS`.
-- `e2e`: Adapted the two legacy-QPU-specific driver sub-tests to pass on the framework path — under
-`QPI_DRIVER_FRAMEWORK`, `test_qpu_toggle_switch` now toggles and reconnects the driver via
-`drivers/toggle` + `drivers/connect` (asserting the QPU tracks its driver offline/online), and
-`test_driver_snippet_connection` registers a driver and connects the snippet with `--use-sdk` over
-`drivers/connect`. The legacy path is unchanged.
+### Removed
+
+- `qpi-ui`: [BREAKING] Removed the legacy non-event QPU connection endpoint (`POST /api/op/qpus/connect`) and old dispatcher/listener routines. All drivers now connect through `POST /api/op/drivers/connect`.
+- `qpi-driver`: [BREAKING] Removed legacy non-event driver module (`qpi_driver/driver.py`). Drivers now run via `QpuDriver` (`qpi_driver.builtins.qpu`).
 
 ## [0.0.42] - 2026-07-21
 

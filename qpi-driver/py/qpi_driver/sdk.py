@@ -14,7 +14,10 @@ event with no matching handler, or whose handler raises, is logged and dropped �
 there is no application-level ACK/NACK (RFC 0001 §4).
 """
 
+import hashlib
 import logging
+import os
+import ssl
 import threading
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -214,8 +217,6 @@ class QpiDriver(ABC):
         What differs between drivers is only which events they handle and emit,
         not how they connect (RFC 0001 §3, §8).
         """
-        from qpi_driver.driver import _download_root_ca_cert
-
         resp = requests.post(
             f"{self.qpi_addr}/api/op/drivers/connect",
             json={"token": self.token, "name": self.name},
@@ -263,3 +264,30 @@ class QpiDriver(ABC):
         shape override this.
         """
         return event.to_json().encode()
+
+
+def _download_root_ca_cert(
+    qpi_addr: str, expected_hash: str, dst: Path, timeout: float = 10
+) -> str:
+    url = f"{qpi_addr}/api/pub/root-ca.pem"
+    response = requests.get(url, timeout=timeout)
+    response.raise_for_status()
+
+    pem_text = response.text
+    der_cert = ssl.PEM_cert_to_DER_cert(pem_text)
+    current_hash = hashlib.sha256(der_cert).hexdigest()
+
+    if current_hash != expected_hash:
+        raise RuntimeError(
+            f"CRITICAL SECURITY ERROR:\n"
+            f"Downloaded fingerprint ({current_hash}) does not match "
+            f"the expected configuration signature ({expected_hash}).\n"
+            f"The download channel may be compromised!"
+        )
+
+    os.makedirs(dst.parent, exist_ok=True)
+
+    with open(dst, "w") as f:
+        f.write(pem_text)
+
+    return dst.as_posix()

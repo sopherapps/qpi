@@ -149,14 +149,8 @@ start_pocketbase() {
     echo "[e2e] Starting PocketBase server..."
     mkdir -p "${DATA_DIR}"
 
-    local framework_flag=""
-    if [ "${QPI_DRIVER_FRAMEWORK:-0}" = "1" ]; then
-        framework_flag="--enable-driver-framework"
-        echo "[e2e] Driver framework enabled (RFC 0001)"
-    fi
-
     # Run from the same temp directory so it reuses the newly generated certs
-    (cd "$tmp_dir" && "${PROJECT_ROOT}/bin/qpi" serve --dir "${PROJECT_ROOT}/bin/pb_data" --dev "${extra_serve_flags[@]}" $framework_flag > "${DATA_DIR}/pocketbase.log" 2>&1) &
+    (cd "$tmp_dir" && "${PROJECT_ROOT}/bin/qpi" serve --dir "${PROJECT_ROOT}/bin/pb_data" --dev "${extra_serve_flags[@]}" > "${DATA_DIR}/pocketbase.log" 2>&1) &
     PB_PID=$!
 
     echo "[e2e] Waiting for PocketBase to be ready..."
@@ -194,7 +188,6 @@ seed_database() {
     local py
     py="$(detect_python)"
     ADMIN_EMAIL=admin@example.com ADMIN_PASSWORD=supersecretpassword1234 \
-        QPI_DRIVER_FRAMEWORK="${QPI_DRIVER_FRAMEWORK:-0}" \
         DRIVER_KIND="$executor" \
         DRIVER_TOKEN_FILE="${DATA_DIR}/driver_token.txt" \
         "$py" "${E2E_DIR}/seed.py"
@@ -225,15 +218,8 @@ start_driver() {
     fi
     echo "[e2e] CA fingerprint: $ca_fingerprint"
 
-    # In driver-framework mode the driver connects with its own registered token
-    # (written by seed.py) over drivers/connect, and runs on the SDK path.
-    local token="my-super-secret-token-12345"
-    local sdk_opt=""
-    if [ "${QPI_DRIVER_FRAMEWORK:-0}" = "1" ]; then
-        token="$(cat "${DATA_DIR}/driver_token.txt")"
-        sdk_opt="-o use_sdk=true"
-        echo "[e2e] Driver framework mode: connecting via drivers/connect (-o use_sdk=true)"
-    fi
+    local token
+    token="$(cat "${DATA_DIR}/driver_token.txt")"
 
     QPI_ACCESS_TOKEN="$token" "$py" -u -m qpi_driver.cli process \
         --device "$executor" \

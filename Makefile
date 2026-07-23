@@ -95,15 +95,11 @@ test-go-driver:
 	@echo "Running Go driver SDK tests..."
 	(cd qpi-driver/go && go test -v ./...)
 
-test-e2e: test-e2e-driver test-e2e-driver-framework test-e2e-client-py test-e2e-client-js test-e2e-client-go test-e2e-dashboard test-e2e-systemd
+test-e2e: test-e2e-driver test-e2e-client-py test-e2e-client-js test-e2e-client-go test-e2e-dashboard test-e2e-systemd
 
 test-e2e-driver:
 	@echo "Running E2E driver tests..."
 	./e2e/test_driver.sh $(EXECUTOR)
-
-test-e2e-driver-framework:
-	@echo "Running E2E driver tests on the driver framework (RFC 0001)..."
-	QPI_DRIVER_FRAMEWORK=1 ./e2e/test_driver.sh $(EXECUTOR)
 
 test-e2e-client-py:
 	@echo "Running E2E Python client tests..."

@@ -1,36 +1,25 @@
 import { useState } from "react";
-import { X, Copy, Check } from "lucide-react";
+import { X } from "lucide-react";
 import type { CreateQpuResponse } from "@/types";
 
 interface Props {
   onClose: () => void;
-  onRegister: (name: string, executor: string) => Promise<CreateQpuResponse>;
+  onRegister: (name: string) => Promise<CreateQpuResponse>;
 }
 
 export function RegisterQpuModal({ onClose, onRegister }: Props) {
   const [regName, setRegName] = useState("");
-  const [regExecutor, setRegExecutor] = useState("mock");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-
-  const [createdQpu, setCreatedQpu] = useState<CreateQpuResponse | null>(null);
-  const [copiedToken, setCopiedToken] = useState(false);
-  const [copiedCommand, setCopiedCommand] = useState(false);
-  const [copiedSystemdCommand, setCopiedSystemdCommand] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
     try {
-      const res = await onRegister(regName, regExecutor);
-      if (res && res.access_token) {
-        setCreatedQpu(res);
-      } else {
-        onClose();
-      }
+      await onRegister(regName);
       setRegName("");
-      setRegExecutor("mock");
+      onClose();
     } catch (err: unknown) {
       const message =
         err instanceof Error
@@ -41,144 +30,6 @@ export function RegisterQpuModal({ onClose, onRegister }: Props) {
       setLoading(false);
     }
   };
-
-  const handleCopyToken = () => {
-    if (createdQpu) {
-      navigator.clipboard.writeText(createdQpu.access_token);
-      setCopiedToken(true);
-      setTimeout(() => setCopiedToken(false), 2000);
-    }
-  };
-
-  const handleCopyCommand = () => {
-    if (!createdQpu) return;
-    const cmd = getDriverStartCmd(createdQpu);
-    navigator.clipboard.writeText(cmd);
-    setCopiedCommand(true);
-    setTimeout(() => setCopiedCommand(false), 2000);
-  };
-
-  const handleCopySystemdCommand = () => {
-    if (!createdQpu) return;
-    const cmd = getDriverSystemdCmd(createdQpu);
-    navigator.clipboard.writeText(cmd);
-    setCopiedSystemdCommand(true);
-    setTimeout(() => setCopiedSystemdCommand(false), 2000);
-  };
-
-  if (createdQpu) {
-    const commandText = getDriverStartCmd(createdQpu);
-    const systemdCommandText = getDriverSystemdCmd(createdQpu);
-
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-50 dark:bg-zinc-950/80 backdrop-blur-sm animate-fade-in">
-        <div className="w-full max-w-lg bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-lg shadow-2xl p-6 space-y-5 max-h-[90vh] overflow-y-auto">
-          <div className="flex justify-between items-center border-b border-gray-200 dark:border-zinc-800 pb-3">
-            <h3 className="text-lg font-semibold font-geist text-emerald-400">
-              QPU Registered Successfully!
-            </h3>
-            <button
-              onClick={onClose}
-              className="text-gray-500 dark:text-zinc-400 hover:text-gray-900 dark:text-white focus:outline-none"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-
-          <div className="space-y-4 text-sm text-gray-600 dark:text-zinc-300">
-            <p>
-              Your QPU <strong>{createdQpu.name}</strong> has been registered.
-              Copy the credentials below to configure your QPU driver.
-            </p>
-
-            <div className="bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-zinc-800 rounded p-4 space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wider mb-1">
-                  Access Token
-                </label>
-                <div className="flex items-center gap-2">
-                  <span className="flex-1 font-mono bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 px-3 py-1.5 rounded text-gray-900 dark:text-white overflow-x-auto whitespace-nowrap">
-                    {createdQpu.access_token}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={handleCopyToken}
-                    className="p-2 bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 text-gray-900 dark:text-white rounded transition-colors focus:outline-none flex items-center justify-center min-w-[36px]"
-                    title="Copy Token"
-                  >
-                    {copiedToken ? (
-                      <Check className="w-4 h-4 text-emerald-400" />
-                    ) : (
-                      <Copy className="w-4 h-4" />
-                    )}
-                  </button>
-                </div>
-                <span className="text-xs text-amber-400 mt-1 block">
-                  ⚠️ This token is only displayed once. Store it securely.
-                </span>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wider mb-1">
-                  Connection Command
-                </label>
-                <div className="flex items-start gap-2">
-                  <pre className="flex-1 font-mono bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 p-3 rounded text-gray-700 dark:text-zinc-200 text-xs overflow-x-auto whitespace-pre-wrap break-all leading-relaxed max-h-40">
-                    {commandText}
-                  </pre>
-                  <button
-                    type="button"
-                    onClick={handleCopyCommand}
-                    className="p-2 bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 text-gray-900 dark:text-white rounded transition-colors focus:outline-none flex items-center justify-center min-w-[36px] mt-1"
-                    title="Copy Connection Command"
-                  >
-                    {copiedCommand ? (
-                      <Check className="w-4 h-4 text-emerald-400" />
-                    ) : (
-                      <Copy className="w-4 h-4" />
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wider mb-1">
-                  Installation Command (Systemd)
-                </label>
-                <div className="flex items-start gap-2">
-                  <pre className="flex-1 font-mono bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 p-3 rounded text-gray-700 dark:text-zinc-200 text-xs overflow-x-auto whitespace-pre-wrap break-all leading-relaxed max-h-40">
-                    {systemdCommandText}
-                  </pre>
-                  <button
-                    type="button"
-                    onClick={handleCopySystemdCommand}
-                    className="p-2 bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 text-gray-900 dark:text-white rounded transition-colors focus:outline-none flex items-center justify-center min-w-[36px] mt-1"
-                    title="Copy Systemd Command"
-                  >
-                    {copiedSystemdCommand ? (
-                      <Check className="w-4 h-4 text-emerald-400" />
-                    ) : (
-                      <Copy className="w-4 h-4" />
-                    )}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex justify-end pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="bg-white text-zinc-950 font-semibold py-2 px-6 rounded hover:opacity-90 transition-opacity focus:outline-none"
-            >
-              Done
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-50 dark:bg-zinc-950/80 backdrop-blur-sm">
@@ -208,21 +59,6 @@ export function RegisterQpuModal({ onClose, onRegister }: Props) {
               placeholder="rigetti-aspen-9"
             />
           </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1.5 uppercase tracking-wider">
-              Executor Type
-            </label>
-            <select
-              value={regExecutor}
-              onChange={(e) => setRegExecutor(e.target.value)}
-              className="w-full bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-zinc-800 text-gray-900 dark:text-white rounded px-3 py-2 focus:outline-none focus:border-zinc-500 transition-colors"
-            >
-              <option value="mock">mock (Local Simulator)</option>
-              <option value="qiskit_aer">qiskit_aer (Aer Simulator)</option>
-              <option value="quantify">quantify (Quantify Driver)</option>
-              <option value="qblox">qblox (Qblox Driver)</option>
-            </select>
-          </div>
 
           {error && (
             <div className="text-xs text-error font-medium bg-error/10 border border-error/20 p-2.5 rounded">
@@ -241,36 +77,4 @@ export function RegisterQpuModal({ onClose, onRegister }: Props) {
       </div>
     </div>
   );
-}
-
-/**
- * Gets the command to use in the terminal to start the qpi-driver given a QPU creation response
- *
- * @param qpuCreationResp - the response on creation of the QPU
- * @returns - the command to use to start the qpi-driver
- */
-function getDriverStartCmd(qpuCreationResp: CreateQpuResponse) {
-  return `
-    QPI_ACCESS_TOKEN=${qpuCreationResp.access_token} qpi-driver process \\
-        --ca-fingerprint ${qpuCreationResp.ca_fingerprint} \\
-        --qpi-addr ${qpuCreationResp.qpi_addr} \\
-        --name "${qpuCreationResp.name}" \\
-        --device "${qpuCreationResp.executor_type}"`;
-}
-
-/**
- * Gets the systemd installer command
- *
- * @param qpuCreationResp - the response on creation of the QPU
- * @returns - the command to use to install the qpi-driver as a systemd service
- */
-function getDriverSystemdCmd(qpuCreationResp: CreateQpuResponse) {
-  return `curl -sL https://raw.githubusercontent.com/sopherapps/qpi/${qpuCreationResp.driver_version}/qpi-driver/install-systemd.sh | sudo \\
-  QPI_TOKEN="${qpuCreationResp.access_token}" \\
-  QPI_ADDR="${qpuCreationResp.qpi_addr}" \\
-  CA_FINGERPRINT="${qpuCreationResp.ca_fingerprint}" \\
-  QPU_NAME="${qpuCreationResp.name}" \\
-  OPERATION="process" \\
-  DEVICE="${qpuCreationResp.executor_type}" \\
-  QPI_DRIVER_VERSION="${qpuCreationResp.driver_version}" bash`;
 }

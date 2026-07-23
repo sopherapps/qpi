@@ -26,10 +26,8 @@ func testConfig() *config.AppConfig {
 	}
 }
 
-// TestEnsureSchema_DriversCollectionOffByDefault proves the drivers
-// collection is additive: it does not exist while EnableDriverFramework is
-// off, so the server behaves exactly as before RFC 0001 (§5, §11).
-func TestEnsureSchema_DriversCollectionOffByDefault(t *testing.T) {
+// TestEnsureSchema_DriversCollection proves that EnsureSchema creates the drivers collection.
+func TestEnsureSchema_DriversCollection(t *testing.T) {
 	app, err := tests.NewTestApp()
 	if err != nil {
 		t.Fatalf("failed to create test app: %v", err)
@@ -37,66 +35,18 @@ func TestEnsureSchema_DriversCollectionOffByDefault(t *testing.T) {
 	defer app.Cleanup()
 
 	cfg := testConfig()
-	cfg.EnableDriverFramework = false
 	config.SaveConfigOnApp(app, cfg)
-
 	if err := EnsureSchema(app); err != nil {
 		t.Fatalf("failed to ensure schema: %v", err)
-	}
-
-	if _, err := app.FindCollectionByNameOrId(config.DefaultDriversCollection); err == nil {
-		t.Errorf("expected no drivers collection to exist while EnableDriverFramework is off")
-	}
-}
-
-// TestEnsureSchema_DriversCollectionOnWithFlag proves that turning the flag
-// on creates the drivers collection without touching the qpus collection's
-// rules (RFC 0001 §11 done-criteria for Phase 1).
-func TestEnsureSchema_DriversCollectionOnWithFlag(t *testing.T) {
-	app, err := tests.NewTestApp()
-	if err != nil {
-		t.Fatalf("failed to create test app: %v", err)
-	}
-	defer app.Cleanup()
-
-	cfg := testConfig()
-	cfg.EnableDriverFramework = false
-	config.SaveConfigOnApp(app, cfg)
-	if err := EnsureSchema(app); err != nil {
-		t.Fatalf("failed to ensure schema with flag off: %v", err)
-	}
-
-	qpusBefore, err := app.FindCollectionByNameOrId(config.DefaultQpusCollection)
-	if err != nil {
-		t.Fatalf("qpus collection not found: %v", err)
-	}
-	rulesBefore := collectionRuleSnapshot(qpusBefore)
-
-	cfg.EnableDriverFramework = true
-	config.SaveConfigOnApp(app, cfg)
-	if err := EnsureSchema(app); err != nil {
-		t.Fatalf("failed to ensure schema with flag on: %v", err)
 	}
 
 	if _, err := app.FindCollectionByNameOrId(config.DefaultDriversCollection); err != nil {
-		t.Fatalf("expected drivers collection to exist with flag on: %v", err)
-	}
-
-	qpusAfter, err := app.FindCollectionByNameOrId(config.DefaultQpusCollection)
-	if err != nil {
-		t.Fatalf("qpus collection not found after enabling flag: %v", err)
-	}
-	rulesAfter := collectionRuleSnapshot(qpusAfter)
-
-	if rulesBefore != rulesAfter {
-		t.Errorf("expected qpus collection rules unchanged, before=%q after=%q", rulesBefore, rulesAfter)
+		t.Fatalf("expected drivers collection to exist: %v", err)
 	}
 }
 
-// TestEnsureSchema_EventsCollectionOffByDefault proves the events collection
-// is additive just like drivers: it does not exist while
-// EnableDriverFramework is off (RFC 0001 §5, §7, §11).
-func TestEnsureSchema_EventsCollectionOffByDefault(t *testing.T) {
+// TestEnsureSchema_EventsCollection proves that EnsureSchema creates the events collection.
+func TestEnsureSchema_EventsCollection(t *testing.T) {
 	app, err := tests.NewTestApp()
 	if err != nil {
 		t.Fatalf("failed to create test app: %v", err)
@@ -104,44 +54,14 @@ func TestEnsureSchema_EventsCollectionOffByDefault(t *testing.T) {
 	defer app.Cleanup()
 
 	cfg := testConfig()
-	cfg.EnableDriverFramework = false
 	config.SaveConfigOnApp(app, cfg)
-
 	if err := EnsureSchema(app); err != nil {
 		t.Fatalf("failed to ensure schema: %v", err)
 	}
 
-	if _, err := app.FindCollectionByNameOrId(config.DefaultEventsCollection); err == nil {
-		t.Errorf("expected no events collection to exist while EnableDriverFramework is off")
-	}
-}
-
-// TestEnsureSchema_EventsCollectionOnWithFlag proves turning the flag on
-// creates the events collection without touching the drivers collection's
-// rules.
-func TestEnsureSchema_EventsCollectionOnWithFlag(t *testing.T) {
-	app, err := tests.NewTestApp()
-	if err != nil {
-		t.Fatalf("failed to create test app: %v", err)
-	}
-	defer app.Cleanup()
-
-	cfg := testConfig()
-	cfg.EnableDriverFramework = true
-	config.SaveConfigOnApp(app, cfg)
-	if err := EnsureSchema(app); err != nil {
-		t.Fatalf("failed to ensure schema with flag on: %v", err)
-	}
-
-	driversBefore, err := app.FindCollectionByNameOrId(config.DefaultDriversCollection)
-	if err != nil {
-		t.Fatalf("drivers collection not found: %v", err)
-	}
-	rulesBefore := collectionRuleSnapshot(driversBefore)
-
 	col, err := app.FindCollectionByNameOrId(config.DefaultEventsCollection)
 	if err != nil {
-		t.Fatalf("expected events collection to exist with flag on: %v", err)
+		t.Fatalf("expected events collection to exist: %v", err)
 	}
 
 	wantFields := []string{"source", "driver", "qpu", "type", "payload", "ts", "created"}
@@ -162,15 +82,6 @@ func TestEnsureSchema_EventsCollectionOnWithFlag(t *testing.T) {
 	if !hasIndex(col, wantIndex) {
 		t.Errorf("expected events collection to have index %q, got %v", wantIndex, col.Indexes)
 	}
-
-	driversAfter, err := app.FindCollectionByNameOrId(config.DefaultDriversCollection)
-	if err != nil {
-		t.Fatalf("drivers collection not found after ensuring events: %v", err)
-	}
-	rulesAfter := collectionRuleSnapshot(driversAfter)
-	if rulesBefore != rulesAfter {
-		t.Errorf("expected drivers collection rules unchanged, before=%q after=%q", rulesBefore, rulesAfter)
-	}
 }
 
 // TestEnsureSchema_EventsIndexIdempotent proves running the migration twice
@@ -183,7 +94,6 @@ func TestEnsureSchema_EventsIndexIdempotent(t *testing.T) {
 	defer app.Cleanup()
 
 	cfg := testConfig()
-	cfg.EnableDriverFramework = true
 	config.SaveConfigOnApp(app, cfg)
 	if err := EnsureSchema(app); err != nil {
 		t.Fatalf("failed to ensure schema (first pass): %v", err)

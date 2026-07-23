@@ -8,7 +8,7 @@ interface QpuRegistryTabProps {
   qpus: QPU[];
   isAdmin: boolean;
   onToggleQpu: (id: string, enabled: boolean) => Promise<void>;
-  onRegisterQpu: (name: string, executor: string) => Promise<CreateQpuResponse>;
+  onRegisterQpu: (name: string) => Promise<CreateQpuResponse>;
   onDeleteQpu: (id: string) => Promise<void>;
 }
 

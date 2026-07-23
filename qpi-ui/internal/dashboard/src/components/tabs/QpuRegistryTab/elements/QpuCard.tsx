@@ -68,18 +68,7 @@ export function QpuCard({ qpu, isAdmin, onToggle, onDelete }: Props) {
             </span>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 py-4 my-2 border-t border-b border-gray-200 dark:border-zinc-800/50 text-xs">
-            <div>
-              <span className="text-gray-400 dark:text-zinc-500 block uppercase tracking-wider text-[10px] mb-1">
-                Executor Driver
-              </span>
-              <span
-                data-testid="executor-value"
-                className="font-mono text-gray-600 dark:text-zinc-300 bg-gray-50 dark:bg-zinc-950 px-2 py-0.5 rounded border border-gray-200 dark:border-zinc-800"
-              >
-                {qpu.executor_type}
-              </span>
-            </div>
+          <div className="grid grid-cols-1 gap-4 py-4 my-2 border-t border-b border-gray-200 dark:border-zinc-800/50 text-xs">
             <div>
               <span className="text-gray-400 dark:text-zinc-500 block uppercase tracking-wider text-[10px] mb-1">
                 NNG Ports (Cmd/Res)

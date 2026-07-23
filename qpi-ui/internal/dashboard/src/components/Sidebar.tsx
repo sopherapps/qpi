@@ -17,7 +17,6 @@ interface SidebarProps {
   qpuSeconds: number;
   onRequestTimeClick: () => void;
   version?: string;
-  driverFrameworkEnabled?: boolean;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -27,12 +26,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
   qpuSeconds,
   onRequestTimeClick,
   version,
-  driverFrameworkEnabled,
 }) => {
   const navItems = [
     { id: "overview", label: "Overview", icon: LayoutDashboard },
     { id: "qpus", label: "QPU Registry", icon: Cpu },
-    ...(isAdmin && driverFrameworkEnabled
+    ...(isAdmin
       ? [
           { id: "drivers", label: "Drivers", icon: Workflow },
           { id: "monitoring", label: "Monitoring", icon: Thermometer },

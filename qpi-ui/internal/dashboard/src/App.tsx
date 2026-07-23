@@ -34,7 +34,6 @@ export const App: React.FC = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [qpuSeconds, setQpuSeconds] = useState(0);
   const [version, setVersion] = useState<string>("");
-  const [driverFrameworkEnabled, setDriverFrameworkEnabled] = useState(false);
 
   // Tab routing
   const [activeTab, setActiveTab] = useState("overview");
@@ -224,12 +223,10 @@ export const App: React.FC = () => {
     try {
       const res = await pb.send<{
         version: string;
-        driver_framework_enabled?: boolean;
       }>("/api/op/version", {
         method: "GET",
       });
       setVersion(res.version);
-      setDriverFrameworkEnabled(!!res.driver_framework_enabled);
     } catch (err) {
       console.error("Failed to load version:", err);
     }
@@ -357,7 +354,6 @@ export const App: React.FC = () => {
         setNotifications([]);
         setUsersList([]);
         setTimeRequests([]);
-        setDriverFrameworkEnabled(false);
       }
     }, true);
   }, []);
@@ -425,15 +421,11 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleCreateQpu = async (
-    name: string,
-    executor: string,
-  ): Promise<CreateQpuResponse> => {
+  const handleCreateQpu = async (name: string): Promise<CreateQpuResponse> => {
     const res = await pb.send<CreateQpuResponse>("/api/op/qpus/create", {
       method: "POST",
       body: JSON.stringify({
         name: name,
-        executor_type: executor,
       }),
       headers: { "Content-Type": "application/json" },
     });
@@ -570,7 +562,7 @@ export const App: React.FC = () => {
           />
         );
       case "drivers":
-        return isAdmin && driverFrameworkEnabled ? (
+        return isAdmin ? (
           <DriversTab
             drivers={drivers}
             qpus={qpus}
@@ -583,7 +575,7 @@ export const App: React.FC = () => {
           <div className="text-gray-400 dark:text-zinc-500">Access Denied.</div>
         );
       case "monitoring":
-        return isAdmin && driverFrameworkEnabled ? (
+        return isAdmin ? (
           <MonitoringTab events={events} drivers={drivers} />
         ) : (
           <div className="text-gray-400 dark:text-zinc-500">Access Denied.</div>
@@ -662,7 +654,6 @@ export const App: React.FC = () => {
             qpuSeconds={qpuSeconds}
             onRequestTimeClick={() => setIsRequestTimeOpen(true)}
             version={version}
-            driverFrameworkEnabled={driverFrameworkEnabled}
           />
 
           <div className="flex-1 flex flex-col min-w-0 h-full">

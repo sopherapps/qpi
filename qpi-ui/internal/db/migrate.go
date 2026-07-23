@@ -57,13 +57,11 @@ func EnsureSchema(app core.App) error {
 	if err := ensureNotificationsCollection(app, cfg); err != nil {
 		return fmt.Errorf("notifications collection: %w", err)
 	}
-	if cfg.EnableDriverFramework {
-		if err := ensureDriversCollection(app, cfg); err != nil {
-			return fmt.Errorf("drivers collection: %w", err)
-		}
-		if err := ensureEventsCollection(app, cfg); err != nil {
-			return fmt.Errorf("events collection: %w", err)
-		}
+	if err := ensureDriversCollection(app, cfg); err != nil {
+		return fmt.Errorf("drivers collection: %w", err)
+	}
+	if err := ensureEventsCollection(app, cfg); err != nil {
+		return fmt.Errorf("events collection: %w", err)
 	}
 
 	log.Println("[QPI] Schema OK")
@@ -250,10 +248,11 @@ func ensureNotificationsCollection(app core.App, cfg *config.AppConfig) error {
 	return app.Save(col)
 }
 
-// ensureDriversCollection creates the collection storing registered drivers —
-// external processes that exchange typed events with QPI-UI (RFC 0001 §7).
-// Only reached when EnableDriverFramework is on; QPU collections/rules are
-// untouched by this.
+// ensureDriversCollection creates the `drivers` collection (required `qpu`
+// relation + `kind` / `language`) and its rules (admin-only manage, read-only
+// list for authenticated users) if it does not exist (RFC 0001 §3).
+//
+// QPU collections/rules are untouched.
 func ensureDriversCollection(app core.App, cfg *config.AppConfig) error {
 	col, err := initCollection(app, cfg.CollectionDrivers, &Driver{})
 	if err != nil {

@@ -12,7 +12,6 @@ export interface QPU {
   nng_command_port: number;
   nng_result_port: number;
   enabled: boolean;
-  executor_type: "mock" | "qiskit_aer" | "quantify" | "presto" | "qblox";
   calibration_data?: unknown;
 }
 
@@ -79,7 +78,6 @@ export interface Notification extends NotificationRequest {
 
 export interface CreateQpuRequest {
   name: string;
-  executor_type?: string;
   num_qubits?: number;
   enabled?: boolean;
 }
@@ -87,13 +85,8 @@ export interface CreateQpuRequest {
 export interface CreateQpuResponse {
   id: string;
   name: string;
-  access_token: string;
-  executor_type: string;
   status: string;
   enabled: boolean;
-  qpi_addr: string;
-  ca_fingerprint: string;
-  driver_version: string;
 }
 
 export type DriverKind =

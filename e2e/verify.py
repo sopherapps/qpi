@@ -40,7 +40,7 @@ ACCESS_TOKEN = "my-super-secret-token-12345"
 # Driver-framework mode (RFC 0001): when enabled, the QPU is backed by a
 # registered driver. Toggling and (re)connection then happen at the driver
 # level (drivers/toggle, drivers/connect) rather than on the QPU itself.
-DRIVER_FRAMEWORK = os.getenv("QPI_DRIVER_FRAMEWORK", "0") == "1"
+DRIVER_FRAMEWORK = True
 
 s = requests.Session()
 
@@ -1399,7 +1399,6 @@ def test_driver_snippet_connection():
         f"{BASE}/api/op/qpus/create",
         json={
             "name": "SnippetTestQPU",
-            "executor_type": "mock",
         },
     )
     if resp.status_code != 201:
@@ -1407,35 +1406,26 @@ def test_driver_snippet_connection():
         return False
         
     data = resp.json()
-    token = data["access_token"]
-    fingerprint = data["ca_fingerprint"]
     qpu_name = data["name"]
-    executor = data["executor_type"]
+    executor = "mock"
 
-    # On the framework path the QPU is reached through a registered driver: the
-    # snippet the dashboard hands out uses the driver's token and -o use_sdk=true,
-    # and connects over drivers/connect rather than qpus/connect. Success is the
-    # SDK PULL channel coming up rather than the legacy "Handshake OK" line.
+    resp = admin_session.post(
+        f"{BASE}/api/op/drivers/create",
+        json={
+            "name": f"{qpu_name}_driver",
+            "qpu": data["id"],
+            "kind": executor,
+            "language": "python",
+        },
+    )
+    if resp.status_code != 201:
+        print(f"[verify] ✗ Failed to register driver: {resp.text}")
+        return False
+    driver_data = resp.json()
+    token = driver_data["token"]
+    fingerprint = driver_data["ca_fingerprint"]
     sdk_flags = []
-    success_marker = "Handshake OK"
-    if DRIVER_FRAMEWORK:
-        resp = admin_session.post(
-            f"{BASE}/api/op/drivers/create",
-            json={
-                "name": f"{qpu_name}_driver",
-                "qpu": data["id"],
-                "kind": executor,
-                "language": "python",
-            },
-        )
-        if resp.status_code != 201:
-            print(f"[verify] ✗ Failed to register driver: {resp.text}")
-            return False
-        driver_data = resp.json()
-        token = driver_data["token"]
-        fingerprint = driver_data["ca_fingerprint"]
-        sdk_flags = ["-o", "use_sdk=true"]
-        success_marker = "NNG PULL connected"
+    success_marker = "Worker process started"
 
     script_dir = os.path.dirname(os.path.abspath(__file__))
     qpi_dir = os.path.dirname(script_dir)

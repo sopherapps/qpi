@@ -26,7 +26,7 @@ from typing import Any
 
 import requests
 
-from qpi_driver.driver import _normalize_qpi_addr
+from qpi_driver.builtins.qpu import _normalize_qpi_addr
 from qpi_driver.events import Event, EventType
 from qpi_driver.sdk import DEFAULT_RECV_TIMEOUT_MS, QpiDriver
 

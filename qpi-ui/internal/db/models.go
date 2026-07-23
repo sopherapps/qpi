@@ -132,19 +132,14 @@ func (at *APIToken) RefreshFromRecord(record *core.Record) error {
 
 // QPU represents a QPU record in the database.
 type QPU struct {
-	ID             string `json:"id" db:"id"`
-	Name           string `json:"name" db:"name" required:"true" primaryKey:"true"`
-	AccessToken    string `json:"access_token" db:"access_token" required:"true"`
-	Status         string `json:"status" db:"status" type:"select" required:"true" maxSelect:"1" values:"offline,online,maintenance"`
-	NNGCommandPort int    `json:"nng_command_port" db:"nng_command_port"`
-	NNGResultPort  int    `json:"nng_result_port" db:"nng_result_port"`
-	NumQubits      int    `json:"num_qubits" db:"num_qubits" min:"1.0"`
-	ExecutorType   string `json:"executor_type" db:"executor_type"`
-	DeviceConfig   any    `json:"device_config" db:"device_config" type:"json"`
-	Enabled        bool   `json:"enabled" db:"enabled"`
-	Created        string `json:"created" db:"created"`
-	Updated        string `json:"updated" db:"updated"`
-	QpiAddr        string `json:"qpi_addr,omitempty" db:""`
+	ID        string `json:"id" db:"id"`
+	Name      string `json:"name" db:"name" required:"true" primaryKey:"true"`
+	Status    string `json:"status" db:"status" type:"select" required:"true" maxSelect:"1" values:"offline,online,maintenance"`
+	NumQubits int    `json:"num_qubits" db:"num_qubits" min:"1.0"`
+	Enabled   bool   `json:"enabled" db:"enabled"`
+	Created   string `json:"created" db:"created"`
+	Updated   string `json:"updated" db:"updated"`
+	QpiAddr   string `json:"qpi_addr,omitempty" db:""`
 }
 
 // ToRecord converts this model into a pocketbase record
@@ -168,23 +163,11 @@ func (q *QPU) ToRecord(app core.App) (*core.Record, error) {
 		return nil, err
 	}
 	record.Set("name", q.Name)
-	record.Set("access_token", q.AccessToken)
 	record.Set("status", q.Status)
-	record.Set("nng_command_port", q.NNGCommandPort)
-	record.Set("nng_result_port", q.NNGResultPort)
 	record.Set("num_qubits", q.NumQubits)
-	record.Set("executor_type", q.ExecutorType)
 	record.Set("enabled", q.Enabled)
 	record.Set("created", q.Created)
 	record.Set("updated", q.Updated)
-
-	if q.DeviceConfig != nil {
-		deviceConfigJSON, err := json.Marshal(q.DeviceConfig)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling device config: %w", err)
-		}
-		record.Set("device_config", deviceConfigJSON)
-	}
 
 	return record, nil
 }
@@ -197,13 +180,8 @@ func (q *QPU) RefreshFromRecord(record *core.Record) error {
 
 	q.ID = record.Id
 	q.Name = record.GetString("name")
-	q.AccessToken = record.GetString("access_token")
 	q.Status = record.GetString("status")
-	q.NNGCommandPort = record.GetInt("nng_command_port")
-	q.NNGResultPort = record.GetInt("nng_result_port")
 	q.NumQubits = record.GetInt("num_qubits")
-	q.ExecutorType = record.GetString("executor_type")
-	q.DeviceConfig = record.Get("device_config")
 	q.Enabled = record.GetBool("enabled")
 	q.Created = record.GetString("created")
 	q.Updated = record.GetString("updated")
@@ -213,8 +191,7 @@ func (q *QPU) RefreshFromRecord(record *core.Record) error {
 
 // Driver represents a registered driver record in the database — an external
 // process that exchanges typed events with QPI-UI (RFC 0001 §7). Every driver
-// belongs to exactly one QPU; a QPU may have many drivers. Behind the
-// EnableDriverFramework flag.
+// belongs to exactly one QPU; a QPU may have many drivers.
 type Driver struct {
 	ID         string   `json:"id" db:"id"`
 	Name       string   `json:"name" db:"name" required:"true"`
@@ -339,7 +316,7 @@ func stringSliceFromJSONField(v any) []string {
 // (RFC 0001 §7) — the single log of typed messages exchanged with drivers.
 // Phase 3 is its first writer: a driver→UI event whose handler chooses to
 // persist it (e.g. CryostatReading), keyed by the driver that sent it and the
-// QPU that driver belongs to. Behind the EnableDriverFramework flag.
+// QPU that driver belongs to.
 type Event struct {
 	ID      string `json:"id" db:"id"`
 	Source  string `json:"source" db:"source" required:"true"`
