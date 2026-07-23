@@ -7,7 +7,7 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 
 ## [Unreleased]
 
-## [0.1.0] - 2026-07-23
+## [0.1.1] - 2026-07-23
 
 ### Added
 
@@ -47,6 +47,10 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 
 - `qpi-ui`: [BREAKING] Removed the legacy non-event QPU connection endpoint (`POST /api/op/qpus/connect`) and old dispatcher/listener routines. All drivers now connect through `POST /api/op/drivers/connect`.
 - `qpi-driver`: [BREAKING] Removed legacy non-event driver module (`qpi_driver/driver.py`). Drivers now run via `QpuDriver` (`qpi_driver.builtins.qpu`).
+
+## [0.1.0] - 2026-07-23
+
+- Yanked
 
 ## [0.0.42] - 2026-07-21
 
