@@ -6,6 +6,7 @@ import (
 
 	"qpi/internal/config"
 	"qpi/internal/db"
+	"qpi/internal/drivers"
 
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
@@ -168,8 +169,8 @@ func seedDriverForEvents(t *testing.T) (*tests.TestApp, *config.AppConfig, *core
 	driverRec := core.NewRecord(getCollectionByName(t, app, cfg.CollectionDrivers))
 	driverRec.Set("name", "cryostat-1")
 	driverRec.Set("qpu", qpuRec.Id)
-	driverRec.Set("kind", string(DriverKindBlueforsGen1))
-	driverRec.Set("language", string(DriverLanguagePython))
+	driverRec.Set("kind", string(drivers.BlueforsGen1))
+	driverRec.Set("language", string(drivers.Python))
 	driverRec.Set("events", []string{string(EventCryostatReading)})
 	driverRec.Set("token", db.HashToken("drv-tok"))
 	driverRec.Set("status", "online")

@@ -1413,9 +1413,9 @@ def test_driver_snippet_connection():
     executor = data["executor_type"]
 
     # On the framework path the QPU is reached through a registered driver: the
-    # snippet the dashboard hands out uses the driver's token and --use-sdk, and
-    # connects over drivers/connect rather than qpus/connect. Success is the SDK
-    # PULL channel coming up rather than the legacy "Handshake OK" line.
+    # snippet the dashboard hands out uses the driver's token and -o use_sdk=true,
+    # and connects over drivers/connect rather than qpus/connect. Success is the
+    # SDK PULL channel coming up rather than the legacy "Handshake OK" line.
     sdk_flags = []
     success_marker = "Handshake OK"
     if DRIVER_FRAMEWORK:
@@ -1434,7 +1434,7 @@ def test_driver_snippet_connection():
         driver_data = resp.json()
         token = driver_data["token"]
         fingerprint = driver_data["ca_fingerprint"]
-        sdk_flags = ["--use-sdk"]
+        sdk_flags = ["-o", "use_sdk=true"]
         success_marker = "NNG PULL connected"
 
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -1478,11 +1478,11 @@ def test_driver_snippet_connection():
     print("[verify]   Testing direct connection...")
     qpi_addr_direct = BASE
     cmd_direct = [
-        sys.executable, "-m", "qpi_driver.cli", "start",
+        sys.executable, "-m", "qpi_driver.cli", "process",
         "--ca-fingerprint", fingerprint,
         "--qpi-addr", qpi_addr_direct,
         "--name", f"{qpu_name}_direct",
-        "--executor", executor,
+        "--device", executor,
         *sdk_flags,
     ]
     env = os.environ.copy()
@@ -1540,11 +1540,11 @@ def test_driver_snippet_connection():
 
     qpi_addr_proxy = f"https://localhost:{proxy_port}"
     cmd_proxy = [
-        sys.executable, "-m", "qpi_driver.cli", "start",
+        sys.executable, "-m", "qpi_driver.cli", "process",
         "--ca-fingerprint", fingerprint,
         "--qpi-addr", qpi_addr_proxy,
         "--name", f"{qpu_name}_proxy",
-        "--executor", executor,
+        "--device", executor,
         *sdk_flags,
     ]
     env_proxy = env.copy()
@@ -1631,7 +1631,7 @@ def test_bluefors_gen1_events():
             "-m",
             "qpi_driver.cli",
             "monitor",
-            "--kind",
+            "--device",
             "bluefors_gen1",
             "--qpi-addr",
             BASE,
@@ -1639,12 +1639,12 @@ def test_bluefors_gen1_events():
             "bluefors-gen1-e2e",
             "--ca-fingerprint",
             fingerprint,
-            "--bluefors-base-url",
-            f"http://127.0.0.1:{mock_port}",
-            "--bluefors-channels",
-            "mapper.bf.tmc:K,mapper.bf.pmc:mbar",
-            "--poll-interval",
-            "1",
+            "-o",
+            f"base_url=http://127.0.0.1:{mock_port}",
+            "-o",
+            "channels=mapper.bf.tmc:K,mapper.bf.pmc:mbar",
+            "-o",
+            "poll_interval=1",
         ],
         env=env,
         cwd=os.path.join(qpi_dir, "qpi-driver"),

@@ -16,7 +16,7 @@ names, depend on how a given system's mappers are configured, so they are
 supplied as configuration rather than hard-coded.
 
 Ships as an officially maintained driver — install with
-``qpi-driver[cli,bluefors_gen1]`` and run with ``qpi-driver monitor --kind
+``qpi-driver[cli,bluefors_gen1]`` and run with ``qpi-driver monitor --device
 bluefors_gen1`` (see ``qpi_driver.cli``), the same tier as the qblox/quantify
 executors.
 """
@@ -28,7 +28,7 @@ import requests
 
 from qpi_driver.driver import _normalize_qpi_addr
 from qpi_driver.events import Event, EventType
-from qpi_driver.sdk import QpiDriver
+from qpi_driver.sdk import DEFAULT_RECV_TIMEOUT_MS, QpiDriver
 
 log = logging.getLogger(__name__)
 
@@ -51,6 +51,8 @@ class BlueforsGen1Driver(QpiDriver):
         timeout: HTTP timeout per channel read, in seconds.
     """
 
+    OPERATION = "monitor"
+
     def __init__(
         self,
         qpi_addr: str = "http://127.0.0.1:8090",
@@ -63,6 +65,7 @@ class BlueforsGen1Driver(QpiDriver):
         timeout: float = DEFAULT_TIMEOUT,
         ca_fingerprint: str = "",
         ca_file_path: str = "./bin/qpi.ca.pem",
+        recv_timeout_ms: int = DEFAULT_RECV_TIMEOUT_MS,
     ) -> None:
         super().__init__(
             qpi_addr=_normalize_qpi_addr(qpi_addr),
@@ -70,6 +73,7 @@ class BlueforsGen1Driver(QpiDriver):
             name=name,
             ca_fingerprint=ca_fingerprint,
             ca_file_path=ca_file_path,
+            recv_timeout_ms=recv_timeout_ms,
         )
         self.bluefors_base_url = bluefors_base_url.rstrip("/")
         self.channels = normalize_channels(channels)
@@ -169,28 +173,65 @@ def parse_channels(raw: str) -> dict[str, str]:
     return channels
 
 
-def run_bluefors_gen1_driver(
-    qpi_addr: str = "http://127.0.0.1:8090",
-    token: str = "",
-    name: str = "bluefors-gen1-monitor",
-    bluefors_base_url: str = "http://127.0.0.1:49099",
-    channels: dict[str, str] | list[str] | None = None,
-    api_key: str = "",
-    poll_interval: float = DEFAULT_POLL_INTERVAL,
-    timeout: float = DEFAULT_TIMEOUT,
-    ca_fingerprint: str = "",
-    ca_file_path: str = "./bin/qpi.ca.pem",
-) -> None:
-    """Run the Bluefors Gen. 1 monitor — the SDK counterpart to ``run_qpu_driver``."""
-    BlueforsGen1Driver(
+def build_from_options(
+    *,
+    qpi_addr: str,
+    token: str,
+    name: str,
+    ca_fingerprint: str,
+    ca_file_path: str,
+    recv_timeout_ms: int,
+    options: dict[str, str],
+) -> BlueforsGen1Driver:
+    """Build a driver from the CLI's generic ``-o key=value`` options.
+
+    Recognised keys: ``channels`` (required, ``path[:unit],...``), ``base_url``,
+    ``api_key``, ``poll_interval``, ``timeout``. Raising ``ValueError`` lets the
+    CLI report a bad option uniformly, without knowing anything Bluefors-specific.
+    """
+    channels = options.get("channels", "")
+    if not channels:
+        raise ValueError(
+            "bluefors_gen1 needs a 'channels' option, e.g. "
+            "-o channels=mapper.bf.tmc:K,mapper.bf.pmc:mbar"
+        )
+    return BlueforsGen1Driver(
         qpi_addr=qpi_addr,
         token=token,
         name=name,
-        bluefors_base_url=bluefors_base_url,
-        channels=channels,
-        api_key=api_key,
-        poll_interval=poll_interval,
-        timeout=timeout,
+        bluefors_base_url=options.get("base_url", "http://127.0.0.1:49099"),
+        channels=parse_channels(channels),
+        api_key=options.get("api_key", ""),
+        poll_interval=float(options.get("poll_interval", DEFAULT_POLL_INTERVAL)),
+        timeout=float(options.get("timeout", DEFAULT_TIMEOUT)),
         ca_fingerprint=ca_fingerprint,
         ca_file_path=ca_file_path,
+        recv_timeout_ms=recv_timeout_ms,
+    )
+
+
+def run_monitor(
+    *,
+    device: str,
+    options: dict[str, str],
+    qpi_addr: str,
+    token: str,
+    name: str,
+    ca_fingerprint: str,
+    ca_file_path: str,
+    recv_timeout_ms: int,
+) -> None:
+    """Run the Bluefors Gen. 1 monitor, config from -o options.
+
+    The uniform runner the `monitor` operation registry dispatches to; *device*
+    is always ``bluefors_gen1`` here. See :func:`build_from_options` for the keys.
+    """
+    build_from_options(
+        qpi_addr=qpi_addr,
+        token=token,
+        name=name,
+        ca_fingerprint=ca_fingerprint,
+        ca_file_path=ca_file_path,
+        recv_timeout_ms=recv_timeout_ms,
+        options=options,
     ).run()

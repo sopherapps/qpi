@@ -25,7 +25,10 @@ dependencies = [
 
 [project.optional-dependencies]
 cli = ["typer>=0.9.0"]
+# the optional dependency sets below this correspond to builtin drivers
+# to allow installing only a given driver, without installing the others
 aer = ["qiskit-aer>=0.14.0"]
+qiskit_aer = ["qpi-driver[aer]"]
 quantify = [
     "quantify-scheduler",
     "qblox-instruments<1.3.0"
@@ -34,11 +37,9 @@ qblox = [
     "qblox-scheduler",
     "qblox-instruments<1.3.0"
 ]
-# No extra dependencies beyond the base install: the Bluefors Gen. 1 Control
-# API is plain HTTP, already covered by the base `requests` dependency. The
-# extra exists so `qpi-driver[cli,bluefors_gen1]` installs the same way as
-# the other officially maintained drivers.
 bluefors_gen1 = []
+mock = []
+presto = []
 
 [dependency-groups]
 dev = [

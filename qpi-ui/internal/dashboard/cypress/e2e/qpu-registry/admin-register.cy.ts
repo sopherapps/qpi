@@ -83,7 +83,7 @@ describe("QPU Registry — Admin: Register QPU", () => {
       .and("contain", "--ca-fingerprint")
       .and("contain", "--qpi-addr")
       .and("contain", `--name "${qpuName}"`)
-      .and("contain", '--executor "qiskit_aer"');
+      .and("contain", '--device "qiskit_aer"');
 
     // Systemd Command section is visible
     cy.contains("label", "Installation Command (Systemd)").should("be.visible");
@@ -93,7 +93,7 @@ describe("QPU Registry — Admin: Register QPU", () => {
       .and("contain", "install-systemd.sh")
       .and("contain", `QPU_NAME="${qpuName}"`)
       .and("contain", `QPI_DRIVER_VERSION=`)
-      .and("contain", 'EXECUTOR="qiskit_aer"');
+      .and("contain", 'DEVICE="qiskit_aer"');
   });
 
   it("copies the access token when the copy button is clicked", () => {

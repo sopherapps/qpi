@@ -93,7 +93,8 @@ curl -LsSf https://raw.githubusercontent.com/sopherapps/qpi/main/qpi-driver/inst
   QPI_ADDR="http://127.0.0.1:8090" \
   CA_FINGERPRINT="<fingerprint>" \
   QPU_NAME="qpu-1" \
-  EXECUTOR="mock" \
+  OPERATION="process" \
+  DEVICE="mock" \
   bash
 ```
 
@@ -104,12 +105,12 @@ Ensure Python 3.12 is installed, then install using `pip` or `uv`:
 uv tool install "qpi-driver[cli]"
 
 # Start the driver daemon
-qpi-driver start \
+qpi-driver process \
   --qpi-addr http://127.0.0.1:8090 \
   --token "<YOUR_ACCESS_TOKEN>" \
   --ca-fingerprint "<YOUR_CA_FINGERPRINT>" \
   --name "qpu-1" \
-  --executor "mock"
+  --device "mock"
 ```
 
 ---
@@ -279,7 +280,7 @@ Built-in executors include:
 
 ### Running the Driver for Each Executor
 
-Depending on the backend you wish to run, start the driver using the `--executor` / `-e` option.
+A QPU is a `process` driver; pick the backend with the `--device` / `-d` option. Backend-specific settings (dummy mode, quantify config files) are passed as repeatable `-o key=value` options.
 
 #### 1. Mock Executor
 Runs simulated measurements without external physics dependencies.
@@ -287,8 +288,8 @@ Runs simulated measurements without external physics dependencies.
 # Install the package with cli extra
 pip install ./qpi-driver[cli]
 
-# Start the driver using mock executor
-qpi-driver start --token "my-super-secret-token-12345" --ca-fingerprint "<fingerprint>" --executor "mock"
+# Start the driver using the mock device
+qpi-driver process --token "my-super-secret-token-12345" --ca-fingerprint "<fingerprint>" --device "mock"
 ```
 
 #### 2. Qiskit Aer Simulator
@@ -297,8 +298,8 @@ Runs realistic circuit simulations using Qiskit Aer.
 # Install the package with simulator extras
 pip install ./qpi-driver[cli,aer]
 
-# Start the driver using qiskit_aer executor
-qpi-driver start --token "my-super-secret-token-12345" --ca-fingerprint "<fingerprint>" --executor "qiskit_aer"
+# Start the driver using the qiskit_aer device
+qpi-driver process --token "my-super-secret-token-12345" --ca-fingerprint "<fingerprint>" --device "qiskit_aer"
 ```
 
 #### 3. Quantify Executor (Qblox Cluster)
@@ -309,12 +310,12 @@ Compiles and runs circuits using `quantify-scheduler`.
   pip install ./qpi-driver[cli,quantify]
 
   # Start driver in dummy mode
-  qpi-driver start --token "my-super-secret-token-12345" --ca-fingerprint "<fingerprint>" --executor "quantify" --is-dummy --quantify-hardware-config quantify.hardware.example.json --quantify-device-config quantify.device.example.json
+  qpi-driver process --token "my-super-secret-token-12345" --ca-fingerprint "<fingerprint>" --device "quantify" -o is_dummy=true -o quantify_hardware_config=quantify.hardware.example.json -o quantify_device_config=quantify.device.example.json
   ```
 * **Real Hardware Mode**: Compiles and deploys to actual physical Qblox hardware.
   ```bash
   # Start driver with a hardware config file
-  qpi-driver start --token "my-super-secret-token-12345" --ca-fingerprint "<fingerprint>" --executor "quantify" --quantify-hardware-config quantify.hardware.example.json --quantify-device-config quantify.device.example.json
+  qpi-driver process --token "my-super-secret-token-12345" --ca-fingerprint "<fingerprint>" --device "quantify" -o quantify_hardware_config=quantify.hardware.example.json -o quantify_device_config=quantify.device.example.json
   ```
 
 #### 4. Qblox Executor (Qblox Cluster)
@@ -325,30 +326,29 @@ Compiles and runs circuits using `qblox-scheduler`.
   pip install ./qpi-driver[cli,qblox]
 
   # Start driver in dummy mode
-  qpi-driver start --token "my-super-secret-token-12345" --ca-fingerprint "<fingerprint>" --executor "qblox" --is-dummy --quantify-hardware-config quantify.hardware.example.json --quantify-device-config quantify.device.example.json
+  qpi-driver process --token "my-super-secret-token-12345" --ca-fingerprint "<fingerprint>" --device "qblox" -o is_dummy=true -o quantify_hardware_config=quantify.hardware.example.json -o quantify_device_config=quantify.device.example.json
   ```
 * **Real Hardware Mode**: Compiles and deploys to actual physical Qblox hardware.
   ```bash
   # Start driver with a hardware config file
-  qpi-driver start --token "my-super-secret-token-12345" --ca-fingerprint "<fingerprint>" --executor "qblox" --quantify-hardware-config quantify.hardware.example.json --quantify-device-config quantify.device.example.json
+  qpi-driver process --token "my-super-secret-token-12345" --ca-fingerprint "<fingerprint>" --device "qblox" -o quantify_hardware_config=quantify.hardware.example.json -o quantify_device_config=quantify.device.example.json
   ```
 
 ### CLI Usage
-The package exposes a command-line interface via `typer`. Options can be passed as CLI arguments/flags or will automatically fall back to their corresponding environment variables.
+The package exposes a command-line interface via `typer`. A driver is run by its operation subcommand — `process` (a QPU) or `monitor` (e.g. a cryostat) — on a specific `--device`. Options can be passed as flags or fall back to their environment variables.
 
-Common options:
+Universal options (shared by every operation):
 * `-a`, `--qpi-addr`: Full URL of the QPI server (env: `QPI_ADDR`, default: `http://127.0.0.1:8090`).
-* `-t`, `--token`: Access token for the QPU (env: `QPI_ACCESS_TOKEN`, required).
-* `-n`, `--name`: Human-readable name for this QPU (env: `QPU_NAME`, default: `qpu_sim_01`).
-* `-e`, `--executor`: Which executor backend to use (env: `DRIVER_BACKEND`, default: `mock`).
-* `-d`, `--data-dir`: Directory for intermediate NetCDF datasets (env: `QPI_DATA_DIR`, default: `bin/data`).
-* `--is-dummy`: Enable/disable dummy/simulation mode (default: `false`).
-* `--quantify-hardware-config`: Path to the quantify's hardware-layer config file (JSON/YAML) for the RF control instruments (env: `QPI_QUANTIFY_HARDWARE_CONFIG`, default: `quantify.hardware.json`).
-* `--quantify-device-config`: Path to the quantify's device-layer config file (JSON/YAML) for the quantum chip (env: `QPI_QUANTIFY_DEVICE_CONFIG`, default: `quantify.device.yml`).
-* `--job-timeout`: the number of seconds to wait for results of the job before timing out (env: `QPI_JOB_TIMEOUT`, default: 10)
-* `-d`, `--data-dir`: the path to the folder where experiment data is to be saved (env: `QPI_DATA_DIR`, default: `./bin/data`)
-* `--ca-file`: the path to the downloaded Certificate Authority (CA) root certificate of the server (env: `QPI_CA_FILE`, default: `./bin/qpi.ca.pem`)
-* `--ca-fingerprint`: the fingerprint to verify the authenticity the automatically downloaded root CA certificate of the QPI server. You get it from the server after creating the QPU in the dashboard (env: `QPI_CA_FINGERPRINT`, required: true)
+* `-t`, `--token`: Access token identifying the driver (env: `QPI_ACCESS_TOKEN`, required).
+* `-n`, `--name`: Human-readable name for this driver (env: `QPI_DRIVER_NAME`).
+* `-d`, `--device`: Which backend to run within the operation, e.g. `mock`, `qblox`, `bluefors_gen1` (env: `QPI_DEVICE`).
+* `--ca-file`: Path to the downloaded root CA certificate of the server (env: `QPI_CA_FILE`, default: `./bin/qpi.ca.pem`).
+* `--ca-fingerprint`: Fingerprint pinning the server's root CA; shown after creating the QPU/driver in the dashboard (env: `QPI_CA_FINGERPRINT`, required).
+* `-o`, `--option`: Operation-specific config as `key=value`, repeatable.
+
+`process` options (`-o`): `data_dir` (default `./bin/data`), `is_dummy` (default `false`), `job_timeout` (seconds, default `10`), `quantify_hardware_config`, `quantify_device_config`, `use_sdk` (run on the experimental driver framework).
+
+`monitor` options (`-o`) for `bluefors_gen1`: `channels` (required, `path[:unit],…`), `base_url`, `api_key`, `poll_interval`, `timeout`.
 
 ---
 

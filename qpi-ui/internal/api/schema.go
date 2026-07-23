@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"qpi/internal/db"
+	"qpi/internal/drivers"
 )
 
 // EventType identifies one of the fixed set of typed messages exchanged with a
@@ -28,6 +29,16 @@ const (
 // AllEventTypes lists every event type QPI-UI knows about in this version.
 // Registration validates a custom driver's chosen events against this list.
 var AllEventTypes = []EventType{EventJobDispatch, EventJobResult, EventCryostatReading}
+
+// isKnownEventType reports whether eventType is one QPI-UI has a handler for.
+func isKnownEventType(eventType EventType) bool {
+	for _, known := range AllEventTypes {
+		if known == eventType {
+			return true
+		}
+	}
+	return false
+}
 
 // Event is the single envelope carried on the wire in either direction between
 // QPI-UI and a driver (RFC 0001 §6). Payload is left as raw JSON because its
@@ -436,33 +447,21 @@ func (dcr *DriverCreateRequest) ToMap() map[string]any {
 	}
 }
 
-// DriverSnippets holds the ready-to-use setup snippets shown once at
-// registration, resolved from the driver's kind×language (RFC 0001 §3). An
-// official build fills Systemd/ManualCLI/InstallAndRun; anything else fills
-// Install/Stub instead.
-type DriverSnippets struct {
-	Systemd       string `json:"systemd,omitempty"`
-	ManualCLI     string `json:"manual_cli,omitempty"`
-	InstallAndRun string `json:"install_and_run,omitempty"`
-	Install       string `json:"install,omitempty"`
-	Stub          string `json:"stub,omitempty"`
-}
-
 // DriverCreateResponse represents the JSON payload returned by POST /api/op/drivers/create.
 type DriverCreateResponse struct {
-	ID            string         `json:"id"`
-	Name          string         `json:"name"`
-	QPU           string         `json:"qpu"`
-	Kind          string         `json:"kind"`
-	Language      string         `json:"language"`
-	Events        []string       `json:"events"`
-	Status        string         `json:"status"`
-	Enabled       bool           `json:"enabled"`
-	Token         string         `json:"token"`
-	CaFingerprint string         `json:"ca_fingerprint"`
-	QpiAddr       string         `json:"qpi_addr"`
-	DriverVersion string         `json:"driver_version"`
-	Snippets      DriverSnippets `json:"snippets"`
+	ID            string           `json:"id"`
+	Name          string           `json:"name"`
+	QPU           string           `json:"qpu"`
+	Kind          string           `json:"kind"`
+	Language      string           `json:"language"`
+	Events        []string         `json:"events"`
+	Status        string           `json:"status"`
+	Enabled       bool             `json:"enabled"`
+	Token         string           `json:"token"`
+	CaFingerprint string           `json:"ca_fingerprint"`
+	QpiAddr       string           `json:"qpi_addr"`
+	DriverVersion string           `json:"driver_version"`
+	Snippets      drivers.Snippets `json:"snippets"`
 }
 
 // RefreshFromDbModel refreshes this DTO's field values from a database model

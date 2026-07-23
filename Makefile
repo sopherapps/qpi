@@ -87,7 +87,7 @@ test-py-client:
 	$(UV) sync --project qpi-client/py --dev
 	$(UV) run --project qpi-client/py pytest qpi-client/py/tests/ -v
 
-test-e2e: test-e2e-driver test-e2e-client-py test-e2e-client-js test-e2e-client-go test-e2e-dashboard test-e2e-systemd
+test-e2e: test-e2e-driver test-e2e-driver-framework test-e2e-client-py test-e2e-client-js test-e2e-client-go test-e2e-dashboard test-e2e-systemd
 
 test-e2e-driver:
 	@echo "Running E2E driver tests..."
