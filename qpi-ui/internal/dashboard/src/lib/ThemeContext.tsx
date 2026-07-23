@@ -1,24 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 
-interface ThemeRecord {
-  id: string;
-  name: string;
-  is_active: boolean;
-  site_name: string;
-  tagline: string;
-  logo: string;
-  favicon: string;
-  tokens: {
-    colors: {
-      light: Record<string, string>;
-      dark: Record<string, string>;
-    };
-    fonts?: Record<string, string>;
-    spacing?: Record<string, string>;
-    radius?: Record<string, string>;
-    shadows?: Record<string, string>;
-  } | null;
-}
+import type { ThemeRecord } from "@/types";
 
 interface ThemeContextValue {
   theme: ThemeRecord | null;

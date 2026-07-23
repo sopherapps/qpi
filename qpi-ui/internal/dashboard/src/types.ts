@@ -173,3 +173,25 @@ export interface CreateDriverResponse {
   driver_version: string;
   snippets: DriverSnippets;
 }
+
+export interface ThemeRecord {
+  id: string;
+  name: string;
+  is_active: boolean;
+  site_name: string;
+  tagline: string;
+  logo: string;
+  favicon: string;
+  tokens: {
+    colors: {
+      light: Record<string, string>;
+      dark: Record<string, string>;
+    };
+    fonts?: Record<string, string>;
+    spacing?: Record<string, string>;
+    radius?: Record<string, string>;
+    shadows?: Record<string, string>;
+  } | null;
+  custom_css?: string;
+  custom_js?: string;
+}

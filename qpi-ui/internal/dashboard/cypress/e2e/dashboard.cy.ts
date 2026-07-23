@@ -102,13 +102,27 @@ describe("QPI Dashboard — End-to-End User Journeys", () => {
 
     // Toggle QPU state on QPU Registry
     cy.contains("span", "Driver Enable Control").should("be.visible");
-    // Toggle the QPU (which is Online / Enabled) to Offline
-    cy.contains("button", "Online (Enabled)").click();
-    // Verify it becomes Offline (Disabled)
-    cy.contains("button", "Offline (Disabled)").should("be.visible");
-    // Toggle it back online
-    cy.contains("button", "Offline (Disabled)").click();
-    cy.contains("button", "Online (Enabled)").should("be.visible");
+    
+    // Toggle the newly created QPU (which is Offline / Disabled) to Online
+    cy.contains("h3", "cypress-test-qpu")
+      .parents("div.bg-white")
+      .contains("button", "Offline (Disabled)")
+      .click();
+    // Verify it becomes Online (Enabled)
+    cy.contains("h3", "cypress-test-qpu")
+      .parents("div.bg-white")
+      .contains("button", "Online (Enabled)")
+      .should("be.visible");
+    
+    // Toggle it back offline
+    cy.contains("h3", "cypress-test-qpu")
+      .parents("div.bg-white")
+      .contains("button", "Online (Enabled)")
+      .click();
+    cy.contains("h3", "cypress-test-qpu")
+      .parents("div.bg-white")
+      .contains("button", "Offline (Disabled)")
+      .should("be.visible");
 
     // Compose and post broadcast announcement on Admin Panel
     cy.contains("button", "Admin Panel").click();

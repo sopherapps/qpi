@@ -24,6 +24,13 @@ export function InnerTabBar({ onTabClick, currentTab }: Props) {
       >
         Time Requests
       </_TabBtn>
+      <_TabBtn
+        value="appearance"
+        onClick={onTabClick}
+        isActive={currentTab === "appearance"}
+      >
+        Appearance
+      </_TabBtn>
     </div>
   );
 }

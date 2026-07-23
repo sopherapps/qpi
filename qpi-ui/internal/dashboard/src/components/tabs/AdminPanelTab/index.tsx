@@ -4,6 +4,7 @@ import { InnerTabBar } from "./elements/InnerTabBar";
 import { UserAllocationsInnerTab } from "./elements/UserAllocationsInnerTab";
 import { BroadcastAnnouncementInnerTab } from "./elements/BroadcastAnnouncementInnerTab";
 import { TimeRequestsInnerTab } from "./elements/TimeRequestsInnerTab";
+import { AppearanceInnerTab } from "./elements/AppearanceInnerTab";
 
 interface AdminPanelTabProps {
   users: UserType[];
@@ -19,7 +20,7 @@ interface AdminPanelTabProps {
   onRejectRequest: (id: string, reason: string) => Promise<void>;
 }
 
-type _TabValue = "users" | "announcements" | "requests";
+type _TabValue = "users" | "announcements" | "requests" | "appearance";
 
 export const AdminPanelTab: React.FC<AdminPanelTabProps> = ({
   users,
@@ -110,6 +111,8 @@ export const AdminPanelTab: React.FC<AdminPanelTabProps> = ({
           onReject={handleReject}
         />
       )}
+
+      {subtab === "appearance" && <AppearanceInnerTab />}
     </div>
   );
 };
