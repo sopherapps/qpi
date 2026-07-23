@@ -784,3 +784,53 @@ func handleQPUGet(re *core.RequestEvent) error {
 
 	return re.JSON(http.StatusOK, &qpu)
 }
+
+// handleThemeActive handles GET /api/theme/active
+// — returns the currently active theme for the dashboard.
+func handleThemeActive(re *core.RequestEvent) error {
+	theme, err := config.GetActiveThemeFromApp(re.App)
+	if err != nil {
+		return re.Error(http.StatusInternalServerError, "failed to retrieve active theme", err)
+	}
+
+	return re.JSON(http.StatusOK, theme)
+}
+
+// handleThemeDefaults handles GET /api/theme/defaults
+// — returns the default theme.
+func handleThemeDefaults(re *core.RequestEvent) error {
+	re.Response.Header().Set("Cache-Control", "public, max-age=300")
+	return re.JSON(http.StatusOK, config.DefaultThemeSchema)
+}
+
+// handleThemeCSS handles GET /api/theme/css, returning the custom CSS of the active theme
+// as a text/css response. If no custom CSS is set, it returns 204 No Content.
+func handleThemeCSS(re *core.RequestEvent) error {
+	re.Response.Header().Set("Cache-Control", "public, max-age=300")
+	theme, err := config.GetActiveThemeFromApp(re.App)
+	if err != nil {
+		return re.Error(http.StatusInternalServerError, "failed to retrieve active theme", err)
+	}
+
+	if theme == nil || theme.CustomCSS == "" {
+		return re.NoContent(http.StatusNoContent)
+	}
+
+	return re.Blob(http.StatusOK, "text/css", []byte(theme.CustomCSS))
+}
+
+// handleThemeJS handles GET /api/theme/js, returning the custom JavaScript of the active theme
+// as a text/javascript response. If no custom JS is set, it returns 204 No Content.
+func handleThemeJS(re *core.RequestEvent) error {
+	re.Response.Header().Set("Cache-Control", "public, max-age=300")
+	theme, err := config.GetActiveThemeFromApp(re.App)
+	if err != nil {
+		return re.Error(http.StatusInternalServerError, "failed to retrieve active theme", err)
+	}
+
+	if theme == nil || theme.CustomJS == "" {
+		return re.NoContent(http.StatusNoContent)
+	}
+
+	return re.Blob(http.StatusOK, "text/javascript", []byte(theme.CustomJS))
+}

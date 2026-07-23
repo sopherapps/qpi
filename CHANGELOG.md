@@ -7,6 +7,17 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 
 ## [Unreleased]
 
+### Added
+
+- `qpi-ui`: Added Admin Theme Management feature (RFC 0002) allowing administrators to create, preview, activate, and delete custom themes directly from the dashboard.
+- `qpi-ui`: Added `themes` collection to PocketBase database for persisting theme records and custom branding configurations (logo, favicon).
+- `qpi-ui`: Added `/api/theme/defaults`, `/api/theme/active`, `/api/theme/css`, and `/api/theme/js` endpoints to serve active theme configuration and injected assets.
+- `qpi-ui`: Added `activeTheme` to `AppConfig` to serve as a high-performance, globally consistent in-memory cache for the active theme, avoiding expensive database queries.
+- `qpi-ui`: Added React `ThemeContext` on the frontend for dynamic application of CSS variables (`rgb()` variants) and custom assets based on the active theme, gracefully falling back to a compiled-in default theme.
+- `qpi-ui`: Added a Theme management UI to the Admin Dashboard (Settings -> Appearance) for customizing Design Tokens (JSON) and raw Custom CSS/JS with real-time preview functionality.
+- `qpi-ui`: Optimized `OnThemeUpsert` hook to use a raw database query to efficiently deactivate sibling themes, avoiding nested hook executions.
+- `docs`: Added `docs/theming.md` documentation guide for the Dashboard Theming engine.
+
 ## [0.1.1] - 2026-07-23
 
 ### Added

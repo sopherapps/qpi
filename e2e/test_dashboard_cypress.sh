@@ -34,14 +34,24 @@ sleep 2
 
 status=0
 echo "[e2e] Executing Cypress spec tests..."
-(cd "${PROJECT_ROOT}/qpi-ui/internal/dashboard" && npx cypress run "$@") || status=$?
+operator="run"
+if [ -n "$IS_VISUAL" ]; then
+    operator="open"
+fi
+(cd "${PROJECT_ROOT}/qpi-ui/internal/dashboard" && npx cypress $operator "$@") || status=$?
 
 stop_driver
 stop_pocketbase
 
+echo "=============================="
+echo "DUMPING THEMES DATABASE:"
+sqlite3 "${PROJECT_ROOT}/bin/pb_data/data.db" "SELECT id, name, is_active, length(custom_css) FROM themes;"
+echo "=============================="
 if [ "$status" -ne 0 ]; then
     echo "[e2e] Cypress E2E Dashboard FAILED"
     exit 1
 fi
 
-echo "[e2e] Cypress E2E Dashboard PASSED"
+echo "DUMPING THEMES DATABASE:"
+sqlite3 "${PROJECT_ROOT}/bin/pb_data/data.db" "SELECT id, name, is_active, length(custom_css) FROM themes;"
+echo "=============================="

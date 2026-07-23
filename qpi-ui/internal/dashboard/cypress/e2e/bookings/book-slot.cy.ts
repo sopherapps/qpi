@@ -40,5 +40,9 @@ describe("Bookings — Book a Time Slot", () => {
 
     // The table shows the booking with the current user's email
     cy.contains("td", "user@example.com").should("be.visible");
+
+    // Clean up to prevent overlapping booking errors on subsequent local runs
+    cy.on("window:confirm", () => true);
+    cy.get('button svg.lucide-trash-2').last().parent().click();
   });
 });

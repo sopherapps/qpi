@@ -38,6 +38,7 @@ plugins:
 
 nav:
   - Home: index.md
+  - Dashboard Theming: theming.md
   - Drivers:
       - Python Driver:
           - Overview: driver/python.md

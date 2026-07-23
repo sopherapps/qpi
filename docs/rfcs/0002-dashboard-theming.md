@@ -1,6 +1,6 @@
 # RFC 0002 — Dashboard Theming
 
-- **Status:** Draft
+- **Status:** Implemented
 - **Author:** Martin Ahindura
 - **Created:** 2026-07-23
 - **Touches:** `qpi-ui` (Go/PocketBase), dashboard (React/Tailwind v4)

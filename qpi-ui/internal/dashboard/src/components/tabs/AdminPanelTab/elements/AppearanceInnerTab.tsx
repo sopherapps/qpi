@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { pb } from "@/lib/pb";
 import type { ThemeRecord } from "@/types";
 import { ThemeEditorModal } from "./ThemeEditorModal";
+import { useTheme } from "@/lib/ThemeContext";
 
 export function AppearanceInnerTab() {
   const [themes, setThemes] = useState<ThemeRecord[]>([]);
@@ -9,13 +10,16 @@ export function AppearanceInnerTab() {
   const [editingTheme, setEditingTheme] = useState<ThemeRecord | "new" | null>(
     null,
   );
+  const { refreshTheme } = useTheme();
 
   const fetchThemes = async () => {
     setLoading(true);
     try {
-      const records = await pb
-        .collection("themes")
-        .getFullList<ThemeRecord>({ sort: "-created" });
+      const records = await pb.collection("themes").getFullList<ThemeRecord>({
+        sort: "-created",
+        requestKey: null,
+        fetch: (url, config) => fetch(url, { ...config, cache: "no-store" }),
+      });
       setThemes(records);
     } catch (err: unknown) {
       console.error("Failed to fetch themes", err);
@@ -39,8 +43,8 @@ export function AppearanceInnerTab() {
     try {
       await pb.collection("themes").update(id, { is_active: true });
       await fetchThemes();
-      // Optionally reload the page so ThemeContext re-fetches active theme immediately
-      window.location.reload();
+      // Trigger global theme context reload without dropping SPA state
+      refreshTheme();
     } catch (err: unknown) {
       alert(`Activation failed: ${(err as Error).message}`);
     }
@@ -128,25 +132,23 @@ export function AppearanceInnerTab() {
                       Edit
                     </button>
                     {!t.is_active ? (
-                      <>
-                        <button
-                          onClick={() => handleActivate(t.id)}
-                          className="text-blue-500 hover:text-blue-400 transition-colors"
-                        >
-                          Activate
-                        </button>
-                        <button
-                          onClick={() => handleDelete(t.id)}
-                          className="text-red-500 hover:text-red-400 transition-colors"
-                        >
-                          Delete
-                        </button>
-                      </>
+                      <button
+                        onClick={() => handleActivate(t.id)}
+                        className="text-blue-500 hover:text-blue-400 transition-colors"
+                      >
+                        Activate
+                      </button>
                     ) : (
                       <span className="text-gray-400 dark:text-zinc-600 italic px-2">
-                        Deactivate or Delete disabled
+                        Active
                       </span>
                     )}
+                    <button
+                      onClick={() => handleDelete(t.id)}
+                      className="text-red-500 hover:text-red-400 transition-colors"
+                    >
+                      Delete
+                    </button>
                   </td>
                 </tr>
               ))

@@ -1,7 +1,9 @@
 package db
 
 import (
+	"fmt"
 	"qpi/internal/config"
+	"qpi/internal/lib"
 
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
@@ -15,6 +17,7 @@ func RegisterCollectionHooks(app core.App, hooks CollectionHookMap) func(e *core
 	return func(e *core.RecordEvent) error {
 		cfg := config.MustGetConfigFromApp(app)
 		col := e.Record.Collection().Name
+
 		defaultColName := cfg.GetCollectionName(col)
 		if fn, ok := hooks[defaultColName]; ok {
 			return fn(e)
@@ -107,41 +110,25 @@ func OnDriverUpdate(e *core.RecordEvent) error {
 // When a theme is saved with is_active=true, all other active themes are
 // deactivated (RFC 0002 §3.5). It also updates the in-memory active theme cache.
 func OnThemeUpsert(e *core.RecordEvent) error {
-	if e.Record.GetBool("is_active") {
-		cfg, err := config.GetConfigFromApp(e.App)
+	cfg, err := config.GetConfigFromApp(e.App)
+	if err != nil {
+		return err
+	}
+
+	rec := e.Record
+	activeTheme := cfg.GetActiveTheme()
+	isActivating := rec.GetBool("is_active")
+	isDeactivating := !isActivating && activeTheme != nil && activeTheme.ID == rec.Id
+
+	if isActivating {
+		err := activateTheme(e.App, cfg, rec)
 		if err != nil {
 			return err
 		}
+	}
 
-		// Deactivate all other active themes
-		records, err := e.App.FindRecordsByFilter(
-			cfg.CollectionThemes,
-			"is_active = true && id != {:id}",
-			"", 0, 0,
-			dbx.Params{"id": e.Record.Id},
-		)
-		if err != nil {
-			return err
-		}
-
-		for _, r := range records {
-			r.Set("is_active", false)
-			if err := e.App.Save(r); err != nil {
-				return err
-			}
-		}
-
-		var theme Theme
-		if err := theme.RefreshFromRecord(e.Record); err != nil {
-			return err
-		}
-		SaveActiveThemeOnApp(e.App, &theme)
-	} else {
-		// If this theme was active and is now inactive, clear cache (reverts to default)
-		cached := GetActiveThemeFromApp(e.App)
-		if cached != nil && cached.ID == e.Record.Id {
-			SaveActiveThemeOnApp(e.App, nil)
-		}
+	if isDeactivating {
+		cfg.UpdateActiveTheme(nil)
 	}
 
 	return e.Next()
@@ -149,9 +136,42 @@ func OnThemeUpsert(e *core.RecordEvent) error {
 
 // OnThemeDelete reverts the active theme cache to the default theme if the deleted theme was active.
 func OnThemeDelete(e *core.RecordEvent) error {
-	cached := GetActiveThemeFromApp(e.App)
-	if cached != nil && cached.ID == e.Record.Id {
-		SaveActiveThemeOnApp(e.App, nil)
+	cfg, err := config.GetConfigFromApp(e.App)
+	if err != nil {
+		return err
 	}
+
+	rec := e.Record
+	activeTheme := cfg.GetActiveTheme()
+	isDeactivating := activeTheme != nil && activeTheme.ID == rec.Id
+	if isDeactivating {
+		cfg.UpdateActiveTheme(nil)
+	}
+
 	return e.Next()
+}
+
+// activateTheme activates the given theme as seen by the app's config
+func activateTheme(app core.App, cfg *config.AppConfig, rec *core.Record) error {
+	// Deactivate all other active themes, without running their hooks
+	// (to avoid infinite recursion).
+	col := cfg.CollectionThemes
+	filter := dbx.NewExp("is_active = true AND id != {:id}", dbx.Params{"id": rec.Id})
+	update := dbx.Params{
+		"is_active": false,
+		"updated":   lib.GetUtcNow(),
+	}
+
+	_, err := app.DB().Update(col, update, filter).Execute()
+	if err != nil {
+		return fmt.Errorf("failed to deactivate other active themes: %w", err)
+	}
+
+	var theme Theme
+	if err := theme.RefreshFromRecord(rec); err != nil {
+		return err
+	}
+
+	cfg.UpdateActiveTheme(&theme.ThemeSchema)
+	return nil
 }

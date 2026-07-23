@@ -20,9 +20,11 @@ func TestThemeAPI_Defaults(t *testing.T) {
 		Method: http.MethodGet,
 		URL:    "/api/theme/defaults",
 		BeforeTestFunc: func(t testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-			config.SaveConfigOnApp(app, testConfig())
+			cfg := testConfig()
+			config.SaveConfigOnApp(app, cfg)
 			_ = db.EnsureSchema(app)
-			_ = db.InitActiveThemeCache(app)
+			theme, _ := db.GetActiveThemeSchema(app)
+			cfg.UpdateActiveTheme(theme)
 			RegisterRoutes(e, testFS())
 		},
 		ExpectedStatus: http.StatusOK,
@@ -46,9 +48,11 @@ func TestThemeAPI_ActiveDefault(t *testing.T) {
 		Method: http.MethodGet,
 		URL:    "/api/theme/active",
 		BeforeTestFunc: func(t testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-			config.SaveConfigOnApp(app, testConfig())
+			cfg := testConfig()
+			config.SaveConfigOnApp(app, cfg)
 			_ = db.EnsureSchema(app)
-			_ = db.InitActiveThemeCache(app)
+			theme, _ := db.GetActiveThemeSchema(app)
+			cfg.UpdateActiveTheme(theme)
 			RegisterRoutes(e, testFS())
 		},
 		ExpectedStatus: http.StatusOK,
@@ -59,8 +63,8 @@ func TestThemeAPI_ActiveDefault(t *testing.T) {
 			`"tagline":"Control Hub"`,
 		},
 		AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
-			if h := res.Header.Get("Cache-Control"); h != "public, max-age=300" {
-				t.Errorf("expected Cache-Control 'public, max-age=300', got %q", h)
+			if h := res.Header.Get("Cache-Control"); h != "" {
+				t.Errorf("expected no Cache-Control header, got %q", h)
 			}
 		},
 	}
@@ -79,9 +83,11 @@ func TestThemeAPI_ActiveCustomAndCSSJS(t *testing.T) {
 	if err := db.EnsureSchema(app); err != nil {
 		t.Fatalf("failed to ensure schema: %v", err)
 	}
-	if err := db.InitActiveThemeCache(app); err != nil {
-		t.Fatalf("failed to init theme cache: %v", err)
+	theme, err := db.GetActiveThemeSchema(app)
+	if err != nil {
+		t.Fatalf("failed to get active theme schema: %v", err)
 	}
+	cfg.UpdateActiveTheme(theme)
 
 	// 1. Initial CSS and JS endpoints return 204 No Content for default theme
 	scenarioNoCSS := tests.ApiScenario{
@@ -91,7 +97,8 @@ func TestThemeAPI_ActiveCustomAndCSSJS(t *testing.T) {
 		BeforeTestFunc: func(t testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 			config.SaveConfigOnApp(app, cfg)
 			_ = db.EnsureSchema(app)
-			_ = db.InitActiveThemeCache(app)
+			theme, _ := db.GetActiveThemeSchema(app)
+			cfg.UpdateActiveTheme(theme)
 			RegisterRoutes(e, testFS())
 		},
 		ExpectedStatus: http.StatusNoContent,
@@ -105,45 +112,49 @@ func TestThemeAPI_ActiveCustomAndCSSJS(t *testing.T) {
 		BeforeTestFunc: func(t testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 			config.SaveConfigOnApp(app, cfg)
 			_ = db.EnsureSchema(app)
-			_ = db.InitActiveThemeCache(app)
+			theme, _ := db.GetActiveThemeSchema(app)
+			cfg.UpdateActiveTheme(theme)
 			RegisterRoutes(e, testFS())
 		},
 		ExpectedStatus: http.StatusNoContent,
 	}
 	scenarioNoJS.Test(t)
 
-	// 2. Create custom active theme in DB
-	theme := &db.Theme{
-		Name:      "Neon Quantum",
-		IsActive:  true,
-		SiteName:  "Neon Lab",
-		Tagline:   "Future is Quantum",
-		CustomCSS: ":root { --qpi-color-primary: #00ffaa; }",
-		CustomJS:  "console.log('Neon JS');",
-		Tokens:    config.DefaultThemeTokens,
-	}
-	rec, err := theme.ToRecord(app)
-	if err != nil {
-		t.Fatalf("failed to build record: %v", err)
+	setupCustomTheme := func(app *tests.TestApp) {
+		app.OnRecordCreate().Bind(&hook.Handler[*core.RecordEvent]{
+			Func: db.RegisterCollectionHooks(app, db.CollectionHookMap{
+				config.DefaultThemesCollection: db.OnThemeUpsert,
+			}),
+		})
+		app.OnRecordUpdate().Bind(&hook.Handler[*core.RecordEvent]{
+			Func: db.RegisterCollectionHooks(app, db.CollectionHookMap{
+				config.DefaultThemesCollection: db.OnThemeUpsert,
+			}),
+		})
+
+		themeRec := &db.Theme{
+			ThemeSchema: config.ThemeSchema{
+				Name:      "Neon Quantum",
+				IsActive:  true,
+				SiteName:  "Neon Lab",
+				Tagline:   "Future is Quantum",
+				CustomCSS: ":root { --qpi-color-primary: #00ffaa; }",
+				CustomJS:  "console.log('Neon JS');",
+			},
+		}
+		rec, _ := themeRec.ToRecord(app)
+		_ = app.Save(rec)
 	}
 
-	app.OnRecordCreate().Bind(&hook.Handler[*core.RecordEvent]{
-		Func: db.RegisterCollectionHooks(app, db.CollectionHookMap{
-			config.DefaultThemesCollection: db.OnThemeUpsert,
-		}),
-	})
-	app.OnRecordUpdate().Bind(&hook.Handler[*core.RecordEvent]{
-		Func: db.RegisterCollectionHooks(app, db.CollectionHookMap{
-			config.DefaultThemesCollection: db.OnThemeUpsert,
-		}),
-	})
-
-	if err := app.Save(rec); err != nil {
-		t.Fatalf("failed to save theme record: %v", err)
-	}
+	// Create custom active theme in the outer app (to test db logic directly)
+	setupCustomTheme(app)
 
 	// Verify cached active theme is now Neon Quantum
-	cached := db.GetActiveThemeFromApp(app)
+	cached, err := config.GetActiveThemeFromApp(app)
+	if err != nil {
+		t.Fatalf("failed to get cached active theme: %v", err)
+	}
+
 	if cached == nil || cached.Name != "Neon Quantum" {
 		t.Fatalf("expected cached theme to be Neon Quantum, got %v", cached)
 	}
@@ -156,7 +167,9 @@ func TestThemeAPI_ActiveCustomAndCSSJS(t *testing.T) {
 		BeforeTestFunc: func(t testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 			config.SaveConfigOnApp(app, cfg)
 			_ = db.EnsureSchema(app)
-			db.SaveActiveThemeOnApp(app, theme)
+			setupCustomTheme(app)
+			theme, _ := db.GetActiveThemeSchema(app)
+			cfg.UpdateActiveTheme(theme)
 			RegisterRoutes(e, testFS())
 		},
 		ExpectedStatus: http.StatusOK,
@@ -166,8 +179,8 @@ func TestThemeAPI_ActiveCustomAndCSSJS(t *testing.T) {
 			`"tagline":"Future is Quantum"`,
 		},
 		AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
-			if h := res.Header.Get("Cache-Control"); h != "public, max-age=300" {
-				t.Errorf("expected Cache-Control 'public, max-age=300', got %q", h)
+			if h := res.Header.Get("Cache-Control"); h != "" {
+				t.Errorf("expected no Cache-Control header, got %q", h)
 			}
 		},
 	}
@@ -181,7 +194,9 @@ func TestThemeAPI_ActiveCustomAndCSSJS(t *testing.T) {
 		BeforeTestFunc: func(t testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 			config.SaveConfigOnApp(app, cfg)
 			_ = db.EnsureSchema(app)
-			db.SaveActiveThemeOnApp(app, theme)
+			setupCustomTheme(app)
+			theme, _ := db.GetActiveThemeSchema(app)
+			cfg.UpdateActiveTheme(theme)
 			RegisterRoutes(e, testFS())
 		},
 		ExpectedStatus:  http.StatusOK,
@@ -205,7 +220,9 @@ func TestThemeAPI_ActiveCustomAndCSSJS(t *testing.T) {
 		BeforeTestFunc: func(t testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 			config.SaveConfigOnApp(app, cfg)
 			_ = db.EnsureSchema(app)
-			db.SaveActiveThemeOnApp(app, theme)
+			setupCustomTheme(app)
+			theme, _ := db.GetActiveThemeSchema(app)
+			cfg.UpdateActiveTheme(theme)
 			RegisterRoutes(e, testFS())
 		},
 		ExpectedStatus:  http.StatusOK,
@@ -236,16 +253,18 @@ func TestThemeAPI_ThemeDeactivationAndDeletionRevertsToDefault(t *testing.T) {
 	}
 
 	// Create custom theme record
-	theme := &db.Theme{
-		Name:     "Temporary Theme",
-		IsActive: true,
-		SiteName: "Temp Site",
+	themeRec := &db.Theme{
+		ThemeSchema: config.ThemeSchema{
+			Name:     "Temporary Theme",
+			IsActive: true,
+			SiteName: "Temp Site",
+		},
 	}
-	rec, err := theme.ToRecord(app)
+	rec, err := themeRec.ToRecord(app)
 	if err != nil {
 		t.Fatalf("failed to build record: %v", err)
 	}
-	theme.ID = rec.Id
+	themeRec.ID = rec.Id
 
 	app.OnRecordDelete().Bind(&hook.Handler[*core.RecordEvent]{
 		Func: db.RegisterCollectionHooks(app, db.CollectionHookMap{
@@ -257,11 +276,15 @@ func TestThemeAPI_ThemeDeactivationAndDeletionRevertsToDefault(t *testing.T) {
 	if err := app.Save(rec); err != nil {
 		t.Fatalf("failed to save record: %v", err)
 	}
-	if err := theme.RefreshFromRecord(rec); err != nil {
+	if err := themeRec.RefreshFromRecord(rec); err != nil {
 		t.Fatalf("failed to refresh theme from record: %v", err)
 	}
-	db.SaveActiveThemeOnApp(app, theme)
-	if db.GetActiveThemeFromApp(app).Name != "Temporary Theme" {
+	cfg.UpdateActiveTheme(&themeRec.ThemeSchema)
+	appTheme, err := config.GetActiveThemeFromApp(app)
+	if err != nil {
+		t.Fatalf("failed to get active theme from app: %v", err)
+	}
+	if appTheme.Name != "Temporary Theme" {
 		t.Fatalf("expected active theme in cache")
 	}
 
@@ -270,9 +293,13 @@ func TestThemeAPI_ThemeDeactivationAndDeletionRevertsToDefault(t *testing.T) {
 		t.Fatalf("failed to delete theme record: %v", err)
 	}
 
-	cached := db.GetActiveThemeFromApp(app)
-	if cached.ID != "default" || cached.Name != "Default" {
-		t.Fatalf("expected cache to revert to default theme after deletion, got %v", cached)
+	updatedAppTheme, err := config.GetActiveThemeFromApp(app)
+	if err != nil {
+		t.Fatalf("failed to get active theme from app: %v", err)
+	}
+
+	if updatedAppTheme.ID != "default" || updatedAppTheme.Name != "Default" {
+		t.Fatalf("expected cache to revert to default theme after deletion, got %v", updatedAppTheme)
 	}
 }
 

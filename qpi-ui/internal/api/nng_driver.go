@@ -17,6 +17,7 @@ import (
 
 	"qpi/internal/config"
 	"qpi/internal/db"
+	"qpi/internal/lib"
 	"qpi/internal/scheduler"
 )
 
@@ -269,7 +270,7 @@ func runDriverListener(ctx context.Context, app core.App, driverID, qpuID string
 func markDriverStatus(app core.App, cfg *config.AppConfig, driverID, qpuID, status string) {
 	driverUpdate := map[string]any{
 		"status":    status,
-		"last_seen": time.Now().UTC().Format("2006-01-02T15:04:05.000Z"),
+		"last_seen": lib.GetUtcNow(),
 	}
 	var driver db.Driver
 	if err := db.FindAndUpdateOne(app, cfg.CollectionDrivers, driverID, &driver, driverUpdate); err != nil {
@@ -333,7 +334,7 @@ func applyJobResult(app core.App, qpuID string, result ResultPayload) error {
 	resultsJSON, _ := json.Marshal(result.Results)
 	jobUpdate := &JobResultUpdate{
 		Status:     finalStatus,
-		FinishedAt: time.Now().UTC().Format("2006-01-02 15:04:05.000Z"),
+		FinishedAt: lib.GetUtcNow(),
 		Results:    string(resultsJSON),
 		Duration:   durationSeconds,
 	}

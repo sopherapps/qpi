@@ -1,6 +1,6 @@
 # RFC 0001 — Driver Framework
 
-- **Status:** Draft
+- **Status:** Implemented
 - **Author:** Martin Ahindura 
 - **Created:** 2026-07-22
 - **Touches:** `qpi-ui` (Go/PocketBase), the driver SDKs (Python today), dashboard (React)

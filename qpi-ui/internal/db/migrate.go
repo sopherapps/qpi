@@ -307,7 +307,7 @@ func ensureEventsCollection(app core.App, cfg *config.AppConfig) error {
 // design tokens, branding, and optional custom CSS/JS (RFC 0002 §3.2, §3.4).
 func ensureThemesCollection(app core.App, cfg *config.AppConfig) error {
 	colName := cfg.GetCollectionName(config.DefaultThemesCollection)
-	col, err := initCollection(app, colName, &Theme{})
+	col, err := initCollection(app, colName, &config.ThemeSchema{})
 	if err != nil {
 		return err
 	}

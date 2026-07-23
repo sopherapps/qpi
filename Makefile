@@ -46,7 +46,11 @@ test: test-go test-py test-js-client test-go-client test-py-client test-js-drive
 
 test-go: build-dashboard
 	@echo "Running Go unit tests (server)..."
-	(cd qpi-ui && go test -v ./...)
+	(cd qpi-ui && go test -race -v ./...)
+
+test-go-minimal:
+	@echo "Running Go server unit tests..."
+	(cd qpi-ui && go test -race -cover ./...)
 
 test-py: test-py-base test-py-cli test-py-aer test-py-quantify test-py-qblox
 
@@ -89,7 +93,11 @@ test-js-client:
 
 test-go-client:
 	@echo "Running Go client tests..."
-	(cd qpi-client/go && go test -v ./...)
+	(cd qpi-client/go && go test -race -v ./...)
+
+test-go-client-minimal:
+	@echo "Running Go client tests..."
+	(cd qpi-client/go && go test -race -cover ./...)
 
 test-py-client:
 	@echo "Running Python client tests..."
@@ -102,7 +110,11 @@ test-js-driver:
 
 test-go-driver:
 	@echo "Running Go driver SDK tests..."
-	(cd qpi-driver/go && go test -v ./...)
+	(cd qpi-driver/go && go test -race -v ./...)
+
+test-go-driver-minimal:
+	@echo "Running Go driver SDK tests..."
+	(cd qpi-driver/go && go test -race -cover ./...)
 
 test-e2e: test-e2e-driver test-e2e-client-py test-e2e-client-js test-e2e-client-go test-e2e-dashboard test-e2e-systemd
 
@@ -125,6 +137,10 @@ test-e2e-client-go:
 test-e2e-dashboard:
 	@echo "Running E2E Cypress dashboard tests..."
 	./e2e/test_dashboard_cypress.sh
+
+test-e2e-dashboard-visual:
+	@echo "Running E2E Cypress dashboard tests..."
+	IS_VISUAL=1 ./e2e/test_dashboard_cypress.sh
 
 test-e2e-systemd:
 	@echo "Running E2E systemd installer tests..."

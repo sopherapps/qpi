@@ -171,6 +171,7 @@ graph TD
 ```
 
 ### Key Server Features
+* **Dashboard Theming:** Fully customizable UI via PocketBase. Superusers can dynamically change the site name, logo, color palettes (light/dark), and inject custom CSS/JS on the fly without recompiling.
 * **Session-Based Booking with Opportunistic FIFO:** Dispatches jobs prioritizing users who have booked the current time slot. Fallback mechanism allows other users' pending jobs to execute if the slot booker is idle.
 * **Auto-Schema Migration & Port Allocation:** Automatically creates required database collections (`qpus`, `time_slots`, `quantum_jobs`, `qpu_time_requests`, `notifications`) and dynamically allocates race-free TCP ports for registered QPUs.
 * **Stale Job Recovery:** A background ticking routine monitors running jobs and resets them to `pending` if their driver hangs or disconnects (timeout default: 20 seconds).

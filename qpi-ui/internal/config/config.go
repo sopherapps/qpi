@@ -41,6 +41,8 @@ const (
 	DefaultTLSCaKeyFile              = ".qpi.ca.key"
 )
 
+var DefaultThemeSchema = NewDefaultThemeSchema()
+
 // Package local flags populated by Cobra flag bindings.
 var (
 	flagConfigFile               string
@@ -108,6 +110,7 @@ type AppConfig struct {
 	tlsCaConfig               *certKeyPair
 	tlsCaHash                 string
 	activeCert                *tls.Certificate
+	activeTheme               *ThemeSchema
 	mu                        sync.RWMutex
 }
 
@@ -315,6 +318,23 @@ func (cfg *AppConfig) StartTlsRenewalWorker(ctx context.Context) {
 	}()
 }
 
+// UpdateActiveTheme sets the currently active theme in the config.
+// if theme is nil, it falls back to the default theme schema.
+func (cfg *AppConfig) UpdateActiveTheme(theme *ThemeSchema) {
+	cfg.mu.Lock()
+	defer cfg.mu.Unlock()
+	if theme == nil {
+		theme = DefaultThemeSchema
+	}
+
+	cfg.activeTheme = theme
+}
+
+// GetActiveTheme returns the currently active theme from the config.
+func (cfg *AppConfig) GetActiveTheme() *ThemeSchema {
+	return cfg.activeTheme
+}
+
 // refreshActiveTls refreshes the active certificate from the current values
 // of the certificate and key
 func (cfg *AppConfig) refreshActiveTls() error {
@@ -336,8 +356,8 @@ func (cfg *AppConfig) refreshActiveTls() error {
 
 	// Safely update the active certificate without interrupting connections
 	cfg.mu.Lock()
+	defer cfg.mu.Unlock()
 	cfg.activeCert = &tlsCert
-	cfg.mu.Unlock()
 
 	return nil
 }
@@ -364,6 +384,16 @@ func MustGetConfigFromApp(app core.App) *AppConfig {
 		panic(err)
 	}
 	return cfg
+}
+
+// GetActiveThemeFromApp retrieves the active theme schema from the app instance store.
+// It is just a convenience function to get the theme from the app
+func GetActiveThemeFromApp(app core.App) (*ThemeSchema, error) {
+	cfg, err := GetConfigFromApp(app)
+	if err != nil {
+		return nil, err
+	}
+	return cfg.activeTheme, nil
 }
 
 // BindFlags registers custom flags on the Cobra command.
@@ -420,6 +450,14 @@ func NewDefaultAppConfig() *AppConfig {
 		PortRangeStart:            6000,
 		PortRangeEnd:              7000,
 		ServerPort:                8090,
+		DisableEmailPasswordAuth:  false,
+		Validator:                 validator.New(validator.WithRequiredStructEnabled()),
+		TlsCertFile:               DefaultTLSCertFile,
+		TlsKeyFile:                DefaultTLSKeyFile,
+		TlsCaCertFile:             DefaultTLSCaCertFile,
+		TlsCaKeyFile:              DefaultTLSCaKeyFile,
+		IpAddr:                    "127.0.0.1",
+		activeTheme:               DefaultThemeSchema,
 	}
 }
 
@@ -433,35 +471,7 @@ func NewFromFlags(cmd *cobra.Command) (*AppConfig, error) {
 		_ = cmd.PersistentFlags().Parse(os.Args[1:])
 	}
 
-	cfg := &AppConfig{}
-
-	// Set hardcoded defaults
-	cfg.CollectionQPUs = DefaultQpusCollection
-	cfg.CollectionTimeSlots = DefaultTimeSlotsCollection
-	cfg.CollectionQuantumJobs = DefaultQuantumJobsCollection
-	cfg.CollectionAPITokens = DefaultAPITokensCollection
-	cfg.CollectionQPUTimeRequests = DefaultQPUTimeRequestsCollection
-	cfg.CollectionNotifications = DefaultNotificationsCollection
-	cfg.CollectionDrivers = DefaultDriversCollection
-	cfg.CollectionEvents = DefaultEventsCollection
-	cfg.CollectionThemes = DefaultThemesCollection
-	cfg.IdleThreshold = 5 * time.Second
-	cfg.RecoveryInterval = 10 * time.Second
-	cfg.JobTimeout = 20 * time.Second
-	cfg.DispatchPollInterval = 1 * time.Second
-	cfg.EventsRetention = 720 * time.Hour
-	cfg.EventsPruneInterval = 1 * time.Hour
-	cfg.EventRateLimit = 100
-	cfg.PortRangeStart = 6000
-	cfg.PortRangeEnd = 7000
-	cfg.ServerPort = 8090
-	cfg.DisableEmailPasswordAuth = false
-	cfg.Validator = validator.New(validator.WithRequiredStructEnabled())
-	cfg.TlsCertFile = DefaultTLSCertFile
-	cfg.TlsKeyFile = DefaultTLSKeyFile
-	cfg.TlsCaCertFile = DefaultTLSCaCertFile
-	cfg.TlsCaKeyFile = DefaultTLSCaKeyFile
-	cfg.IpAddr = "127.0.0.1"
+	cfg := NewDefaultAppConfig()
 
 	// Overlay Config File (if specified via env or flag)
 	configFile := flagConfigFile

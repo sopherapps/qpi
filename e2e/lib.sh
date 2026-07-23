@@ -58,11 +58,11 @@ build_js_driver() {
 # Python detection
 # ---------------------------------------------------------------------------
 detect_python() {
-    if [ -n "$VIRTUAL_ENV" ]; then
-        PYTHON="python"
-    elif [ -d "${PROJECT_ROOT}/qpi-driver/py/.venv" ]; then
+    if [ -x "${PROJECT_ROOT}/qpi-driver/py/.venv/bin/python" ]; then
         PYTHON="${PROJECT_ROOT}/qpi-driver/py/.venv/bin/python"
-    elif [ -d "${PROJECT_ROOT}/.venv" ]; then
+    elif [ -n "$VIRTUAL_ENV" ]; then
+        PYTHON="python"
+    elif [ -x "${PROJECT_ROOT}/.venv/bin/python" ]; then
         PYTHON="${PROJECT_ROOT}/.venv/bin/python"
     else
         PYTHON="python"

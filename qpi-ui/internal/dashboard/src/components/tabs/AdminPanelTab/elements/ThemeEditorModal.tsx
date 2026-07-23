@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { pb } from "@/lib/pb";
 import type { ThemeRecord } from "@/types";
+import { applyTokens, useTheme } from "@/lib/ThemeContext";
 
 interface Props {
   theme: ThemeRecord | null;
@@ -19,6 +20,52 @@ export function ThemeEditorModal({ theme, onClose }: Props) {
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [faviconFile, setFaviconFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
+
+  const { theme: activeTheme, isDark } = useTheme();
+
+  const handlePreview = () => {
+    // 1. Apply Custom CSS
+    let previewStyleEl = document.getElementById("qpi-theme-css-preview") as HTMLStyleElement | null;
+    if (!previewStyleEl) {
+      previewStyleEl = document.createElement("style");
+      previewStyleEl.id = "qpi-theme-css-preview";
+      document.head.appendChild(previewStyleEl);
+    }
+    console.log("Setting previewStyleEl.textContent to:", customCSS);
+    previewStyleEl.textContent = customCSS;
+
+    // 2. Apply Design Tokens
+    if (!tokensStr.trim()) {
+      applyTokens(null, isDark);
+    } else {
+      try {
+        const tokensObj = JSON.parse(tokensStr);
+        applyTokens(tokensObj, isDark);
+      } catch (e) {
+        alert("Invalid JSON in Design Tokens. Cannot preview design tokens.");
+      }
+    }
+  };
+
+  const handleResetPreview = () => {
+    // 1. Reset Design Tokens
+    if (activeTheme?.tokens) {
+      applyTokens(activeTheme.tokens, isDark);
+    } else {
+      applyTokens(null, isDark);
+    }
+
+    // 2. Reset Custom CSS
+    const previewStyleEl = document.getElementById("qpi-theme-css-preview");
+    if (previewStyleEl) {
+      previewStyleEl.remove();
+    }
+  };
+
+  const handleClose = () => {
+    handleResetPreview();
+    onClose(false);
+  };
 
   useEffect(() => {
     if (!theme) {
@@ -90,7 +137,7 @@ export function ThemeEditorModal({ theme, onClose }: Props) {
             {theme ? "Edit Theme" : "Create New Theme"}
           </h2>
           <button
-            onClick={() => onClose(false)}
+            onClick={handleClose}
             className="text-gray-500 hover:text-gray-700 dark:text-zinc-400 dark:hover:text-zinc-200"
           >
             ✕
@@ -209,22 +256,40 @@ export function ThemeEditorModal({ theme, onClose }: Props) {
           </form>
         </div>
 
-        <div className="p-4 border-t border-gray-200 dark:border-zinc-800 flex justify-end space-x-3">
-          <button
-            type="button"
-            onClick={() => onClose(false)}
-            className="px-4 py-2 text-gray-600 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            form="theme-form"
-            disabled={saving}
-            className="bg-white text-zinc-950 font-semibold py-2 px-6 rounded hover:opacity-90 transition-opacity focus:outline-none disabled:opacity-50"
-          >
-            {saving ? "Saving..." : "Save Theme"}
-          </button>
+        <div className="p-4 border-t border-gray-200 dark:border-zinc-800 flex justify-between items-center">
+          <div className="space-x-3">
+            <button
+              type="button"
+              onClick={handlePreview}
+              className="px-4 py-2 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded transition-colors"
+            >
+              Preview
+            </button>
+            <button
+              type="button"
+              onClick={handleResetPreview}
+              className="px-4 py-2 text-gray-600 dark:text-zinc-400 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded transition-colors text-sm"
+            >
+              Reset Preview
+            </button>
+          </div>
+          <div className="space-x-3 flex">
+            <button
+              type="button"
+              onClick={handleClose}
+              className="px-4 py-2 text-gray-600 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              form="theme-form"
+              disabled={saving}
+              className="bg-white text-zinc-950 font-semibold py-2 px-6 rounded hover:opacity-90 transition-opacity focus:outline-none disabled:opacity-50"
+            >
+              {saving ? "Saving..." : "Save Theme"}
+            </button>
+          </div>
         </div>
       </div>
     </div>

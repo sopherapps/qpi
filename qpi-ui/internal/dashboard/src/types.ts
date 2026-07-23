@@ -194,4 +194,5 @@ export interface ThemeRecord {
   } | null;
   custom_css?: string;
   custom_js?: string;
+  updated?: string;
 }

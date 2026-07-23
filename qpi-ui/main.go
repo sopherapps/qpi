@@ -54,7 +54,14 @@ func main() {
 			if err := db.EnsureSchema(e.App); err != nil {
 				return err
 			}
-			return db.InitActiveThemeCache(e.App)
+
+			theme, err := db.GetActiveThemeSchema(e.App)
+			if err != nil {
+				return err
+			}
+
+			cfg.UpdateActiveTheme(theme)
+			return nil
 		},
 	})
 

@@ -31,7 +31,7 @@ describe("QPI Dashboard — End-to-End User Journeys", () => {
     cy.get('[data-testid="admin-footer"]').should("not.exist");
 
     // Select first online QPU (should be set by default, but let's check its presence)
-    cy.get("select").should("be.visible").and("not.have.value", "");
+    cy.get("select", { timeout: 15000 }).should("be.visible").and("not.have.value", "");
 
     // Execute job
     cy.contains("button", "Execute Job").click();
@@ -66,6 +66,10 @@ describe("QPI Dashboard — End-to-End User Journeys", () => {
     // Slot should now show up in the scheduled list
     cy.contains("td", "user@example.com").should("be.visible");
 
+    // Clean up to prevent overlapping booking errors on subsequent local runs
+    cy.on("window:confirm", () => true);
+    cy.get('button svg.lucide-trash-2').last().parent().click();
+
     // Logout
     cy.contains("button", "Profile Settings").click();
     cy.contains("button", "Sign Out").click();
@@ -88,40 +92,38 @@ describe("QPI Dashboard — End-to-End User Journeys", () => {
       .should("be.visible")
       .and("contain", "v0.");
 
+    const qpuName = `cypress-test-qpu-${Date.now()}`;
+
     // Register a new QPU on QPU Registry
     cy.contains("button", "QPU Registry").click();
     cy.contains("button", "Register QPU").click();
-    cy.get('input[placeholder="rigetti-aspen-9"]').clear().type("cypress-test-qpu");
+    cy.get('input[placeholder="rigetti-aspen-9"]').clear().type(qpuName);
     cy.contains("button", "Register Unit").click();
 
     // Modal is closed
     cy.contains("h3", "Register QPU").should("not.exist");
 
     // Verify the QPU is now listed in the grid
-    cy.contains("h3", "cypress-test-qpu").should("be.visible");
+    cy.contains("h3", qpuName).should("be.visible");
 
     // Toggle QPU state on QPU Registry
     cy.contains("span", "Driver Enable Control").should("be.visible");
     
-    // Toggle the newly created QPU (which is Offline / Disabled) to Online
-    cy.contains("h3", "cypress-test-qpu")
-      .parents("div.bg-white")
-      .contains("button", "Offline (Disabled)")
-      .click();
-    // Verify it becomes Online (Enabled)
-    cy.contains("h3", "cypress-test-qpu")
-      .parents("div.bg-white")
+    // The newly created QPU defaults to enabled: true in the API
+    cy.contains(".bg-white", qpuName)
       .contains("button", "Online (Enabled)")
+      .click();
+    // Verify it becomes Offline (Disabled)
+    cy.contains(".bg-white", qpuName)
+      .contains("button", "Offline (Disabled)")
       .should("be.visible");
     
-    // Toggle it back offline
-    cy.contains("h3", "cypress-test-qpu")
-      .parents("div.bg-white")
-      .contains("button", "Online (Enabled)")
-      .click();
-    cy.contains("h3", "cypress-test-qpu")
-      .parents("div.bg-white")
+    // Toggle it back online
+    cy.contains(".bg-white", qpuName)
       .contains("button", "Offline (Disabled)")
+      .click();
+    cy.contains(".bg-white", qpuName)
+      .contains("button", "Online (Enabled)")
       .should("be.visible");
 
     // Compose and post broadcast announcement on Admin Panel

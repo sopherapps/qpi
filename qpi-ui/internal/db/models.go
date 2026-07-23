@@ -640,18 +640,19 @@ func (n *Notification) RefreshFromRecord(record *core.Record) error {
 // colour palettes, shared design tokens, branding, and optional custom CSS/JS
 // (RFC 0002 §3.2).
 type Theme struct {
-	ID        string `json:"id"         db:"id"`
-	Name      string `json:"name"       db:"name"       required:"true"`
-	IsActive  bool   `json:"is_active"  db:"is_active"`
-	SiteName  string `json:"site_name"  db:"site_name"`
-	Tagline   string `json:"tagline"    db:"tagline"`
-	Logo      string `json:"logo"       db:"logo"       type:"file" maxSelect:"1" maxSize:"2097152" mimeTypes:"image/png,image/svg+xml,image/webp"`
-	Favicon   string `json:"favicon"    db:"favicon"     type:"file" maxSelect:"1" maxSize:"524288"  mimeTypes:"image/png,image/svg+xml,image/x-icon,image/webp"`
-	Tokens    any    `json:"tokens"     db:"tokens"      type:"json"`
-	CustomCSS string `json:"custom_css" db:"custom_css"`
-	CustomJS  string `json:"custom_js"  db:"custom_js"`
-	Created   string `json:"created"    db:"created"     type:"autodate" onCreate:"true"`
-	Updated   string `json:"updated"    db:"updated"     type:"autodate" onCreate:"true" onUpdate:"true"`
+	config.ThemeSchema
+	// ID        string `json:"id"         db:"id"`
+	// Name      string `json:"name"       db:"name"       required:"true"`
+	// IsActive  bool   `json:"is_active"  db:"is_active"`
+	// SiteName  string `json:"site_name"  db:"site_name"`
+	// Tagline   string `json:"tagline"    db:"tagline"`
+	// Logo      string `json:"logo"       db:"logo"       type:"file" maxSelect:"1" maxSize:"2097152" mimeTypes:"image/png,image/svg+xml,image/webp"`
+	// Favicon   string `json:"favicon"    db:"favicon"     type:"file" maxSelect:"1" maxSize:"524288"  mimeTypes:"image/png,image/svg+xml,image/x-icon,image/webp"`
+	// Tokens    any    `json:"tokens"     db:"tokens"      type:"json"`
+	// CustomCSS string `json:"custom_css" db:"custom_css"`
+	// CustomJS  string `json:"custom_js"  db:"custom_js"`
+	// Created   string `json:"created"    db:"created"     type:"autodate" onCreate:"true"`
+	// Updated   string `json:"updated"    db:"updated"     type:"autodate" onCreate:"true" onUpdate:"true"`
 }
 
 // ToRecord converts this model into a pocketbase record
@@ -709,7 +710,11 @@ func (t *Theme) RefreshFromRecord(record *core.Record) error {
 	t.Tagline = record.GetString("tagline")
 	t.Logo = record.GetString("logo")
 	t.Favicon = record.GetString("favicon")
-	t.Tokens = record.Get("tokens")
+	if tokensJSON, ok := record.Get("tokens").([]byte); ok {
+		if err := json.Unmarshal(tokensJSON, t.Tokens); err != nil {
+			return fmt.Errorf("error unmarshaling tokens: %w", err)
+		}
+	}
 	t.CustomCSS = record.GetString("custom_css")
 	t.CustomJS = record.GetString("custom_js")
 	t.Created = record.GetString("created")

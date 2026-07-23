@@ -1,4 +1,11 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useRef,
+  useCallback,
+} from "react";
 
 import type { ThemeRecord } from "@/types";
 
@@ -11,11 +18,13 @@ interface ThemeContextValue {
   isDark: boolean;
   toggleMode: () => void;
   isLoading: boolean;
+  refreshTheme: () => void;
 }
 
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
-function applyTokens(tokens: ThemeRecord["tokens"], isDark: boolean) {
+// eslint-disable-next-line react-refresh/only-export-components
+export function applyTokens(tokens: ThemeRecord["tokens"], isDark: boolean) {
   const root = document.documentElement;
 
   // Clear previously set --qpi-* properties
@@ -26,6 +35,10 @@ function applyTokens(tokens: ThemeRecord["tokens"], isDark: boolean) {
   }
 
   if (!tokens) return;
+  if (typeof tokens !== "object" || Array.isArray(tokens)) {
+    console.warn("Invalid tokens payload: expected an object, got", tokens);
+    return;
+  }
 
   // Apply mode-specific colours
   const colors = isDark ? tokens.colors.dark : tokens.colors.light;
@@ -65,7 +78,8 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
     return savedTheme !== "light";
   });
 
-  useEffect(() => {
+  const refreshTheme = useCallback(() => {
+    setIsLoading(true);
     fetch("/api/theme/active")
       .then((res) => {
         if (!res.ok) throw new Error("Failed to fetch theme");
@@ -83,6 +97,10 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
   }, []);
 
   useEffect(() => {
+    refreshTheme();
+  }, [refreshTheme]);
+
+  useEffect(() => {
     if (isDark) {
       document.documentElement.classList.add("dark");
     } else {
@@ -92,15 +110,26 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
     if (theme && theme.tokens) {
       applyTokens(theme.tokens, isDark);
     }
+
+    // Apply global Custom CSS
   }, [isDark, theme]);
 
-  const toggleMode = () => {
+  const toggleTimeout = useRef<number | null>(null);
+
+  const toggleMode = useCallback(() => {
+    if (toggleTimeout.current) return;
+
+    // Debounce rapid toggles
+    toggleTimeout.current = window.setTimeout(() => {
+      toggleTimeout.current = null;
+    }, 250);
+
     setIsDark((prev) => {
       const next = !prev;
       localStorage.setItem("theme", next ? "dark" : "light");
       return next;
     });
-  };
+  }, []);
 
   const siteName = theme?.site_name || "QPI Interface";
   const tagline = theme?.tagline || "Control Hub";
@@ -130,11 +159,14 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
   }, [faviconUrl]);
 
   useEffect(() => {
+    console.log("ThemeContext useEffect triggered! isLoading:", isLoading, "theme?.id:", theme?.id, "theme?.updated:", theme?.updated);
     if (isLoading) return;
 
     const loadThemeCSS = async () => {
       try {
-        const res = await fetch("/api/theme/css");
+        const url = theme?.updated ? `/api/theme/css?v=${theme.updated}` : "/api/theme/css";
+        console.log("Fetching theme CSS from:", url);
+        const res = await fetch(url);
         let styleEl = document.getElementById(
           "qpi-theme-css",
         ) as HTMLStyleElement | null;
@@ -147,6 +179,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
         }
 
         const cssText = await res.text();
+        console.log("QPI Theme CSS fetched from:", url, "Length:", cssText.length);
         if (!styleEl) {
           styleEl = document.createElement("style");
           styleEl.id = "qpi-theme-css";
@@ -165,7 +198,8 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
           oldScript.remove();
         }
 
-        const res = await fetch("/api/theme/js");
+        const url = theme?.updated ? `/api/theme/js?v=${theme.updated}` : "/api/theme/js";
+        const res = await fetch(url);
         if (res.status === 204) {
           return;
         }
@@ -193,6 +227,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
     isDark,
     toggleMode,
     isLoading,
+    refreshTheme,
   };
 
   return (

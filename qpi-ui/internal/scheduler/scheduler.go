@@ -8,6 +8,7 @@ import (
 
 	"qpi/internal/config"
 	"qpi/internal/db"
+	"qpi/internal/lib"
 
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
@@ -24,7 +25,7 @@ func FetchNextJob(app core.App, qpuID string) *db.QuantumJob {
 		return nil
 	}
 
-	now := time.Now().UTC().Format("2006-01-02 15:04:05.000Z")
+	now := lib.GetUtcNow()
 
 	// Is there an active time slot right now?
 	slots, _ := app.FindRecordsByFilter(

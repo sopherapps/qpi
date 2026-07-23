@@ -3,7 +3,7 @@ package db
 import (
 	"errors"
 	"qpi/internal/config"
-	"time"
+	"qpi/internal/lib"
 
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
@@ -45,7 +45,7 @@ func GetUserByToken(app core.App, token string) (*User, error) {
 
 	col := cfg.CollectionAPITokens
 	hashedToken := HashToken(token)
-	timestamp := time.Now().UTC().Format("2006-01-02 15:04:05.000Z")
+	timestamp := lib.GetUtcNow()
 
 	tokenRecord, err := app.FindFirstRecordByFilter(
 		col,
