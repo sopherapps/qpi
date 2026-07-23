@@ -2,6 +2,7 @@ package db
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"qpi/internal/config"
@@ -157,6 +158,11 @@ func TestEnsureSchema_EventsCollectionOnWithFlag(t *testing.T) {
 		}
 	}
 
+	wantIndex := fmt.Sprintf("idx_%s_type_ts", config.DefaultEventsCollection)
+	if !hasIndex(col, wantIndex) {
+		t.Errorf("expected events collection to have index %q, got %v", wantIndex, col.Indexes)
+	}
+
 	driversAfter, err := app.FindCollectionByNameOrId(config.DefaultDriversCollection)
 	if err != nil {
 		t.Fatalf("drivers collection not found after ensuring events: %v", err)
@@ -164,6 +170,42 @@ func TestEnsureSchema_EventsCollectionOnWithFlag(t *testing.T) {
 	rulesAfter := collectionRuleSnapshot(driversAfter)
 	if rulesBefore != rulesAfter {
 		t.Errorf("expected drivers collection rules unchanged, before=%q after=%q", rulesBefore, rulesAfter)
+	}
+}
+
+// TestEnsureSchema_EventsIndexIdempotent proves running the migration twice
+// does not duplicate the (type, ts) index.
+func TestEnsureSchema_EventsIndexIdempotent(t *testing.T) {
+	app, err := tests.NewTestApp()
+	if err != nil {
+		t.Fatalf("failed to create test app: %v", err)
+	}
+	defer app.Cleanup()
+
+	cfg := testConfig()
+	cfg.EnableDriverFramework = true
+	config.SaveConfigOnApp(app, cfg)
+	if err := EnsureSchema(app); err != nil {
+		t.Fatalf("failed to ensure schema (first pass): %v", err)
+	}
+	if err := EnsureSchema(app); err != nil {
+		t.Fatalf("failed to ensure schema (second pass): %v", err)
+	}
+
+	col, err := app.FindCollectionByNameOrId(config.DefaultEventsCollection)
+	if err != nil {
+		t.Fatalf("events collection not found: %v", err)
+	}
+
+	wantIndex := fmt.Sprintf("idx_%s_type_ts", config.DefaultEventsCollection)
+	count := 0
+	for _, idx := range col.Indexes {
+		if strings.Contains(idx, wantIndex) {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Errorf("expected exactly one %q index, got %d: %v", wantIndex, count, col.Indexes)
 	}
 }
 

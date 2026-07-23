@@ -41,6 +41,7 @@ nav:
   - Python Driver:
       - Overview: driver/index.md
       - API Reference: driver/api.md
+      - Operations Runbook: driver/operations.md
   - Clients:
       - Python Client:
           - Overview: clients/python.md

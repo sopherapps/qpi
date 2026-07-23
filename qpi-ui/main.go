@@ -70,6 +70,9 @@ func main() {
 			// Start the global recovery engine
 			go scheduler.RunRecoveryEngine(e.App)
 
+			// Start the events log retention prune (no-op with the flag off)
+			go scheduler.RunEventsRetentionEngine(e.App)
+
 			return e.Next()
 		},
 	})

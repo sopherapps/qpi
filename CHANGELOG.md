@@ -9,6 +9,17 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 
 ### Added
 
+- `qpi-ui`: Added `events` log retention pruning (RFC 0001 Phase 5) — a background loop deletes entries
+older than `events-retention` (`QPI_EVENTS_RETENTION` / `eventsRetention`, default `720h`) on each
+`events-prune-interval` tick (`QPI_EVENTS_PRUNE_INTERVAL` / `eventsPruneInterval`, default `1h`); a `0`
+window disables it and the flag-off server starts no extra goroutine.
+- `qpi-ui`: Added a composite index `idx_events_type_ts` on `events(type, ts)` for the dashboard's
+per-type, time-ordered reads and the retention scan.
+- `qpi-ui`: Added a per-driver inbound event rate limit (`event-rate-limit` / `QPI_EVENT_RATE_LIMIT` /
+`eventRateLimit`, default `100`/sec, `0` disables) — over-rate events are logged and dropped without
+affecting other drivers.
+- `docs`: Added the driver framework operations runbook (`docs/driver/operations.md`) documenting the
+retention, index, and rate-limit tuning knobs and troubleshooting.
 - `docs`: Added `docs/rfcs/` with RFC 0001 (Driver Framework — design plus phased plan) describing the
 framework for supporting custom and extensible drivers.
 - `qpi-ui`: Added the typed event envelope, as part of the experimental driver framework 

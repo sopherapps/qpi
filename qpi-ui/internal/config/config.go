@@ -55,6 +55,9 @@ var (
 	flagRecoveryInterval         time.Duration
 	flagJobTimeout               time.Duration
 	flagDispatchPollInterval     time.Duration
+	flagEventsRetention          time.Duration
+	flagEventsPruneInterval      time.Duration
+	flagEventRateLimit           int
 	flagPortRangeStart           int
 	flagPortRangeEnd             int
 	flagDisableEmailPasswordAuth bool
@@ -83,6 +86,9 @@ type AppConfig struct {
 	RecoveryInterval          time.Duration
 	JobTimeout                time.Duration
 	DispatchPollInterval      time.Duration
+	EventsRetention           time.Duration
+	EventsPruneInterval       time.Duration
+	EventRateLimit            int
 	PortRangeStart            int
 	PortRangeEnd              int
 	DisableEmailPasswordAuth  bool
@@ -347,6 +353,9 @@ func BindFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().DurationVar(&flagRecoveryInterval, "recovery-interval", 10*time.Second, "Stale job recovery check interval")
 	cmd.PersistentFlags().DurationVar(&flagJobTimeout, "job-timeout", 20*time.Second, "Stale job execution timeout")
 	cmd.PersistentFlags().DurationVar(&flagDispatchPollInterval, "dispatch-poll-interval", 1*time.Second, "Dispatch poll interval")
+	cmd.PersistentFlags().DurationVar(&flagEventsRetention, "events-retention", 720*time.Hour, "How long to keep events log entries before pruning (driver framework); 0 disables pruning")
+	cmd.PersistentFlags().DurationVar(&flagEventsPruneInterval, "events-prune-interval", 1*time.Hour, "How often the events log retention prune runs (driver framework)")
+	cmd.PersistentFlags().IntVar(&flagEventRateLimit, "event-rate-limit", 100, "Max inbound events per second accepted from each driver; 0 disables the limit")
 	cmd.PersistentFlags().IntVar(&flagPortRangeStart, "port-range-start", 6000, "NNG port range start")
 	cmd.PersistentFlags().IntVar(&flagPortRangeEnd, "port-range-end", 7000, "NNG port range end")
 	cmd.PersistentFlags().BoolVar(&flagDisableEmailPasswordAuth, "disable-email-password-auth", false, "Disable email/password auth on users collection")
@@ -379,6 +388,9 @@ func NewFromFlags(cmd *cobra.Command) (*AppConfig, error) {
 	cfg.RecoveryInterval = 10 * time.Second
 	cfg.JobTimeout = 20 * time.Second
 	cfg.DispatchPollInterval = 1 * time.Second
+	cfg.EventsRetention = 720 * time.Hour
+	cfg.EventsPruneInterval = 1 * time.Hour
+	cfg.EventRateLimit = 100
 	cfg.PortRangeStart = 6000
 	cfg.PortRangeEnd = 7000
 	cfg.ServerPort = 8090
@@ -431,6 +443,9 @@ func NewFromFlags(cmd *cobra.Command) (*AppConfig, error) {
 			RecoveryInterval         *string                     `json:"recoveryInterval" yaml:"recoveryInterval"`
 			JobTimeout               *string                     `json:"jobTimeout" yaml:"jobTimeout"`
 			DispatchPollInterval     *string                     `json:"dispatchPollInterval" yaml:"dispatchPollInterval"`
+			EventsRetention          *string                     `json:"eventsRetention" yaml:"eventsRetention"`
+			EventsPruneInterval      *string                     `json:"eventsPruneInterval" yaml:"eventsPruneInterval"`
+			EventRateLimit           *int                        `json:"eventRateLimit" yaml:"eventRateLimit"`
 			PortRangeStart           *int                        `json:"portRangeStart" yaml:"portRangeStart"`
 			PortRangeEnd             *int                        `json:"portRangeEnd" yaml:"portRangeEnd"`
 			DisableEmailPasswordAuth *bool                       `json:"disableEmailPasswordAuth" yaml:"disableEmailPasswordAuth"`
@@ -510,6 +525,19 @@ func NewFromFlags(cmd *cobra.Command) (*AppConfig, error) {
 			if d, err := time.ParseDuration(*fileCfg.DispatchPollInterval); err == nil {
 				cfg.DispatchPollInterval = d
 			}
+		}
+		if fileCfg.EventsRetention != nil {
+			if d, err := time.ParseDuration(*fileCfg.EventsRetention); err == nil {
+				cfg.EventsRetention = d
+			}
+		}
+		if fileCfg.EventsPruneInterval != nil {
+			if d, err := time.ParseDuration(*fileCfg.EventsPruneInterval); err == nil {
+				cfg.EventsPruneInterval = d
+			}
+		}
+		if fileCfg.EventRateLimit != nil {
+			cfg.EventRateLimit = *fileCfg.EventRateLimit
 		}
 		if fileCfg.PortRangeStart != nil {
 			cfg.PortRangeStart = *fileCfg.PortRangeStart
@@ -612,6 +640,9 @@ func NewFromFlags(cmd *cobra.Command) (*AppConfig, error) {
 	cfg.RecoveryInterval = resolveDuration("recovery-interval", "QPI_RECOVERY_INTERVAL", cfg.RecoveryInterval)
 	cfg.JobTimeout = resolveDuration("job-timeout", "QPI_JOB_TIMEOUT", cfg.JobTimeout)
 	cfg.DispatchPollInterval = resolveDuration("dispatch-poll-interval", "QPI_DISPATCH_POLL_INTERVAL", cfg.DispatchPollInterval)
+	cfg.EventsRetention = resolveDuration("events-retention", "QPI_EVENTS_RETENTION", cfg.EventsRetention)
+	cfg.EventsPruneInterval = resolveDuration("events-prune-interval", "QPI_EVENTS_PRUNE_INTERVAL", cfg.EventsPruneInterval)
+	cfg.EventRateLimit = resolveInt("event-rate-limit", "QPI_EVENT_RATE_LIMIT", cfg.EventRateLimit)
 	cfg.PortRangeStart = resolveInt("port-range-start", "QPI_PORT_RANGE_START", cfg.PortRangeStart)
 	cfg.PortRangeEnd = resolveInt("port-range-end", "QPI_PORT_RANGE_END", cfg.PortRangeEnd)
 	cfg.DisableEmailPasswordAuth = resolveBool("disable-email-password-auth", "QPI_DISABLE_EMAIL_PASSWORD_AUTH", cfg.DisableEmailPasswordAuth)
