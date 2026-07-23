@@ -42,10 +42,8 @@ describe("QPU Registry — Admin: Delete QPU", () => {
     // Register it
     cy.contains("button", "Register QPU").click();
     cy.get('input[placeholder="rigetti-aspen-9"]').type(qpuToDelete);
-    cy.get("select").select("mock");
     cy.contains("button", "Register Unit").click();
-    cy.contains("h3", "QPU Registered Successfully!").should("be.visible");
-    cy.get('svg.lucide-x').parent('button').click();
+    cy.contains("h3", "Register QPU").should("not.exist");
 
     // Find the newly created QPU card by its name, and click its Delete button
     cy.contains("h3", qpuToDelete)

@@ -1,29 +1,20 @@
-"""The QPU expressed as a QPI driver (RFC 0001 §4, Phase 2).
+"""The QPU expressed as a QPI driver (RFC 0001 §4).
 
-A QPU is just the first driver: it handles :attr:`EventType.JOB_DISPATCH` by
-running the job on its executor and emits :attr:`EventType.JOB_RESULT` with the
-outcome. Execution still happens in a worker subprocess, so a heavy or crashing
-executor never blocks or takes down the receive loop, exactly as the standalone
-runner does today.
-
-Connection and wire framing come from the base class: the driver connects over
-the shared driver endpoint and exchanges the event envelope (RFC 0001 §3, §6).
+A QPU handles :attr:`EventType.JOB_DISPATCH` by running quantum jobs on its executor
+and emitting :attr:`EventType.JOB_RESULT` with the outcome. Execution happens in a worker
+subprocess so a heavy or crashing executor never blocks or takes down the receive loop.
 """
 
+import json
 import logging
 import multiprocessing
+import os
 import threading
 from pathlib import Path
 from typing import Any
 
-from qpi_driver.driver import (
-    _normalize_qpi_addr,
-    _sanitize_name,
-    execute_job,
-    run_driver,
-)
 from qpi_driver.events import Event, EventType
-from qpi_driver.executors import Executor
+from qpi_driver.executors import Executor, JobPayload
 from qpi_driver.paths import validate_safe_path
 from qpi_driver.sdk import DEFAULT_RECV_TIMEOUT_MS, QpiDriver
 
@@ -144,7 +135,7 @@ class QpuDriver(QpiDriver):
                 self._worker.join()
 
 
-def run_qpu_driver(
+def run_driver(
     qpi_addr: str = "http://127.0.0.1:8090",
     token: str = "",
     name: str = "qpu_sim_01",
@@ -156,11 +147,7 @@ def run_qpu_driver(
     recv_timeout_ms: int = DEFAULT_RECV_TIMEOUT_MS,
     **executor_options: Any,
 ) -> None:
-    """Run a QPU on the driver framework — the SDK counterpart to ``run_driver``.
-
-    Accepts the same arguments as :func:`qpi_driver.driver.run_driver` so it is a
-    drop-in alternative once the framework is enabled.
-    """
+    """Run a QPU on the event-based driver framework."""
     QpuDriver(
         qpi_addr=qpi_addr,
         token=token,
@@ -186,14 +173,7 @@ def run_process(
     ca_file_path: str,
     recv_timeout_ms: int,
 ) -> None:
-    """Run a QPU (process) driver on executor *device*, config from -o options.
-
-    Recognised options (all optional): ``data_dir``, ``is_dummy``,
-    ``job_timeout``, ``quantify_hardware_config``, ``quantify_device_config``,
-    and ``use_sdk``. ``use_sdk`` runs the QPU on the experimental driver
-    framework (RFC 0001); the legacy runner is the default. Raising
-    ``ValueError`` lets the CLI report a bad option uniformly.
-    """
+    """Run a QPU (process) driver on executor *device*, config from -o options."""
     data_dir = Path(options.get("data_dir", "./bin/data"))
     validate_safe_path(data_dir, "data_dir")
 
@@ -215,10 +195,100 @@ def run_process(
         "job_timeout": int(options.get("job_timeout", 10)),
     }
 
-    if _as_bool(options.get("use_sdk")):
-        run_qpu_driver(recv_timeout_ms=recv_timeout_ms, **executor_kwargs)
-    else:
-        run_driver(**executor_kwargs)
+    run_driver(recv_timeout_ms=recv_timeout_ms, **executor_kwargs)
+
+
+def execute_job(
+    job_queue: multiprocessing.Queue,
+    result_queue: multiprocessing.Queue,
+    executor: str | type[Executor] | Executor,
+    custom_executors: dict[str, type[Executor]] | None,
+    data_dir: Path,
+    **executor_options: Any,
+) -> None:
+    """
+    Worker process: pulls job dicts from job_queue, executes them using the resolved
+    executor, converts results to Qiskit-format dicts via ``executor.process_result()``,
+    and pushes the result dicts to result_queue.
+    """
+    logging.basicConfig(
+        level=logging.INFO,
+        format="[WorkerProcess] %(levelname)s %(message)s",
+        force=True,
+    )
+    w_log = logging.getLogger("worker")
+    w_log.info("Worker process started")
+
+    from qpi_driver.executors import resolve_executor
+
+    try:
+        options = executor_options.copy()
+        if "data_dir" not in options:
+            options["data_dir"] = data_dir
+        executor_instance = resolve_executor(executor, custom_executors, **options)
+    except Exception as exc:
+        w_log.exception("Failed to resolve executor")
+        result_queue.put(
+            {
+                "job_id": "init_error",
+                "error": f"Failed to resolve executor: {_sanitize_exception_msg(exc)}",
+            }
+        )
+        return
+
+    os.makedirs(data_dir, exist_ok=True)
+
+    while True:
+        try:
+            job = job_queue.get()
+            if job is None:  # Poison pill
+                w_log.info("Worker process received shutdown signal")
+                break
+
+            job_id = job.get("job_id", "unknown")
+            w_log.info("Worker process executing job %s", job_id)
+
+            try:
+                payload_dict = job.get("payload", {})
+                if isinstance(payload_dict, str):
+                    try:
+                        payload_dict = json.loads(payload_dict)
+                    except Exception:
+                        payload_dict = {}
+
+                payload_dict.update(dict(id=job_id))
+                payload = JobPayload.from_dict(payload_dict)
+                dataset = executor_instance.execute(payload)
+                result_dict = executor_instance.process_result(dataset, job_id)
+                result_queue.put({"job_id": job_id, "results": result_dict})
+                w_log.info("Worker process completed job %s", job_id)
+            except Exception as exc:
+                w_log.exception("Worker process failed job %s", job_id)
+                result_queue.put(
+                    {"job_id": job_id, "error": _sanitize_exception_msg(exc)}
+                )
+        except KeyboardInterrupt:
+            break
+        except Exception:
+            w_log.exception("Worker loop exception")
+
+    executor_instance.close()
+
+
+def _normalize_qpi_addr(qpi_addr: str) -> str:
+    if "://" not in qpi_addr:
+        qpi_addr = f"http://{qpi_addr}"
+    return qpi_addr.rstrip("/")
+
+
+def _sanitize_name(name: str) -> str:
+    return name.replace("-", "_")
+
+
+def _sanitize_exception_msg(exc: Exception) -> str:
+    if isinstance(exc, ValueError):
+        return str(exc)
+    return f"{type(exc).__name__}: job execution failed, see driver logs for details"
 
 
 def _as_bool(value: str | None) -> bool:

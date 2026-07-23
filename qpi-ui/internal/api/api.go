@@ -71,12 +71,10 @@ func RegisterRoutes(e *core.ServeEvent, dashboardFS fs.FS) {
 
 	// ops routes
 	e.Router.GET("/api/op/version", handleOpVersion)
-	e.Router.POST("/api/op/qpus/connect", handleQPUConnect)
 	e.Router.POST("/api/op/qpus/create", handleQPUCreate)
 	e.Router.POST("/api/op/qpu/toggle", handleQPUToggle)
 
-	// Driver framework routes (RFC 0001); behind EnableDriverFramework — the
-	// handlers themselves 404 when the flag is off.
+	// Driver routes
 	e.Router.POST("/api/op/drivers/create", handleDriverCreate)
 	e.Router.POST("/api/op/drivers/connect", handleDriverConnect)
 	e.Router.POST("/api/op/drivers/toggle", handleDriverToggle)
@@ -460,14 +458,8 @@ func handleOpVersion(re *core.RequestEvent) error {
 		return re.Error(http.StatusForbidden, "admin access required", nil)
 	}
 
-	cfg, err := config.GetConfigFromApp(re.App)
-	if err != nil {
-		return re.Error(http.StatusInternalServerError, "failed to retrieve configuration", err)
-	}
-
 	return re.JSON(http.StatusOK, map[string]any{
-		"version":                  Version,
-		"driver_framework_enabled": cfg.EnableDriverFramework,
+		"version": Version,
 	})
 }
 
@@ -489,34 +481,24 @@ func handleQPUCreate(re *core.RequestEvent) error {
 		return err
 	}
 
-	// Generate a random access token (raw token is returned once, hash is stored by db hook)
-	rawToken := generateAPIToken()
-
 	enabled := true
 	if req.Enabled != nil {
 		enabled = *req.Enabled
 	}
 
 	qpu := db.QPU{
-		Name:         req.Name,
-		AccessToken:  rawToken,
-		Status:       "offline",
-		ExecutorType: req.ExecutorType,
-		NumQubits:    req.NumQubits,
-		Enabled:      enabled,
+		Name:      req.Name,
+		Status:    "offline",
+		NumQubits: req.NumQubits,
+		Enabled:   enabled,
 	}
 
 	if err := saveToDb(re.App, &qpu); err != nil {
 		return re.Error(http.StatusInternalServerError, "failed to create QPU", err)
 	}
 
-	resp := QPUCreateResponse{
-		CaFingerprint: cfg.GetTlsCaHash(),
-		DriverVersion: Version,
-	}
+	resp := QPUCreateResponse{}
 	_ = resp.RefreshFromDbModel(&qpu)
-	resp.AccessToken = rawToken
-	resp.QpiAddr = getAddrFromReq(re)
 
 	return re.JSON(http.StatusCreated, resp)
 }
@@ -534,84 +516,6 @@ func handleRootCaDownload(re *core.RequestEvent) error {
 	}
 
 	return re.Blob(200, "application/x-pem-file", data)
-}
-
-// handleQPUConnect connects a QPU driver node, allocating dynamic command/result ports
-// and starting parallel dispatcher and result listener routines.
-// POST /api/op/qpus/connect
-func handleQPUConnect(re *core.RequestEvent) error {
-	cfg, err := config.GetConfigFromApp(re.App)
-	if err != nil {
-		return re.Error(http.StatusInternalServerError, "failed to retrieve custom configuration", err)
-	}
-
-	var req ConnectRequest
-	if err := parseBody(cfg, re, &req); err != nil {
-		return err
-	}
-
-	// Find QPU by access token (hashed) with enabled filter
-	hashedToken := db.HashToken(req.AccessToken)
-	var qpu db.QPU
-	err = db.FindOneByFilter(re.App, cfg.CollectionQPUs, &qpu, "access_token = {:token}", dbx.Params{"token": hashedToken})
-	if err != nil {
-		return re.Error(http.StatusUnauthorized, "invalid access token", err)
-	}
-
-	// Check if QPU is enabled
-	if !qpu.Enabled {
-		return re.Error(http.StatusForbidden, "QPU is currently disabled by administrator", nil)
-	}
-
-	// Update name if provided
-	if req.Name != "" {
-		qpu.Name = req.Name
-	}
-
-	// Allocate command/result ports if not already done
-	if qpu.NNGCommandPort == 0 || qpu.NNGResultPort == 0 {
-		ports, err := findFreePorts(re.App, 2)
-		if err != nil {
-			return re.Error(http.StatusInternalServerError, "cannot allocate NNG ports", err)
-		}
-		qpu.NNGCommandPort = ports[0]
-		qpu.NNGResultPort = ports[1]
-	}
-
-	if req.ExecutorType != "" {
-		qpu.ExecutorType = req.ExecutorType
-	}
-	if req.DeviceConfig != nil {
-		qpu.DeviceConfig = req.DeviceConfig
-	}
-
-	if err := saveToDb(re.App, &qpu); err != nil {
-		return re.Error(http.StatusInternalServerError, "cannot save QPU record", err)
-	}
-
-	// Spin up orchestration goroutines if not already running
-	StartQPUDistribution(re.App, cfg, qpu.ID, qpu.NNGCommandPort, qpu.NNGResultPort)
-
-	// Generate auth token for the QPU record
-	record, err := qpu.ToRecord(re.App)
-	var token string
-	if err == nil {
-		token, err = record.NewStaticAuthToken(0) // 0 = use app default duration
-	}
-	if err != nil {
-		// Non-fatal: fall back to the access token as a simple identifier
-		token = req.AccessToken
-	}
-
-	resp := ConnectResponse{
-		Status:         "success",
-		NNGCommandPort: qpu.NNGCommandPort,
-		NNGResultPort:  qpu.NNGResultPort,
-		TLSHash:        cfg.GetTlsCaHash(),
-		AuthToken:      token,
-		NNGHost:        cfg.IpAddr,
-	}
-	return re.JSON(http.StatusOK, resp)
 }
 
 // handleQPUToggle handles POST /api/op/qpu/toggle — toggles a QPU's enabled status (admin-only).
@@ -653,9 +557,6 @@ func handleDriverCreate(re *core.RequestEvent) error {
 	cfg, err := config.GetConfigFromApp(re.App)
 	if err != nil {
 		return re.Error(http.StatusInternalServerError, "failed to retrieve configuration", err)
-	}
-	if !cfg.EnableDriverFramework {
-		return re.Error(http.StatusNotFound, "driver framework is disabled", nil)
 	}
 
 	if !re.HasSuperuserAuth() {
@@ -737,9 +638,6 @@ func handleDriverConnect(re *core.RequestEvent) error {
 	if err != nil {
 		return re.Error(http.StatusInternalServerError, "failed to retrieve custom configuration", err)
 	}
-	if !cfg.EnableDriverFramework {
-		return re.Error(http.StatusNotFound, "driver framework is disabled", nil)
-	}
 
 	var req DriverConnectRequest
 	if err := parseBody(cfg, re, &req); err != nil {
@@ -816,9 +714,6 @@ func handleDriverToggle(re *core.RequestEvent) error {
 	if err != nil {
 		return re.Error(http.StatusInternalServerError, "failed to retrieve configuration", err)
 	}
-	if !cfg.EnableDriverFramework {
-		return re.Error(http.StatusNotFound, "driver framework is disabled", nil)
-	}
 
 	if !re.HasSuperuserAuth() {
 		return re.Error(http.StatusForbidden, "admin access required", nil)
@@ -882,28 +777,4 @@ func handleQPUGet(re *core.RequestEvent) error {
 	}
 
 	return re.JSON(http.StatusOK, &qpu)
-}
-
-// StartQPUDistribution starts the goroutines for a specific QPU if not already running.
-func StartQPUDistribution(app core.App, cfg *config.AppConfig, qpuID string, cmdPort, resPort int) {
-	activeQPUsMu.Lock()
-	defer activeQPUsMu.Unlock()
-	if _, running := activeQPUs[qpuID]; !running {
-		ctx, cancel := context.WithCancel(context.Background())
-		activeQPUs[qpuID] = cancel
-		go runDispatcher(ctx, app, qpuID, cmdPort)
-		go runResultListener(ctx, app, qpuID, resPort)
-		log.Printf("[QPi] Goroutines started for QPU %s (cmd:%d res:%d)", qpuID, cmdPort, resPort)
-	}
-}
-
-// StopQPUDistribution cancels the goroutines for a specific QPU.
-func StopQPUDistribution(qpuID string) {
-	activeQPUsMu.Lock()
-	defer activeQPUsMu.Unlock()
-	if cancel, exists := activeQPUs[qpuID]; exists {
-		cancel()
-		delete(activeQPUs, qpuID)
-		log.Printf("[QPi] Goroutines stopped for QPU %s", qpuID)
-	}
 }

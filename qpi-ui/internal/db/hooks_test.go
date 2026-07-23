@@ -21,7 +21,6 @@ func TestOnDriverCreate_HashesTokenOnSave(t *testing.T) {
 	defer app.Cleanup()
 
 	cfg := testConfig()
-	cfg.EnableDriverFramework = true
 	config.SaveConfigOnApp(app, cfg)
 	if err := EnsureSchema(app); err != nil {
 		t.Fatalf("failed to ensure schema: %v", err)

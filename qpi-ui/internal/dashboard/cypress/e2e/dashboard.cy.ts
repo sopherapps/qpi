@@ -92,15 +92,10 @@ describe("QPI Dashboard — End-to-End User Journeys", () => {
     cy.contains("button", "QPU Registry").click();
     cy.contains("button", "Register QPU").click();
     cy.get('input[placeholder="rigetti-aspen-9"]').clear().type("cypress-test-qpu");
-    cy.get("select").select("qblox");
     cy.contains("button", "Register Unit").click();
 
-    // Verify success screen is displayed
-    cy.contains("h3", "QPU Registered Successfully!").should("be.visible");
-    cy.contains("cypress-test-qpu").should("be.visible");
-    cy.contains("qblox").should("be.visible");
-    cy.contains("Connection Command").should("be.visible");
-    cy.contains("button", "Done").click();
+    // Modal is closed
+    cy.contains("h3", "Register QPU").should("not.exist");
 
     // Verify the QPU is now listed in the grid
     cy.contains("h3", "cypress-test-qpu").should("be.visible");

@@ -4,10 +4,9 @@ This runbook covers running the extensible driver framework (RFC 0001) in
 production: keeping the `events` log bounded, protecting the server from a
 misbehaving driver, and the knobs you tune per deployment.
 
-Everything here applies only when the framework is enabled
-(`--enable-driver-framework`, `QPI_ENABLE_DRIVER_FRAMEWORK`, or
-`enableDriverFramework: true`). With the flag off, none of the collections,
-loops, or limits below exist and the server behaves exactly as before.
+The driver framework is standard and active across all QPI deployments.
+The collections, retention loops, and limits below run automatically according
+to your configuration.
 
 ## Tuning knobs
 

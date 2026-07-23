@@ -17,7 +17,7 @@ echo ""
 
 # Ensure dashboard dependencies are installed, including Cypress, and compiled
 echo "[e2e] Preparing React dashboard..."
-(cd "${PROJECT_ROOT}/qpi-ui/internal/dashboard" && npm ci)
+(cd "${PROJECT_ROOT}/qpi-ui/internal/dashboard" && npm install --no-package-lock)
 
 echo "[e2e] Compiling static assets..."
 (cd "${PROJECT_ROOT}/qpi-ui/internal/dashboard" && npm run build)
@@ -25,10 +25,7 @@ echo "[e2e] Compiling static assets..."
 build_server
 install_driver
 
-# --enable-driver-framework is on so the Drivers registration page (RFC 0001
-# Phase 1) is exercised alongside the legacy dashboard specs; the flag is
-# additive and does not change existing QPU/job behaviour.
-start_pocketbase --enable-driver-framework
+start_pocketbase
 seed_database
 start_driver "mock"
 

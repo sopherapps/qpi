@@ -13,7 +13,7 @@ from qpi_driver.builtins import bluefors_gen1, qpu
 from qpi_driver.builtins.bluefors_gen1 import (
     BlueforsGen1Driver,
 )
-from qpi_driver.builtins.qpu import QpuDriver, run_qpu_driver
+from qpi_driver.builtins.qpu import QpuDriver
 
 # A driver runner blocks, running one device of an operation until interrupted.
 # It takes the universal transport args plus a parsed ``-o`` option dict; see
@@ -29,7 +29,6 @@ MONITOR_DRIVERS: dict[str, DriverRunner] = {
 
 __all__ = [
     "QpuDriver",
-    "run_qpu_driver",
     "BlueforsGen1Driver",
     "PROCESS_DRIVERS",
     "MONITOR_DRIVERS",

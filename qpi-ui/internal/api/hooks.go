@@ -151,36 +151,5 @@ func OnQpuUpdateRequest(e *core.RecordRequestEvent) error {
 		return e.Error(403, "Only administrators can update QPU settings.", nil)
 	}
 
-	originalRecord := e.Record.Original()
-	newRecord := e.Record
-
-	originalEnabled := originalRecord.GetBool("enabled")
-	newEnabled := newRecord.GetBool("enabled")
-	qpuId := newRecord.Id
-
-	if originalEnabled != newEnabled {
-		if !newEnabled {
-			StopQPUDistribution(qpuId)
-		} else {
-			// check if it is connected on ports on this server
-			cmdPort := newRecord.GetInt("nng_command_port")
-			if cmdPort <= 0 {
-				cmdPort = originalRecord.GetInt("nng_command_port")
-			}
-			resPort := newRecord.GetInt("nng_result_port")
-			if resPort <= 0 {
-				resPort = originalRecord.GetInt("nng_result_port")
-			}
-
-			if cmdPort > 0 && resPort > 0 {
-				cfg, err := config.GetConfigFromApp(e.App)
-				if err != nil {
-					return err
-				}
-
-				StartQPUDistribution(e.App, cfg, qpuId, cmdPort, resPort)
-			}
-		}
-	}
 	return e.Next()
 }

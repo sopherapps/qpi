@@ -16,9 +16,7 @@ build_server
 # The driver-framework path also exercises the Bluefors monitor built-in across
 # all SDK languages; the TypeScript one runs from its built dist (like the JS
 # client smoke test), so build it up front.
-if [ "${QPI_DRIVER_FRAMEWORK:-0}" = "1" ]; then
-    build_js_driver
-fi
+build_js_driver
 
 run_driver_e2e() {
     local executor=$1

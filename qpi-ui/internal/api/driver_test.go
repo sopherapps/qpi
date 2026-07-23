@@ -22,7 +22,6 @@ func testConfig() *config.AppConfig {
 		CollectionQPUTimeRequests: config.DefaultQPUTimeRequestsCollection,
 		CollectionDrivers:         config.DefaultDriversCollection,
 		CollectionEvents:          config.DefaultEventsCollection,
-		EnableDriverFramework:     true,
 		PortRangeStart:            6100,
 		PortRangeEnd:              6200,
 	}
@@ -47,10 +46,9 @@ func TestDriverRegisterAndConnect(t *testing.T) {
 	}
 
 	qpu := db.QPU{
-		Name:        "qpu_1",
-		AccessToken: db.HashToken("qpu_raw_token"),
-		Status:      "offline",
-		Enabled:     true,
+		Name:    "qpu_1",
+		Status:  "offline",
+		Enabled: true,
 	}
 	if err := saveToDb(app, &qpu); err != nil {
 		t.Fatalf("failed to create qpu: %v", err)
@@ -137,7 +135,7 @@ func TestDriverCreate_DisabledDriverCannotConnect(t *testing.T) {
 		t.Fatalf("failed to ensure schema: %v", err)
 	}
 
-	qpu := db.QPU{Name: "qpu_2", AccessToken: db.HashToken("tok"), Status: "offline", Enabled: true}
+	qpu := db.QPU{Name: "qpu_2", Status: "offline", Enabled: true}
 	if err := saveToDb(app, &qpu); err != nil {
 		t.Fatalf("failed to create qpu: %v", err)
 	}

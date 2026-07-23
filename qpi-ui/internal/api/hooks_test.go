@@ -18,7 +18,7 @@ func TestOnQPUTimeRequestUpdateRequest_ApprovalAddsSeconds(t *testing.T) {
 		t.Fatalf("failed to create test app: %v", err)
 	}
 	defer app.Cleanup()
-	config.SaveConfigOnApp(app, &config.AppConfig{CollectionQPUs: config.DefaultQpusCollection, CollectionTimeSlots: config.DefaultTimeSlotsCollection, CollectionQuantumJobs: config.DefaultQuantumJobsCollection, CollectionAPITokens: config.DefaultAPITokensCollection, CollectionNotifications: config.DefaultNotificationsCollection, CollectionQPUTimeRequests: "qpu_time_requests"})
+	config.SaveConfigOnApp(app, config.NewDefaultAppConfig())
 	if err := db.EnsureSchema(app); err != nil {
 		t.Fatalf("failed to ensure schema: %v", err)
 	}
@@ -101,7 +101,7 @@ func TestOnQPUTimeRequestUpdateRequest_RejectionDoesNotChangeSeconds(t *testing.
 		t.Fatalf("failed to create test app: %v", err)
 	}
 	defer app.Cleanup()
-	config.SaveConfigOnApp(app, &config.AppConfig{CollectionQPUs: config.DefaultQpusCollection, CollectionTimeSlots: config.DefaultTimeSlotsCollection, CollectionQuantumJobs: config.DefaultQuantumJobsCollection, CollectionAPITokens: config.DefaultAPITokensCollection, CollectionNotifications: config.DefaultNotificationsCollection, CollectionQPUTimeRequests: "qpu_time_requests"})
+	config.SaveConfigOnApp(app, config.NewDefaultAppConfig())
 	if err := db.EnsureSchema(app); err != nil {
 		t.Fatalf("failed to ensure schema: %v", err)
 	}
@@ -175,7 +175,7 @@ func TestOnQPUTimeRequestUpdateRequest_NonSuperuserForbidden(t *testing.T) {
 		t.Fatalf("failed to create test app: %v", err)
 	}
 	defer app.Cleanup()
-	config.SaveConfigOnApp(app, &config.AppConfig{CollectionQPUs: config.DefaultQpusCollection, CollectionTimeSlots: config.DefaultTimeSlotsCollection, CollectionQuantumJobs: config.DefaultQuantumJobsCollection, CollectionAPITokens: config.DefaultAPITokensCollection, CollectionNotifications: config.DefaultNotificationsCollection, CollectionQPUTimeRequests: "qpu_time_requests"})
+	config.SaveConfigOnApp(app, config.NewDefaultAppConfig())
 	if err := db.EnsureSchema(app); err != nil {
 		t.Fatalf("failed to ensure schema: %v", err)
 	}
@@ -234,7 +234,7 @@ func TestOnQPUTimeRequestUpdateRequest_CannotModifyProcessedRequest(t *testing.T
 		t.Fatalf("failed to create test app: %v", err)
 	}
 	defer app.Cleanup()
-	config.SaveConfigOnApp(app, &config.AppConfig{CollectionQPUs: config.DefaultQpusCollection, CollectionTimeSlots: config.DefaultTimeSlotsCollection, CollectionQuantumJobs: config.DefaultQuantumJobsCollection, CollectionAPITokens: config.DefaultAPITokensCollection, CollectionNotifications: config.DefaultNotificationsCollection, CollectionQPUTimeRequests: "qpu_time_requests"})
+	config.SaveConfigOnApp(app, config.NewDefaultAppConfig())
 	if err := db.EnsureSchema(app); err != nil {
 		t.Fatalf("failed to ensure schema: %v", err)
 	}

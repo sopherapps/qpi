@@ -225,12 +225,11 @@ if __name__ == "__main__":
     admin_auth()
     qpu = create_qpu()
 
-    if DRIVER_FRAMEWORK:
-        driver = create_driver(qpu["id"], DRIVER_KIND)
-        if DRIVER_TOKEN_FILE:
-            with open(DRIVER_TOKEN_FILE, "w") as f:
-                f.write(driver.get("token", ""))
-            print(f"[seed] Wrote driver token to {DRIVER_TOKEN_FILE}")
+    driver = create_driver(qpu["id"], DRIVER_KIND)
+    if DRIVER_TOKEN_FILE:
+        with open(DRIVER_TOKEN_FILE, "w") as f:
+            f.write(driver.get("token", ""))
+        print(f"[seed] Wrote driver token to {DRIVER_TOKEN_FILE}")
 
     user = create_user()
     grant_user_qpu_time(user["id"], qpu_seconds=1000.0, api_tokens=[TEST_API_TOKEN])

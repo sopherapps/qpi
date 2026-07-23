@@ -85,50 +85,6 @@ type ResponseDTO[T db.DbModel] interface {
 	RefreshFromDbModel(v T) error
 }
 
-// ConnectRequest represents the JSON payload passed to /api/op/qpus/connect.
-type ConnectRequest struct {
-	Name         string         `json:"name"`
-	AccessToken  string         `json:"access_token" validate:"required"`
-	ExecutorType string         `json:"executor_type,omitempty"`
-	DeviceConfig map[string]any `json:"device_config,omitempty"`
-}
-
-func (cr *ConnectRequest) SetDefaults() {
-}
-
-// ToMap converts the DTO to a map of field values
-func (cr *ConnectRequest) ToMap() map[string]any {
-	return map[string]any{
-		"name":          cr.Name,
-		"access_token":  cr.AccessToken,
-		"executor_type": cr.ExecutorType,
-		"device_config": cr.DeviceConfig,
-	}
-}
-
-// ConnectResponse represents the JSON payload returned by /api/op/qpus/connect.
-type ConnectResponse struct {
-	Status         string `json:"status"`
-	NNGCommandPort int    `json:"nng_command_port"`
-	NNGResultPort  int    `json:"nng_result_port"`
-	TLSHash        string `json:"tls_hash"`
-	AuthToken      string `json:"auth_token"`
-	NNGHost        string `json:"nng_host"`
-}
-
-func (cr *ConnectResponse) SetDefaults() {
-}
-
-func (cr *ConnectResponse) ToMap() map[string]any {
-	return map[string]any{
-		"status":           cr.Status,
-		"nng_command_port": cr.NNGCommandPort,
-		"nng_result_port":  cr.NNGResultPort,
-		"auth_token":       cr.AuthToken,
-		"nng_host":         cr.NNGHost,
-	}
-}
-
 // ResultPayload represents the NNG incoming message format for job execution results.
 type ResultPayload struct {
 	JobID   string         `json:"job_id"`
@@ -334,10 +290,9 @@ func (qtr *QPUToggleRequest) ToMap() map[string]any {
 
 // QPUCreateRequest represents the JSON payload for POST /api/op/qpus/create.
 type QPUCreateRequest struct {
-	Name         string `json:"name" validate:"required"`
-	ExecutorType string `json:"executor_type,omitempty"`
-	NumQubits    int    `json:"num_qubits,omitempty"`
-	Enabled      *bool  `json:"enabled,omitempty"`
+	Name      string `json:"name" validate:"required"`
+	NumQubits int    `json:"num_qubits,omitempty"`
+	Enabled   *bool  `json:"enabled,omitempty"`
 }
 
 func (qcr *QPUCreateRequest) SetDefaults() {
@@ -346,31 +301,24 @@ func (qcr *QPUCreateRequest) SetDefaults() {
 // ToMap converts the DTO to a map of field values
 func (qcr *QPUCreateRequest) ToMap() map[string]any {
 	return map[string]any{
-		"name":          qcr.Name,
-		"executor_type": qcr.ExecutorType,
-		"num_qubits":    qcr.NumQubits,
-		"enabled":       qcr.Enabled,
+		"name":       qcr.Name,
+		"num_qubits": qcr.NumQubits,
+		"enabled":    qcr.Enabled,
 	}
 }
 
 // QPUCreateResponse represents the JSON payload returned by POST /api/op/qpus/create.
 type QPUCreateResponse struct {
-	ID            string `json:"id"`
-	Name          string `json:"name"`
-	AccessToken   string `json:"access_token"`
-	ExecutorType  string `json:"executor_type"`
-	Status        string `json:"status"`
-	Enabled       bool   `json:"enabled"`
-	QpiAddr       string `json:"qpi_addr"`
-	CaFingerprint string `json:"ca_fingerprint"`
-	DriverVersion string `json:"driver_version"`
+	ID      string `json:"id"`
+	Name    string `json:"name"`
+	Status  string `json:"status"`
+	Enabled bool   `json:"enabled"`
 }
 
 // RefreshFromDbModel refreshes this DTO's field values from a database model
 func (qcr *QPUCreateResponse) RefreshFromDbModel(v *db.QPU) error {
 	qcr.ID = v.ID
 	qcr.Name = v.Name
-	qcr.ExecutorType = v.ExecutorType
 	qcr.Status = v.Status
 	qcr.Enabled = v.Enabled
 	return nil
@@ -382,13 +330,10 @@ func (qcr *QPUCreateResponse) SetDefaults() {
 // ToMap converts the DTO to a map of field values
 func (qcr *QPUCreateResponse) ToMap() map[string]any {
 	return map[string]any{
-		"id":            qcr.ID,
-		"name":          qcr.Name,
-		"access_token":  qcr.AccessToken,
-		"executor_type": qcr.ExecutorType,
-		"status":        qcr.Status,
-		"enabled":       qcr.Enabled,
-		"qpi_addr":      qcr.QpiAddr,
+		"id":      qcr.ID,
+		"name":    qcr.Name,
+		"status":  qcr.Status,
+		"enabled": qcr.Enabled,
 	}
 }
 

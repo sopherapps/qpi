@@ -104,7 +104,7 @@ func PruneEvents(app core.App) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	if !cfg.EnableDriverFramework || cfg.EventsRetention <= 0 {
+	if cfg.EventsRetention <= 0 {
 		return 0, nil
 	}
 
@@ -152,7 +152,7 @@ func RunEventsRetentionEngine(app core.App) {
 		log.Printf("[Retention] failed to get config: %v", err)
 		return
 	}
-	if !cfg.EnableDriverFramework || cfg.EventsRetention <= 0 {
+	if cfg.EventsRetention <= 0 {
 		return
 	}
 

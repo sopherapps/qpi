@@ -8,8 +8,7 @@ except importlib.metadata.PackageNotFoundError:
 from qpi_driver.builtins.bluefors_gen1 import (
     BlueforsGen1Driver,
 )
-from qpi_driver.builtins.qpu import QpuDriver, run_qpu_driver
-from qpi_driver.driver import run_driver
+from qpi_driver.builtins.qpu import QpuDriver, run_driver
 from qpi_driver.events import Event, EventType
 from qpi_driver.executors.base import Executor
 from qpi_driver.executors.mock import MockExecutor
@@ -30,7 +29,6 @@ __all__ = [
     "EventType",
     "QpiDriver",
     "QpuDriver",
-    "run_qpu_driver",
     "BlueforsGen1Driver",
     "Executor",
     "MockExecutor",

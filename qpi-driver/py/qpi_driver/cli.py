@@ -104,7 +104,7 @@ if typer.IS_TYPER_INSTALLED:
         Run a process driver — a QPU that executes jobs pushed to it (RFC 0001 §4).
 
         Executor runtime settings are passed as -o options: data_dir, is_dummy,
-        job_timeout, quantify_hardware_config, quantify_device_config, use_sdk.
+        job_timeout, quantify_hardware_config, quantify_device_config.
         """
         _run_operation(
             PROCESS_DRIVERS,
@@ -188,6 +188,8 @@ if typer.IS_TYPER_INSTALLED:
 
         _validate_safe_path(ca_file, "--ca-file")
         typer.rich_print(_banner())
+        # import logging
+        # logging.basicConfig(level=logging.INFO)
 
         try:
             runner(

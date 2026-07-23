@@ -23,7 +23,6 @@ func retentionConfig(retention time.Duration) *config.AppConfig {
 		CollectionQPUTimeRequests: config.DefaultQPUTimeRequestsCollection,
 		CollectionDrivers:         config.DefaultDriversCollection,
 		CollectionEvents:          config.DefaultEventsCollection,
-		EnableDriverFramework:     true,
 		EventsRetention:           retention,
 		EventsPruneInterval:       time.Hour,
 	}
@@ -114,30 +113,5 @@ func TestPruneEvents_NoopWhenRetentionDisabled(t *testing.T) {
 	}
 	if remaining := countEvents(t, app, cfg); remaining != 1 {
 		t.Errorf("expected the event to survive, got %d remaining", remaining)
-	}
-}
-
-// TestPruneEvents_NoopWhenFrameworkOff proves pruning is inert with the flag
-// off — the events collection does not exist, and the prune must not error.
-func TestPruneEvents_NoopWhenFrameworkOff(t *testing.T) {
-	app, err := tests.NewTestApp()
-	if err != nil {
-		t.Fatalf("failed to create test app: %v", err)
-	}
-	defer app.Cleanup()
-
-	cfg := retentionConfig(time.Hour)
-	cfg.EnableDriverFramework = false
-	config.SaveConfigOnApp(app, cfg)
-	if err := db.EnsureSchema(app); err != nil {
-		t.Fatalf("failed to ensure schema: %v", err)
-	}
-
-	pruned, err := PruneEvents(app)
-	if err != nil {
-		t.Fatalf("expected no error with framework off, got %v", err)
-	}
-	if pruned != 0 {
-		t.Errorf("expected 0 pruned with framework off, got %d", pruned)
 	}
 }
