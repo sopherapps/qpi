@@ -83,12 +83,12 @@ The driver runs alongside the QPU hardware (or simulation backend) to process jo
 To install the driver as a persistent background systemd service (mimicking Astral's installation workflow), run the interactive script:
 
 ```bash
-sudo bash -c "$(curl -LsSf https://raw.githubusercontent.com/sopherapps/qpi/main/qpi-driver/install-systemd.sh)"
+sudo bash -c "$(curl -LsSf https://raw.githubusercontent.com/sopherapps/qpi/main/qpi-driver/py/install-systemd.sh)"
 ```
 
 Alternatively, you can run the installer non-interactively by specifying the variables directly:
 ```bash
-curl -LsSf https://raw.githubusercontent.com/sopherapps/qpi/main/qpi-driver/install-systemd.sh | sudo \
+curl -LsSf https://raw.githubusercontent.com/sopherapps/qpi/main/qpi-driver/py/install-systemd.sh | sudo \
   QPI_TOKEN="<your-qpu-token>" \
   QPI_ADDR="http://127.0.0.1:8090" \
   CA_FINGERPRINT="<fingerprint>" \

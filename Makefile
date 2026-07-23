@@ -1,4 +1,4 @@
-.PHONY: all build build-dashboard test lint lint-go lint-py lint-js lint-dashboard lint-go-client lint-py-client format format-go format-py format-js format-dashboard format-go-client format-py-client package package-driver package-js package-py package-go clean venv-check test-e2e-dashboard test-e2e-driver-framework
+.PHONY: all build build-dashboard test test-js-driver test-go-driver lint lint-go lint-py lint-js lint-dashboard lint-go-client lint-py-client lint-js-driver lint-go-driver format format-go format-py format-js format-dashboard format-go-client format-py-client format-js-driver format-go-driver package package-driver package-driver-js package-driver-go package-js package-py package-go publish-js publish-driver-js publish-py clean venv-check test-e2e-dashboard test-e2e-driver-framework
 
 VERSION ?= 0.0.42
 UV := $(shell command -v uv 2> /dev/null || echo "$$HOME/.local/bin/uv")
@@ -17,10 +17,10 @@ build: venv-check build-dashboard
 	mkdir -p bin
 	(cd qpi-ui && go build -ldflags="-s -w" -o ../bin/qpi .)
 	@echo "Installing python driver package..."
-	$(UV) sync --project qpi-driver --extra cli --extra aer --extra quantify --dev
+	$(UV) sync --project qpi-driver/py --extra cli --extra aer --extra quantify --dev
 	@if [ "$$(uname)" = "Darwin" ]; then \
 		echo "Fixing macOS codesign for q1asm_macos..."; \
-		codesign --force --deep --sign - qpi-driver/.venv/lib/python3.12/site-packages/qblox_instruments/assemblers/q1asm_macos 2>/dev/null || true; \
+		codesign --force --deep --sign - qpi-driver/py/.venv/lib/python3.12/site-packages/qblox_instruments/assemblers/q1asm_macos 2>/dev/null || true; \
 	fi
 	@echo "Building JS client..."
 	(cd qpi-client/js && npm ci && npm run build)
@@ -33,7 +33,7 @@ build-dashboard:
 # Test targets
 # ---------------------------------------------------------------------------
 
-test: test-go test-py test-js-client test-go-client test-py-client test-e2e
+test: test-go test-py test-js-client test-go-client test-py-client test-js-driver test-go-driver test-e2e
 
 test-go: build-dashboard
 	@echo "Running Go unit tests (server)..."
@@ -43,36 +43,36 @@ test-py: test-py-base test-py-cli test-py-aer test-py-quantify test-py-qblox
 
 test-py-base:
 	@echo "Running Python driver tests with base deps only (mock executor)..."
-	$(UV) sync --project qpi-driver --dev
-	$(UV) run --project qpi-driver pytest qpi-driver/tests/ -v
+	$(UV) sync --project qpi-driver/py --dev
+	$(UV) run --project qpi-driver/py pytest qpi-driver/py/tests/ -v
 
 test-py-cli:
 	@echo "Running Python driver tests with [cli] extra..."
-	$(UV) sync --project qpi-driver --extra cli --dev
-	$(UV) run --project qpi-driver pytest qpi-driver/tests/ -v
+	$(UV) sync --project qpi-driver/py --extra cli --dev
+	$(UV) run --project qpi-driver/py pytest qpi-driver/py/tests/ -v
 
 test-py-aer:
 	@echo "Running Python driver tests with [aer] extra..."
-	$(UV) sync --project qpi-driver --extra aer --dev
-	$(UV) run --project qpi-driver pytest qpi-driver/tests/ -v
+	$(UV) sync --project qpi-driver/py --extra aer --dev
+	$(UV) run --project qpi-driver/py pytest qpi-driver/py/tests/ -v
 
 test-py-quantify:
 	@echo "Running Python driver tests with [quantify] extra..."
-	$(UV) sync --project qpi-driver --extra quantify --dev
+	$(UV) sync --project qpi-driver/py --extra quantify --dev
 	@if [ "$$(uname)" = "Darwin" ]; then \
 		echo "Fixing macOS codesign for q1asm_macos..."; \
-		codesign --force --deep --sign - qpi-driver/.venv/lib/python3.12/site-packages/qblox_instruments/assemblers/q1asm_macos 2>/dev/null || true; \
+		codesign --force --deep --sign - qpi-driver/py/.venv/lib/python3.12/site-packages/qblox_instruments/assemblers/q1asm_macos 2>/dev/null || true; \
 	fi
-	$(UV) run --project qpi-driver pytest qpi-driver/tests/ -v
+	$(UV) run --project qpi-driver/py pytest qpi-driver/py/tests/ -v
 
 test-py-qblox:
 	@echo "Running Python driver tests with [qblox] extra..."
-	$(UV) sync --project qpi-driver --extra qblox --dev
+	$(UV) sync --project qpi-driver/py --extra qblox --dev
 	@if [ "$$(uname)" = "Darwin" ]; then \
 		echo "Fixing macOS codesign for q1asm_macos..."; \
-		codesign --force --deep --sign - qpi-driver/.venv/lib/python3.12/site-packages/qblox_instruments/assemblers/q1asm_macos 2>/dev/null || true; \
+		codesign --force --deep --sign - qpi-driver/py/.venv/lib/python3.12/site-packages/qblox_instruments/assemblers/q1asm_macos 2>/dev/null || true; \
 	fi
-	$(UV) run --project qpi-driver pytest qpi-driver/tests/ -v
+	$(UV) run --project qpi-driver/py pytest qpi-driver/py/tests/ -v
 
 test-js-client:
 	@echo "Running JS client tests..."
@@ -86,6 +86,14 @@ test-py-client:
 	@echo "Running Python client tests..."
 	$(UV) sync --project qpi-client/py --dev
 	$(UV) run --project qpi-client/py pytest qpi-client/py/tests/ -v
+
+test-js-driver:
+	@echo "Running JS/TS driver SDK tests..."
+	(cd qpi-driver/js && npm ci && npm test)
+
+test-go-driver:
+	@echo "Running Go driver SDK tests..."
+	(cd qpi-driver/go && go test -v ./...)
 
 test-e2e: test-e2e-driver test-e2e-driver-framework test-e2e-client-py test-e2e-client-js test-e2e-client-go test-e2e-dashboard test-e2e-systemd
 
@@ -121,7 +129,7 @@ test-e2e-systemd:
 # Lint targets
 # ---------------------------------------------------------------------------
 
-lint: lint-go lint-py lint-js lint-dashboard lint-go-client lint-py-client
+lint: lint-go lint-py lint-js lint-dashboard lint-go-client lint-py-client lint-js-driver lint-go-driver
 
 lint-go: build-dashboard
 	@echo "Linting Go server files..."
@@ -130,7 +138,7 @@ lint-go: build-dashboard
 
 lint-py:
 	@echo "Linting Python driver files..."
-	$(UV) run --project qpi-driver ruff check qpi-driver/
+	$(UV) run --project qpi-driver/py ruff check qpi-driver/py/
 
 lint-js:
 	@echo "Linting JS client files..."
@@ -149,11 +157,20 @@ lint-py-client:
 	@echo "Linting Python client files..."
 	$(UV) run --project qpi-client/py ruff check qpi-client/py/qpi_client/ qpi-client/py/tests/
 
+lint-js-driver:
+	@echo "Type-checking JS/TS driver SDK..."
+	(cd qpi-driver/js && npm ci && npm run lint)
+
+lint-go-driver:
+	@echo "Linting Go driver SDK files..."
+	(cd qpi-driver/go && go vet ./...)
+	(cd qpi-driver/go && gofmt -l -d .)
+
 # ---------------------------------------------------------------------------
 # Format targets
 # ---------------------------------------------------------------------------
 
-format: format-go format-py format-js format-dashboard format-go-client format-py-client
+format: format-go format-py format-js format-dashboard format-go-client format-py-client format-js-driver format-go-driver
 
 format-go:
 	@echo "Formatting Go server files..."
@@ -161,8 +178,8 @@ format-go:
 
 format-py:
 	@echo "Formatting and sorting imports for Python driver files..."
-	$(UV) run --project qpi-driver ruff format qpi-driver/
-	$(UV) run --project qpi-driver ruff check --select I --fix qpi-driver/
+	$(UV) run --project qpi-driver/py ruff format qpi-driver/py/
+	$(UV) run --project qpi-driver/py ruff check --select I --fix qpi-driver/py/
 
 format-js:
 	@echo "Formatting JS client files..."
@@ -181,6 +198,14 @@ format-py-client:
 	$(UV) run --project qpi-client/py ruff format qpi-client/py/qpi_client/ qpi-client/py/tests/
 	$(UV) run --project qpi-client/py ruff check --select I --fix qpi-client/py/qpi_client/ qpi-client/py/tests/
 
+format-js-driver:
+	@echo "Formatting JS/TS driver SDK files..."
+	(cd qpi-driver/js && npm ci && npm run format)
+
+format-go-driver:
+	@echo "Formatting Go driver SDK files..."
+	(cd qpi-driver/go && go fmt ./...)
+
 # ---------------------------------------------------------------------------
 # Package / Publish targets
 # ---------------------------------------------------------------------------
@@ -194,7 +219,15 @@ package-py:
 
 package-driver:
 	@echo "Packaging Python driver..."
-	$(UV) build --project qpi-driver/
+	$(UV) build --project qpi-driver/py/
+
+package-driver-js:
+	@echo "Packaging JS/TS driver SDK..."
+	(cd qpi-driver/js && npm ci && npm run build)
+
+package-driver-go:
+	@echo "Go driver SDK is a module — no packaging step required."
+	@echo "Consumers import it directly: go get github.com/sopherapps/qpi/qpi-driver/go"
 
 package-go:
 	@echo "Go client is a module — no packaging step required."
@@ -203,6 +236,10 @@ package-go:
 publish-js:
 	@echo "Publishing JS client to npm..."
 	(cd qpi-client/js && npm publish --access public)
+
+publish-driver-js:
+	@echo "Publishing TypeScript driver SDK to npm..."
+	(cd qpi-driver/js && npm publish --access public)
 
 publish-py:
 	@echo "Publishing Python client to PyPI..."
@@ -220,6 +257,7 @@ clean:
 	find . -type d -name "*.egg-info" -exec rm -rf {} +
 	find . -type d -name ".pytest_cache" -exec rm -rf {} +
 	find . -type d -name ".ruff_cache" -exec rm -rf {} +
-	rm -rf qpi-driver/build qpi-driver/dist qpi-driver/*.egg-info qpi-driver/.venv .venv
+	rm -rf qpi-driver/py/build qpi-driver/py/dist qpi-driver/py/*.egg-info qpi-driver/py/.venv .venv
+	rm -rf qpi-driver/js/dist qpi-driver/js/node_modules
 	rm -rf qpi-client/js/dist qpi-client/js/node_modules
 	rm -rf qpi-client/py/build qpi-client/py/dist qpi-client/py/*.egg-info qpi-client/py/.venv

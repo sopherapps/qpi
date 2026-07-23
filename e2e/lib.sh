@@ -49,14 +49,19 @@ build_js_client() {
     (cd "${PROJECT_ROOT}/qpi-client/js" && npm ci && npm run build)
 }
 
+build_js_driver() {
+    echo "[e2e] Building TypeScript driver SDK..."
+    (cd "${PROJECT_ROOT}/qpi-driver/js" && npm ci && npm run build)
+}
+
 # ---------------------------------------------------------------------------
 # Python detection
 # ---------------------------------------------------------------------------
 detect_python() {
     if [ -n "$VIRTUAL_ENV" ]; then
         PYTHON="python"
-    elif [ -d "${PROJECT_ROOT}/qpi-driver/.venv" ]; then
-        PYTHON="${PROJECT_ROOT}/qpi-driver/.venv/bin/python"
+    elif [ -d "${PROJECT_ROOT}/qpi-driver/py/.venv" ]; then
+        PYTHON="${PROJECT_ROOT}/qpi-driver/py/.venv/bin/python"
     elif [ -d "${PROJECT_ROOT}/.venv" ]; then
         PYTHON="${PROJECT_ROOT}/.venv/bin/python"
     else
@@ -92,14 +97,14 @@ install_driver() {
     esac
 
     if command -v uv >/dev/null 2>&1; then
-        uv sync --project "${PROJECT_ROOT}/qpi-driver" $uv_extras
+        uv sync --project "${PROJECT_ROOT}/qpi-driver/py" $uv_extras
     else
         echo "[e2e] uv not found, falling back to pip..."
-        pip install -e "${PROJECT_ROOT}/qpi-driver[$pip_extras]"
+        pip install -e "${PROJECT_ROOT}/qpi-driver/py[$pip_extras]"
     fi
 
     if [ "$(uname)" = "Darwin" ]; then
-        codesign --force --deep --sign - "${PROJECT_ROOT}/qpi-driver/.venv/lib/python3.12/site-packages/qblox_instruments/assemblers/q1asm_macos" 2>/dev/null || true
+        codesign --force --deep --sign - "${PROJECT_ROOT}/qpi-driver/py/.venv/lib/python3.12/site-packages/qblox_instruments/assemblers/q1asm_macos" 2>/dev/null || true
     fi
 }
 
@@ -208,7 +213,7 @@ start_driver() {
 
     local extra_opts=""
     if [ "$executor" = "quantify" ] || [ "$executor" = "qblox" ]; then
-        extra_opts="-o quantify_hardware_config=${PROJECT_ROOT}/qpi-driver/tests/fixtures/quantify.hardware.json -o quantify_device_config=${PROJECT_ROOT}/qpi-driver/tests/fixtures/quantify.device.yml"
+        extra_opts="-o quantify_hardware_config=${PROJECT_ROOT}/qpi-driver/py/tests/fixtures/quantify.hardware.json -o quantify_device_config=${PROJECT_ROOT}/qpi-driver/py/tests/fixtures/quantify.device.yml"
     fi
 
     # Fetch the CA fingerprint from the server for TLS verification

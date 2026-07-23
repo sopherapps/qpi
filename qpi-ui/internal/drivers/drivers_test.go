@@ -135,13 +135,55 @@ func TestSnippetsCustomHasNoOfficialBuild(t *testing.T) {
 	}
 }
 
-func TestSnippetsNonPythonHasNoOfficialBuild(t *testing.T) {
+// TestSnippetsOfficialGoUsesGoInstall proves an official Go driver resolves the
+// per-language official run snippets — installed via `go install` — rather than
+// a bare SDK install + stub (RFC 0001 Phase 4).
+func TestSnippetsOfficialGoUsesGoInstall(t *testing.T) {
 	s := Default.Snippets(Qblox, Go, Params{Name: "x", Token: "t", QpiAddr: "u", CaFingerprint: "f"})
-	if s.Systemd != "" || s.ManualCLI != "" {
-		t.Errorf("expected no official-build snippets for a go driver (no official build yet), got %+v", s)
+	if s.Install != "" || s.Stub != "" {
+		t.Errorf("expected no bare-install/stub for an official Go build, got %+v", s)
 	}
-	if s.Install == "" || s.Stub == "" {
-		t.Errorf("expected an install command and a stub for a go driver, got %+v", s)
+	if !strings.Contains(s.ManualCLI, "go install github.com/sopherapps/qpi/qpi-driver/go/qpi-driver") {
+		t.Errorf("expected a `go install` manual CLI, got %q", s.ManualCLI)
+	}
+	if !strings.Contains(s.ManualCLI, "process --device qblox") {
+		t.Errorf("expected the process subcommand, got %q", s.ManualCLI)
+	}
+	if !strings.Contains(s.Systemd, "/go/install-systemd.sh") {
+		t.Errorf("expected the Go install-systemd.sh URL, got %q", s.Systemd)
+	}
+}
+
+// TestSnippetsBlueforsPerLanguage proves the bluefors_gen1 monitor resolves
+// official per-language run snippets — `go install` / `npm install -g` in the
+// manual CLI, the language's install-systemd.sh, and the monitor subcommand
+// with its -o options — for Go and TypeScript (RFC 0001 §7, Phase 4).
+func TestSnippetsBlueforsPerLanguage(t *testing.T) {
+	p := Params{Name: "cryostat-1", Token: "tok", QpiAddr: "https://qpi.example.com", CaFingerprint: "f"}
+
+	goSnips := Default.Snippets(BlueforsGen1, Go, p)
+	if goSnips.Install != "" || goSnips.Stub != "" {
+		t.Errorf("expected no bare-install/stub for an official Go build, got %+v", goSnips)
+	}
+	if !strings.Contains(goSnips.ManualCLI, "go install github.com/sopherapps/qpi/qpi-driver/go/qpi-driver") {
+		t.Errorf("expected a `go install` manual CLI, got %q", goSnips.ManualCLI)
+	}
+	if !strings.Contains(goSnips.ManualCLI, "monitor --device bluefors_gen1") {
+		t.Errorf("expected the monitor subcommand, got %q", goSnips.ManualCLI)
+	}
+	if !strings.Contains(goSnips.Systemd, "/go/install-systemd.sh") {
+		t.Errorf("expected the Go install-systemd.sh URL, got %q", goSnips.Systemd)
+	}
+
+	tsSnips := Default.Snippets(BlueforsGen1, TypeScript, p)
+	if !strings.Contains(tsSnips.ManualCLI, "npm install -g qpi-driver") {
+		t.Errorf("expected an `npm install -g` manual CLI, got %q", tsSnips.ManualCLI)
+	}
+	if !strings.Contains(tsSnips.ManualCLI, "monitor --device bluefors_gen1") {
+		t.Errorf("expected the monitor subcommand, got %q", tsSnips.ManualCLI)
+	}
+	if !strings.Contains(tsSnips.Systemd, "/js/install-systemd.sh") {
+		t.Errorf("expected the TS install-systemd.sh URL, got %q", tsSnips.Systemd)
 	}
 }
 

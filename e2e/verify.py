@@ -22,8 +22,8 @@ The script exits 0 on success, 1 on failure.
 """
 
 import argparse, os, sys, time, requests, json
-from datetime import datetime, timezone, timedelta    
-import threading, socket, ssl, subprocess, sys
+from datetime import datetime, timezone, timedelta
+import threading, socket, ssl, subprocess, sys, shutil, signal
 
 HOST = os.getenv("GO_SERVER_HOST", "127.0.0.1")
 PORT = int(os.getenv("GO_SERVER_PORT", "8090"))
@@ -1487,9 +1487,9 @@ def test_driver_snippet_connection():
     ]
     env = os.environ.copy()
     env["QPI_ACCESS_TOKEN"] = token
-    env["PYTHONPATH"] = os.path.join(qpi_dir, "qpi-driver")
+    env["PYTHONPATH"] = os.path.join(qpi_dir, "qpi-driver", "py")
 
-    p1 = subprocess.Popen(cmd_direct, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, cwd=os.path.join(qpi_dir, "qpi-driver"))
+    p1 = subprocess.Popen(cmd_direct, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, cwd=os.path.join(qpi_dir, "qpi-driver", "py"))
     success, out1 = wait_for_handshake(p1, timeout_sec=20)
     
     if not success:
@@ -1550,7 +1550,7 @@ def test_driver_snippet_connection():
     env_proxy = env.copy()
     env_proxy["REQUESTS_CA_BUNDLE"] = cert_path
     
-    p2 = subprocess.Popen(cmd_proxy, env=env_proxy, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, cwd=os.path.join(qpi_dir, "qpi-driver"))
+    p2 = subprocess.Popen(cmd_proxy, env=env_proxy, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, cwd=os.path.join(qpi_dir, "qpi-driver", "py"))
     success, out2 = wait_for_handshake(p2, timeout_sec=20)
     
     os.remove(cert_path)
@@ -1567,17 +1567,101 @@ def test_driver_snippet_connection():
     return True
 
 
-def test_bluefors_gen1_events():
-    """Framework path only (RFC 0001 §7, Phase 3): a monitor driver's readings
-    land in the `events` trace log and killing it does not disturb anything
-    else.
+# Channels every bluefors_gen1 monitor case polls, in the CLI/-o string form.
+_BLUEFORS_CHANNELS = "mapper.bf.tmc:K,mapper.bf.pmc:mbar"
 
-    Registers its own QPU + bluefors_gen1 driver (independent of whatever
-    the main run_driver_tests flow is exercising), points the monitor at a
-    throwaway mock Bluefors HTTP server, and polls the events collection for
-    a CryostatReading row before tearing everything down.
+
+def _monitor_flags(name, token, fingerprint, mock_port):
+    """The qpi-driver CLI flags for the bluefors_gen1 monitor. Identical across
+    languages — the Go (cobra) and TypeScript (commander) CLIs share the Python
+    CLI's interface (universal flags + repeatable -o options)."""
+    return [
+        "monitor",
+        "--device", "bluefors_gen1",
+        "--qpi-addr", BASE,
+        "--name", name,
+        "--token", token,
+        "--ca-fingerprint", fingerprint,
+        "-o", f"base_url=http://127.0.0.1:{mock_port}",
+        "-o", f"channels={_BLUEFORS_CHANNELS}",
+        "-o", "poll_interval=1",
+    ]
+
+
+def _python_monitor_cmd(qpi_dir, name, token, fingerprint, mock_port):
+    env = os.environ.copy()
+    env["PYTHONPATH"] = os.path.join(qpi_dir, "qpi-driver", "py")
+    argv = [sys.executable, "-m", "qpi_driver.cli"] + _monitor_flags(
+        name, token, fingerprint, mock_port
+    )
+    return argv, env, os.path.join(qpi_dir, "qpi-driver", "py")
+
+
+def _typescript_monitor_cmd(qpi_dir, name, token, fingerprint, mock_port):
+    cli = os.path.join(qpi_dir, "qpi-driver", "js", "dist", "builtins", "cli.js")
+    argv = ["node", cli] + _monitor_flags(name, token, fingerprint, mock_port)
+    return argv, os.environ.copy(), qpi_dir
+
+
+def _go_monitor_cmd(qpi_dir, name, token, fingerprint, mock_port):
+    argv = ["go", "run", "./qpi-driver"] + _monitor_flags(
+        name, token, fingerprint, mock_port
+    )
+    return argv, os.environ.copy(), os.path.join(qpi_dir, "qpi-driver", "go")
+
+
+def _bluefors_languages(qpi_dir):
+    """The (language, command-builder) pairs to exercise. A language whose
+    toolchain or built CLI is missing is skipped with a warning rather than
+    failing, so the suite still runs where a language is absent (e.g. no Go
+    toolchain locally); CI has all three set up."""
+    languages = [("python", _python_monitor_cmd)]
+
+    ts_cli = os.path.join(qpi_dir, "qpi-driver", "js", "dist", "builtins", "cli.js")
+    if shutil.which("node") and os.path.exists(ts_cli):
+        languages.append(("typescript", _typescript_monitor_cmd))
+    else:
+        print("[verify] ⚠ skipping typescript bluefors_gen1 e2e (node or built CLI unavailable)")
+
+    if shutil.which("go"):
+        languages.append(("go", _go_monitor_cmd))
+    else:
+        print("[verify] ⚠ skipping go bluefors_gen1 e2e (go toolchain unavailable)")
+
+    return languages
+
+
+def _terminate_group(proc):
+    """Stop a monitor and its whole process group. `go run` forks a child
+    binary, so signalling only the parent would leave the monitor running; the
+    process was started in its own session so the group can be signalled."""
+    if proc.poll() is not None:
+        return
+    try:
+        os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+    except (ProcessLookupError, PermissionError):
+        return
+    try:
+        proc.wait(timeout=10)
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        proc.wait(timeout=5)
+
+
+def test_bluefors_gen1_events():
+    """Framework path only (RFC 0001 §7): the bluefors_gen1 monitor built-in, in
+    every SDK language, gets its readings into the `events` trace log, and
+    killing it does not disturb the QPU it belongs to.
+
+    Each language gets its own QPU + registered driver, is pointed at a
+    throwaway mock Bluefors HTTP server, and is launched via that language's
+    runnable monitor (the Python CLI, the built TypeScript SDK, or `go run` of
+    the Go SDK's cmd). A language whose toolchain/build is missing is skipped.
     """
-    print("\n[verify] Testing Bluefors cryostat monitor → events log …")
+    print("\n[verify] Testing Bluefors cryostat monitor → events log (all SDK languages) …")
 
     script_dir = os.path.dirname(os.path.abspath(__file__))
     qpi_dir = os.path.dirname(script_dir)
@@ -1594,26 +1678,35 @@ def test_bluefors_gen1_events():
         return False
     admin_session.headers["Authorization"] = resp.json()["token"]
 
+    all_ok = True
+    for language, build_cmd in _bluefors_languages(qpi_dir):
+        if not _run_bluefors_case(
+            admin_session, mock_bluefors_server, qpi_dir, language, build_cmd
+        ):
+            all_ok = False
+    return all_ok
+
+
+def _run_bluefors_case(admin_session, mock_bluefors_server, qpi_dir, language, build_cmd):
+    """Run one language's bluefors_gen1 monitor end to end."""
+    print(f"\n[verify] — bluefors_gen1 monitor ({language}) —")
+    name = f"bluefors-gen1-e2e-{language}"
+
     resp = admin_session.post(
         f"{BASE}/api/op/qpus/create",
-        json={"name": "MonitorTestQPU", "executor_type": "mock"},
+        json={"name": f"MonitorTestQPU-{language}", "executor_type": "mock"},
     )
     if resp.status_code != 201:
-        print(f"[verify] ✗ Failed to create QPU for monitor test: {resp.text}")
+        print(f"[verify] ✗ [{language}] Failed to create QPU: {resp.text}")
         return False
     qpu_id = resp.json()["id"]
 
     resp = admin_session.post(
         f"{BASE}/api/op/drivers/create",
-        json={
-            "name": "bluefors-gen1-e2e",
-            "qpu": qpu_id,
-            "kind": "bluefors_gen1",
-            "language": "python",
-        },
+        json={"name": name, "qpu": qpu_id, "kind": "bluefors_gen1", "language": language},
     )
     if resp.status_code != 201:
-        print(f"[verify] ✗ Failed to register monitor driver: {resp.text}")
+        print(f"[verify] ✗ [{language}] Failed to register monitor driver: {resp.text}")
         return False
     driver_data = resp.json()
     token = driver_data["token"]
@@ -1622,44 +1715,29 @@ def test_bluefors_gen1_events():
     mock_server, _ = mock_bluefors_server.start(0)
     mock_port = mock_server.server_address[1]
 
-    env = os.environ.copy()
-    env["QPI_ACCESS_TOKEN"] = token
-    env["PYTHONPATH"] = os.path.join(qpi_dir, "qpi-driver")
+    argv, env, cwd = build_cmd(qpi_dir, name, token, fingerprint, mock_port)
     proc = subprocess.Popen(
-        [
-            sys.executable,
-            "-m",
-            "qpi_driver.cli",
-            "monitor",
-            "--device",
-            "bluefors_gen1",
-            "--qpi-addr",
-            BASE,
-            "--name",
-            "bluefors-gen1-e2e",
-            "--ca-fingerprint",
-            fingerprint,
-            "-o",
-            f"base_url=http://127.0.0.1:{mock_port}",
-            "-o",
-            "channels=mapper.bf.tmc:K,mapper.bf.pmc:mbar",
-            "-o",
-            "poll_interval=1",
-        ],
+        argv,
         env=env,
-        cwd=os.path.join(qpi_dir, "qpi-driver"),
+        cwd=cwd,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
+        start_new_session=True,
     )
 
     try:
         rows = []
-        for _ in range(20):
+        # `go run` compiles the cmd first, so allow the Go case more time.
+        attempts = 45 if language == "go" else 20
+        for _ in range(attempts):
             time.sleep(1)
             resp = admin_session.get(
                 f"{BASE}/api/collections/events/records",
-                params={"filter": 'type = "CryostatReading"', "perPage": 10},
+                params={
+                    "filter": f'type = "CryostatReading" && driver = "{driver_data["id"]}"',
+                    "perPage": 10,
+                },
             )
             resp.raise_for_status()
             rows = resp.json()["items"]
@@ -1668,35 +1746,33 @@ def test_bluefors_gen1_events():
 
         if not rows:
             out = proc.stdout.read() if proc.stdout else ""
-            print(f"[verify] ✗ No CryostatReading events landed within 20s. Driver output:\n{out}")
+            print(f"[verify] ✗ [{language}] No CryostatReading events landed. Monitor output:\n{out}")
             return False
 
         row = rows[0]
         if row.get("driver") != driver_data["id"] or row.get("qpu") != qpu_id:
             print(
-                f"[verify] ✗ Event attributed to wrong driver/qpu: {row.get('driver')}/{row.get('qpu')}"
+                f"[verify] ✗ [{language}] Event attributed to wrong driver/qpu: "
+                f"{row.get('driver')}/{row.get('qpu')}"
             )
             return False
         if not row.get("payload", {}).get("readings"):
-            print(f"[verify] ✗ Event payload has no readings: {row.get('payload')}")
+            print(f"[verify] ✗ [{language}] Event payload has no readings: {row.get('payload')}")
             return False
 
-        print(f"[verify] ✓ CryostatReading landed in events log: {row['payload']['readings']}")
+        print(f"[verify] ✓ [{language}] CryostatReading landed in events log: {row['payload']['readings']}")
 
         # Killing the monitor must not disturb the QPU/driver it belongs to,
         # let alone any other driver (RFC 0001 §7 DoD).
-        proc.terminate()
-        proc.wait(timeout=5)
+        _terminate_group(proc)
         time.sleep(1)
         resp = admin_session.get(f"{BASE}/api/collections/qpus/records/{qpu_id}")
         resp.raise_for_status()
-        print(f"[verify]   QPU status after monitor stopped: {resp.json().get('status')}")
+        print(f"[verify]   [{language}] QPU status after monitor stopped: {resp.json().get('status')}")
 
         return True
     finally:
-        if proc.poll() is None:
-            proc.terminate()
-            proc.wait(timeout=5)
+        _terminate_group(proc)
         mock_bluefors_server.stop(mock_server)
 
 
