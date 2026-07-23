@@ -90,6 +90,88 @@ func recordToQuantumJob(record *core.Record) *db.QuantumJob {
 	return &job
 }
 
+// eventsPruneBatchSize bounds how many expired events a single prune query
+// pulls, mirroring the recovery engine's batched scan.
+const eventsPruneBatchSize = 500
+
+// PruneEvents deletes events log entries older than cfg.EventsRetention and
+// returns how many it removed. It is a no-op when the driver framework is off
+// (the events collection does not exist then) or when retention is disabled
+// (EventsRetention <= 0). It deletes in bounded batches so a large backlog
+// cannot block on one huge transaction (RFC 0001 §7, §11).
+func PruneEvents(app core.App) (int, error) {
+	cfg, err := config.GetConfigFromApp(app)
+	if err != nil {
+		return 0, err
+	}
+	if !cfg.EnableDriverFramework || cfg.EventsRetention <= 0 {
+		return 0, nil
+	}
+
+	cutoff := time.Now().UTC().Add(-cfg.EventsRetention).Format("2006-01-02T15:04:05.000Z")
+
+	pruned := 0
+	for {
+		stale, err := app.FindRecordsByFilter(
+			cfg.CollectionEvents,
+			"ts < {:cutoff}",
+			"+ts", eventsPruneBatchSize, 0,
+			dbx.Params{"cutoff": cutoff},
+		)
+		if err != nil {
+			return pruned, err
+		}
+		if len(stale) == 0 {
+			break
+		}
+		deleted := 0
+		for _, record := range stale {
+			if err := app.Delete(record); err != nil {
+				log.Printf("[Retention] failed to delete event %s: %v", record.Id, err)
+				continue
+			}
+			deleted++
+		}
+		pruned += deleted
+		// Stop when the window is exhausted, or when a full batch made no
+		// progress (every delete failed) so we never spin on the same rows.
+		if len(stale) < eventsPruneBatchSize || deleted == 0 {
+			break
+		}
+	}
+	return pruned, nil
+}
+
+// RunEventsRetentionEngine runs a background loop that periodically prunes the
+// events log to keep its growth bounded, copying the shape of
+// RunRecoveryEngine. It exits immediately when the driver framework is off or
+// retention is disabled, so a legacy deployment starts no extra goroutine.
+func RunEventsRetentionEngine(app core.App) {
+	cfg, err := config.GetConfigFromApp(app)
+	if err != nil {
+		log.Printf("[Retention] failed to get config: %v", err)
+		return
+	}
+	if !cfg.EnableDriverFramework || cfg.EventsRetention <= 0 {
+		return
+	}
+
+	ticker := time.NewTicker(cfg.EventsPruneInterval)
+	defer ticker.Stop()
+	log.Printf("[Retention] Engine started (retention=%s, interval=%s)", cfg.EventsRetention, cfg.EventsPruneInterval)
+
+	for range ticker.C {
+		pruned, err := PruneEvents(app)
+		if err != nil {
+			log.Printf("[Retention] prune error: %v", err)
+			continue
+		}
+		if pruned > 0 {
+			log.Printf("[Retention] pruned %d expired events", pruned)
+		}
+	}
+}
+
 // RunRecoveryEngine runs a background loop that identifies 'running' jobs
 // that have exceeded cfg.JobTimeout and resets their status to 'pending'
 // (e.g. if the QPU driver crashed or lost connection during simulation).

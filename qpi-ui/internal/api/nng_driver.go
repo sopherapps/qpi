@@ -219,6 +219,11 @@ func runDriverListener(ctx context.Context, app core.App, driverID, qpuID string
 		sock.Close()
 	}()
 
+	// One limiter per driver caps how fast this driver can push events at us;
+	// over-rate events are logged and dropped, like any other rejected event
+	// (RFC 0001 §7, Phase 5).
+	limiter := newRateLimiter(cfg.EventRateLimit)
+
 	for {
 		msg, err := sock.Recv()
 		if err != nil {
@@ -236,6 +241,11 @@ func runDriverListener(ctx context.Context, app core.App, driverID, qpuID string
 				return
 			case <-time.After(cfg.DispatchPollInterval):
 			}
+			continue
+		}
+
+		if !limiter.Allow() {
+			log.Printf("[DriverListener %s] rate limit exceeded, dropping event", driverID)
 			continue
 		}
 

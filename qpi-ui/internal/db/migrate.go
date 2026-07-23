@@ -289,7 +289,27 @@ func ensureEventsCollection(app core.App, cfg *config.AppConfig) error {
 	col.UpdateRule = nil
 	col.DeleteRule = nil
 
+	// A composite index on (type, ts) keeps the dashboard's per-type,
+	// time-ordered reads and the retention prune fast as the log grows
+	// (RFC 0001 §7, §11; Phase 5).
+	indexName := fmt.Sprintf("idx_%s_type_ts", cfg.CollectionEvents)
+	if !hasIndex(col, indexName) {
+		col.Indexes = append(col.Indexes, fmt.Sprintf(
+			"CREATE INDEX `%s` ON `%s` (`type`, `ts`)", indexName, cfg.CollectionEvents))
+	}
+
 	return app.Save(col)
+}
+
+// hasIndex reports whether the collection already declares an index with the
+// given name, keeping the migration idempotent across restarts.
+func hasIndex(col *core.Collection, name string) bool {
+	for _, idx := range col.Indexes {
+		if strings.Contains(idx, name) {
+			return true
+		}
+	}
+	return false
 }
 
 // initCollection initializes a collection given a model

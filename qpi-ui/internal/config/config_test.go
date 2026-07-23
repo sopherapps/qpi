@@ -523,6 +523,149 @@ func TestNewFromFlags_EnableDriverFrameworkDefault(t *testing.T) {
 	}
 }
 
+// setupTLSEnv points the TLS env vars at a temp dir so NewFromFlags can
+// auto-generate certs, and returns an empty config file path.
+func setupTLSEnv(t *testing.T, prefix string) string {
+	t.Helper()
+	tmpDir := t.TempDir()
+	emptyConfig := tmpDir + "/empty.yaml"
+	if err := os.WriteFile(emptyConfig, []byte{}, 0644); err != nil {
+		t.Fatalf("failed to create empty config: %v", err)
+	}
+	t.Setenv("QPI_TLS_CERT_FILE", tmpDir+"/"+prefix+".cert.pem")
+	t.Setenv("QPI_TLS_KEY_FILE", tmpDir+"/"+prefix+".key")
+	t.Setenv("QPI_TLS_CA_CERT_FILE", tmpDir+"/"+prefix+".ca.pem")
+	t.Setenv("QPI_TLS_CA_KEY_FILE", tmpDir+"/"+prefix+".ca.key")
+	t.Setenv("QPI_CONFIG_FILE", emptyConfig)
+	return emptyConfig
+}
+
+// TestNewFromFlags_EventsOpsDefaults verifies the Phase 5 ops settings default
+// to their sensible values (RFC 0001 §11).
+func TestNewFromFlags_EventsOpsDefaults(t *testing.T) {
+	setupTLSEnv(t, "eo")
+
+	cmd := &cobra.Command{}
+	BindFlags(cmd)
+
+	cfg, err := NewFromFlags(cmd)
+	if err != nil {
+		t.Fatalf("failed to load config from flags: %v", err)
+	}
+
+	if cfg.EventsRetention != 720*time.Hour {
+		t.Errorf("expected EventsRetention default 720h, got %s", cfg.EventsRetention)
+	}
+	if cfg.EventsPruneInterval != time.Hour {
+		t.Errorf("expected EventsPruneInterval default 1h, got %s", cfg.EventsPruneInterval)
+	}
+	if cfg.EventRateLimit != 100 {
+		t.Errorf("expected EventRateLimit default 100, got %d", cfg.EventRateLimit)
+	}
+}
+
+// TestNewFromFlags_EventsOpsPrecedence verifies the strict resolution order
+// CLI flag > env var > config file for the Phase 5 ops settings.
+func TestNewFromFlags_EventsOpsPrecedence(t *testing.T) {
+	t.Run("from config file", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		configFile := tmpDir + "/ops.yaml"
+		yamlContent := `
+eventsRetention: "48h"
+eventsPruneInterval: "30m"
+eventRateLimit: 42
+tlsCertFile: "` + tmpDir + `/c.cert.pem"
+tlsKeyFile: "` + tmpDir + `/c.key"
+tlsCaCertFile: "` + tmpDir + `/c.ca.pem"
+tlsCaKeyFile: "` + tmpDir + `/c.ca.key"
+ipAddr: "127.0.0.1"
+`
+		if err := os.WriteFile(configFile, []byte(yamlContent), 0644); err != nil {
+			t.Fatalf("failed to write config file: %v", err)
+		}
+
+		cmd := &cobra.Command{}
+		BindFlags(cmd)
+		if err := cmd.PersistentFlags().Set("config-file", configFile); err != nil {
+			t.Fatalf("failed to set config-file flag: %v", err)
+		}
+
+		cfg, err := NewFromFlags(cmd)
+		if err != nil {
+			t.Fatalf("failed to load config from flags: %v", err)
+		}
+		if cfg.EventsRetention != 48*time.Hour {
+			t.Errorf("expected EventsRetention 48h from file, got %s", cfg.EventsRetention)
+		}
+		if cfg.EventsPruneInterval != 30*time.Minute {
+			t.Errorf("expected EventsPruneInterval 30m from file, got %s", cfg.EventsPruneInterval)
+		}
+		if cfg.EventRateLimit != 42 {
+			t.Errorf("expected EventRateLimit 42 from file, got %d", cfg.EventRateLimit)
+		}
+	})
+
+	t.Run("env overrides config file", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		configFile := tmpDir + "/ops_env.yaml"
+		yamlContent := `
+eventsRetention: "48h"
+eventRateLimit: 42
+tlsCertFile: "` + tmpDir + `/e.cert.pem"
+tlsKeyFile: "` + tmpDir + `/e.key"
+tlsCaCertFile: "` + tmpDir + `/e.ca.pem"
+tlsCaKeyFile: "` + tmpDir + `/e.ca.key"
+ipAddr: "127.0.0.1"
+`
+		if err := os.WriteFile(configFile, []byte(yamlContent), 0644); err != nil {
+			t.Fatalf("failed to write config file: %v", err)
+		}
+		t.Setenv("QPI_CONFIG_FILE", configFile)
+		t.Setenv("QPI_EVENTS_RETENTION", "12h")
+		t.Setenv("QPI_EVENT_RATE_LIMIT", "7")
+
+		cmd := &cobra.Command{}
+		BindFlags(cmd)
+
+		cfg, err := NewFromFlags(cmd)
+		if err != nil {
+			t.Fatalf("failed to load config from flags: %v", err)
+		}
+		if cfg.EventsRetention != 12*time.Hour {
+			t.Errorf("expected EventsRetention 12h from env, got %s", cfg.EventsRetention)
+		}
+		if cfg.EventRateLimit != 7 {
+			t.Errorf("expected EventRateLimit 7 from env, got %d", cfg.EventRateLimit)
+		}
+	})
+
+	t.Run("flag overrides env", func(t *testing.T) {
+		setupTLSEnv(t, "fo")
+		t.Setenv("QPI_EVENTS_RETENTION", "12h")
+		t.Setenv("QPI_EVENT_RATE_LIMIT", "7")
+
+		cmd := &cobra.Command{}
+		BindFlags(cmd)
+		if err := cmd.PersistentFlags().Set("events-retention", "6h"); err != nil {
+			t.Fatalf("failed to set events-retention flag: %v", err)
+		}
+		if err := cmd.PersistentFlags().Set("event-rate-limit", "3"); err != nil {
+			t.Fatalf("failed to set event-rate-limit flag: %v", err)
+		}
+
+		cfg, err := NewFromFlags(cmd)
+		if err != nil {
+			t.Fatalf("failed to load config from flags: %v", err)
+		}
+		if cfg.EventsRetention != 6*time.Hour {
+			t.Errorf("expected EventsRetention 6h from flag, got %s", cfg.EventsRetention)
+		}
+		if cfg.EventRateLimit != 3 {
+			t.Errorf("expected EventRateLimit 3 from flag, got %d", cfg.EventRateLimit)
+		}
+	})
+}
+
 // TestNewFromFlags_EnableDriverFrameworkPrecedence verifies the strict resolution order
 // CLI flag > env var > config file for EnableDriverFramework.
 func TestNewFromFlags_EnableDriverFrameworkPrecedence(t *testing.T) {
