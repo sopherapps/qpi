@@ -19,15 +19,6 @@
   --font-display: var(--qpi-font-display, "Geist", sans-serif);
 }
 
-.dark {
-  --qpi-color-background: #09090b;
-  --qpi-color-surface: #18181b;
-  --qpi-color-surface-dim: #131315;
-  --qpi-color-surface-container: #201f22;
-  --qpi-color-primary: #ffffff;
-  --qpi-color-border: #27272a;
-}
-
 @layer base {
   body {
     background-color: var(--color-background);
