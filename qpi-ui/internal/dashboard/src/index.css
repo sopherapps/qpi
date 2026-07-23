@@ -2,10 +2,37 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+@theme {
+  --color-background: var(--qpi-color-background, #f9fafb);
+  --color-surface: var(--qpi-color-surface, #ffffff);
+  --color-surface-dim: var(--qpi-color-surface-dim, #f3f4f6);
+  --color-surface-container: var(--qpi-color-surface-container, #e5e7eb);
+  --color-primary: var(--qpi-color-primary, #111827);
+  --color-secondary: var(--qpi-color-secondary, #6366f1);
+  --color-success: var(--qpi-color-success, #22c55e);
+  --color-warning: var(--qpi-color-warning, #eab308);
+  --color-error: var(--qpi-color-error, #ef4444);
+  --color-border: var(--qpi-color-border, #e5e7eb);
+  --spacing-sidebar-width: var(--qpi-spacing-sidebar-width, 240px);
+  --font-sans: var(--qpi-font-sans, "Inter", sans-serif);
+  --font-mono: var(--qpi-font-mono, "JetBrains Mono", monospace);
+  --font-display: var(--qpi-font-display, "Geist", sans-serif);
+}
+
+.dark {
+  --qpi-color-background: #09090b;
+  --qpi-color-surface: #18181b;
+  --qpi-color-surface-dim: #131315;
+  --qpi-color-surface-container: #201f22;
+  --qpi-color-primary: #ffffff;
+  --qpi-color-border: #27272a;
+}
+
 @layer base {
   body {
-    @apply bg-gray-50 text-gray-900 dark:bg-zinc-950 dark:text-zinc-100;
-    font-family: "Inter", sans-serif;
+    background-color: var(--color-background);
+    color: var(--color-primary);
+    font-family: var(--font-sans);
   }
 }
 
@@ -15,11 +42,12 @@
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  @apply bg-gray-100 dark:bg-zinc-950;
+  background-color: var(--color-surface-dim);
 }
 ::-webkit-scrollbar-thumb {
-  @apply bg-gray-300 dark:bg-zinc-800 rounded-sm;
+  background-color: var(--color-border);
+  border-radius: var(--radius-sm, 0.25rem);
 }
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-gray-400 dark:bg-zinc-700;
+  background-color: var(--color-surface-container);
 }
