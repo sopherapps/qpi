@@ -98,6 +98,12 @@ func RegisterRoutes(e *core.ServeEvent, dashboardFS fs.FS) {
 
 	// Notification dismiss route (authenticated users only)
 	e.Router.POST("/api/notifications/{id}/dismiss", handleNotificationDismiss)
+
+	// Theme endpoints (public — dashboard needs these before login)
+	e.Router.GET("/api/theme/active", handleThemeActive)
+	e.Router.GET("/api/theme/defaults", handleThemeDefaults)
+	e.Router.GET("/api/theme/css", handleThemeCSS)
+	e.Router.GET("/api/theme/js", handleThemeJS)
 }
 
 // handleJobSubmit handles POST /api/jobs — creates a new quantum job.

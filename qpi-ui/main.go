@@ -51,7 +51,10 @@ func main() {
 			if err := e.Next(); err != nil {
 				return err
 			}
-			return db.EnsureSchema(e.App)
+			if err := db.EnsureSchema(e.App); err != nil {
+				return err
+			}
+			return db.InitActiveThemeCache(e.App)
 		},
 	})
 
@@ -93,6 +96,12 @@ func main() {
 			config.DefaultQpusCollection:      db.OnQpuUpdate,
 			config.DefaultDriversCollection:   db.OnDriverUpdate,
 			config.DefaultThemesCollection:    db.OnThemeUpsert,
+		}),
+	})
+
+	app.OnRecordDelete().Bind(&hook.Handler[*core.RecordEvent]{
+		Func: db.RegisterCollectionHooks(app, db.CollectionHookMap{
+			config.DefaultThemesCollection: db.OnThemeDelete,
 		}),
 	})
 

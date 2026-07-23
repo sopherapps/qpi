@@ -105,34 +105,53 @@ func OnDriverUpdate(e *core.RecordEvent) error {
 
 // OnThemeUpsert enforces that at most one theme is active at any time.
 // When a theme is saved with is_active=true, all other active themes are
-// deactivated (RFC 0002 §3.5).
+// deactivated (RFC 0002 §3.5). It also updates the in-memory active theme cache.
 func OnThemeUpsert(e *core.RecordEvent) error {
-	if !e.Record.GetBool("is_active") {
-		return e.Next() // nothing to enforce
-	}
-
-	cfg, err := config.GetConfigFromApp(e.App)
-	if err != nil {
-		return err
-	}
-
-	// Deactivate all other active themes
-	records, err := e.App.FindRecordsByFilter(
-		cfg.CollectionThemes,
-		"is_active = true && id != {:id}",
-		"", 0, 0,
-		dbx.Params{"id": e.Record.Id},
-	)
-	if err != nil {
-		return err
-	}
-
-	for _, r := range records {
-		r.Set("is_active", false)
-		if err := e.App.Save(r); err != nil {
+	if e.Record.GetBool("is_active") {
+		cfg, err := config.GetConfigFromApp(e.App)
+		if err != nil {
 			return err
+		}
+
+		// Deactivate all other active themes
+		records, err := e.App.FindRecordsByFilter(
+			cfg.CollectionThemes,
+			"is_active = true && id != {:id}",
+			"", 0, 0,
+			dbx.Params{"id": e.Record.Id},
+		)
+		if err != nil {
+			return err
+		}
+
+		for _, r := range records {
+			r.Set("is_active", false)
+			if err := e.App.Save(r); err != nil {
+				return err
+			}
+		}
+
+		var theme Theme
+		if err := theme.RefreshFromRecord(e.Record); err != nil {
+			return err
+		}
+		SaveActiveThemeOnApp(e.App, &theme)
+	} else {
+		// If this theme was active and is now inactive, clear cache (reverts to default)
+		cached := GetActiveThemeFromApp(e.App)
+		if cached != nil && cached.ID == e.Record.Id {
+			SaveActiveThemeOnApp(e.App, nil)
 		}
 	}
 
+	return e.Next()
+}
+
+// OnThemeDelete reverts the active theme cache to the default theme if the deleted theme was active.
+func OnThemeDelete(e *core.RecordEvent) error {
+	cached := GetActiveThemeFromApp(e.App)
+	if cached != nil && cached.ID == e.Record.Id {
+		SaveActiveThemeOnApp(e.App, nil)
+	}
 	return e.Next()
 }

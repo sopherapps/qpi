@@ -126,23 +126,23 @@ in PocketBase's in-memory app store — the same mechanism used by `AppConfig`
 const appStoreActiveThemeKey = "active_theme"
 
 // SaveActiveThemeOnApp caches the active theme in the app store.
-// Pass nil to clear the cache (no active theme).
+// Pass nil to clear the cache and revert to the default theme.
 func SaveActiveThemeOnApp(app core.App, theme *db.Theme) {
+    if theme == nil {
+        theme = GetDefaultThemeRecord() // helper that constructs a Theme from DefaultThemeTokens
+    }
     app.Store().Set(appStoreActiveThemeKey, theme)
 }
 
 // GetActiveThemeFromApp retrieves the cached active theme.
-// Returns nil if no theme is cached (use DefaultThemeTokens as fallback).
+// This is guaranteed to return a valid theme (falling back to the default theme).
 func GetActiveThemeFromApp(app core.App) *db.Theme {
     value := app.Store().Get(appStoreActiveThemeKey)
-    if value == nil {
-        return nil
+    if theme, ok := value.(*db.Theme); ok && theme != nil {
+        return theme
     }
-    theme, ok := value.(*db.Theme)
-    if !ok {
-        return nil
-    }
-    return theme
+    // Fallback if cache is completely empty for some reason
+    return GetDefaultThemeRecord()
 }
 ```
 
@@ -150,17 +150,16 @@ func GetActiveThemeFromApp(app core.App) *db.Theme {
 
 1. **Bootstrap (`OnBootstrap`):** after `EnsureSchema`, query the `themes`
    collection for the record with `is_active = true`. If found, call
-   `SaveActiveThemeOnApp(app, &theme)`. If not found, the cache stays `nil`
-   and the default theme is used.
+   `SaveActiveThemeOnApp(app, &theme)`. If not found, call `SaveActiveThemeOnApp(app, nil)`
+   which automatically caches the synthesized default theme.
 2. **Create/Update hook (`OnThemeUpsert`):** when a theme is saved with
    `is_active = true`, deactivate all other themes in the DB, then cache the
    new active theme via `SaveActiveThemeOnApp`. When a record that was active
-   is saved with `is_active = false`, clear the cache (set `nil`).
+   is saved with `is_active = false`, clear the cache by calling `SaveActiveThemeOnApp(app, nil)` (which reverts to the default theme).
 3. **Update hook (content change):** when the currently active theme's content
    changes (tokens, CSS, JS, branding, logo), refresh the cache with the
    updated record.
-4. **Delete hook:** if the deleted theme was the cached active theme, clear
-   the cache.
+4. **Delete hook:** if the deleted theme was the cached active theme, call `SaveActiveThemeOnApp(app, nil)` to revert to the default theme.
 
 **Result:** the theme API endpoints (`/api/theme/active`, `/api/theme/css`,
 etc.) read from the app store — a single in-memory pointer dereference, no
@@ -264,12 +263,12 @@ and keeps the in-memory cache in sync:
    - Set `is_active = false` on any other active theme in the DB.
    - Call `SaveActiveThemeOnApp(app, &theme)` to cache the new active theme.
 2. When a theme that was active is saved with `is_active = false`:
-   - Call `SaveActiveThemeOnApp(app, nil)` to clear the cache.
+   - Call `SaveActiveThemeOnApp(app, nil)` to revert the cache to the default theme.
 3. When the currently active theme's **content** changes (tokens, CSS, JS,
    branding fields, logo, favicon — any field besides `is_active`):
    - Refresh the cache with the updated record.
 
-An `OnRecordDelete` hook clears the cache if the deleted record was the active
+An `OnRecordDelete` hook reverts the cache to the default theme if the deleted record was the active
 theme.
 
 ## 4. API endpoints
@@ -282,7 +281,7 @@ serve data as if it were static file assets, with appropriate cache headers.
 
 | Method | Path | Content-Type | Response |
 | --- | --- | --- | --- |
-| GET | `/api/theme/active` | `application/json` | Returns the cached active theme record (without `custom_css` and `custom_js`). Returns `DefaultThemeTokens` + `DefaultThemeBranding` if no active theme. |
+| GET | `/api/theme/active` | `application/json` | Returns the cached active theme record (without `custom_css` and `custom_js`). Because the cache falls back to the default theme, this always returns a valid theme record. |
 | GET | `/api/theme/defaults` | `application/json` | Returns the server's `DefaultThemeTokens` and `DefaultThemeBranding`. Used by the admin form as pre-populated defaults. |
 | GET | `/api/theme/css` | `text/css` | Returns the `custom_css` field of the cached active theme. Empty 204 if no active theme or no custom CSS. |
 | GET | `/api/theme/js` | `text/javascript` | Returns the `custom_js` field of the cached active theme. Empty 204 if none. |
