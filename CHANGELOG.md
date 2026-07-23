@@ -36,6 +36,10 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 - `e2e`: Updated the backend/driver integration test (`verify.py`) to correctly retrieve authentication tokens using the new `drivers/create` endpoint rather than the removed fields on the QPU response.
 - `e2e`: Fixed a local environment flakiness in the cypress script by utilizing `npm install --no-package-lock`.
 
+### Fixed
+
+- `qpi-driver`: [BREAKING] Fixed inconsistent result dictionary shape returned by `build_qiskit_result`: `circuit_results` is now always present as a list of per-circuit experiment dicts regardless of circuit count, and redundant top-level `hex_counts` has been removed in favor of `circuit_results` and top-level `counts`.
+
 ### Removed
 
 - `qpi-ui`: [BREAKING] Removed the legacy non-event QPU connection endpoint (`POST /api/op/qpus/connect`) and old dispatcher/listener routines. All drivers now connect through `POST /api/op/drivers/connect`.

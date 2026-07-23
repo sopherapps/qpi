@@ -1,4 +1,4 @@
-import type { QuantumJob } from "@/types";
+import type { JobResult, QuantumJob } from "@/types";
 
 interface Props {
   viewedJob: QuantumJob | null;
@@ -27,9 +27,15 @@ export function ResultsVisualizer({ viewedJob, activeTab }: Props) {
   }
 
   const results = viewedJob.results;
+  const firstCircuit = results?.circuit_results?.[0] as JobResult | undefined;
 
   if (activeTab === "counts") {
-    const counts = results?.counts || results?.hex_counts || {};
+    const counts =
+      results?.counts ||
+      results?.hex_counts ||
+      firstCircuit?.counts ||
+      firstCircuit?.hex_counts ||
+      {};
     const keys = Object.keys(counts);
     if (keys.length === 0) {
       return (
@@ -79,7 +85,7 @@ export function ResultsVisualizer({ viewedJob, activeTab }: Props) {
   }
 
   if (activeTab === "iq") {
-    const memory = results?.memory || [];
+    const memory = results?.memory || firstCircuit?.memory || [];
     if (memory.length === 0) {
       return (
         <div className="text-gray-400 dark:text-zinc-500 text-sm text-center">
@@ -144,7 +150,7 @@ export function ResultsVisualizer({ viewedJob, activeTab }: Props) {
   }
 
   if (activeTab === "trace") {
-    const memory = results?.memory || [];
+    const memory = results?.memory || firstCircuit?.memory || [];
     if (memory.length === 0) {
       return (
         <div className="text-gray-400 dark:text-zinc-500 text-sm text-center">

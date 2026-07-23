@@ -112,6 +112,9 @@ measure q -> c;"""
     assert res_counts["shots"] == 100
     assert "counts" in res_counts
     assert "01" in res_counts["counts"]
+    assert "circuit_results" in res_counts
+    assert len(res_counts["circuit_results"]) == 1
+    assert "hex_counts" not in res_counts
 
     # Test meas_level=1 (IQ memory)
     payload_iq = JobPayload(
@@ -125,6 +128,37 @@ measure q -> c;"""
     assert len(res_iq["memory"]) == 10  # shots
     assert len(res_iq["memory"][0]) == 2  # qubits
     assert len(res_iq["memory"][0][0]) == 2  # [real, imag]
+    assert "circuit_results" in res_iq
+    assert len(res_iq["circuit_results"]) == 1
+
+
+def test_build_qiskit_result_always_contains_circuit_results():
+    """Verify build_qiskit_result produces a consistent shape for single and multi circuit jobs."""
+    from qpi_driver.executors.utils.result import build_qiskit_result
+
+    # Single circuit experiment result
+    single_exp = [{"counts": {"01": 100}, "shots": 100}]
+    single_res = build_qiskit_result(single_exp, "job-1", "backend-test")
+
+    assert single_res["backend"] == "backend-test"
+    assert single_res["shots"] == 100
+    assert single_res["success"] is True
+    assert single_res["circuit_results"] == single_exp
+    assert single_res["counts"] == {"01": 100}
+    assert "hex_counts" not in single_res
+
+    # Multi circuit experiment results
+    multi_exp = [
+        {"counts": {"01": 100}, "shots": 100},
+        {"counts": {"10": 200}, "shots": 200},
+    ]
+    multi_res = build_qiskit_result(multi_exp, "job-2", "backend-test")
+
+    assert multi_res["backend"] == "backend-test"
+    assert multi_res["shots"] == 100
+    assert multi_res["circuit_results"] == multi_exp
+    assert multi_res["counts"] == {"01": 100}
+    assert "hex_counts" not in multi_res
 
 
 def test_mock_executor_repeated_measurement_yields_independent_bits():
