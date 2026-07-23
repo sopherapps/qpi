@@ -63,24 +63,24 @@ Requires **Python ≥ 3.12, < 3.13**.
 
 ```bash
 # Connect a mock QPU to the server
-qpi-driver start \
+qpi-driver process \
   --qpi-addr http://localhost:8090 \
   --token <qpu-access-token> \
   --ca-fingerprint <fingerprint> \
   --name qpu_sim_01 \
-  --executor mock \
-  --data-dir ./data
+  --device mock \
+  -o data_dir=./data
 ```
 
-Environment variables are also supported:
+Environment variables are also supported for the universal flags:
 
 ```bash
 export QPI_ADDR=http://localhost:8090
 export QPI_ACCESS_TOKEN=<token>
 export QPI_CA_FINGERPRINT=<fingerprint>
-export QPU_NAME=qpu_sim_01
-export DRIVER_BACKEND=mock
-qpi-driver start
+export QPI_DRIVER_NAME=qpu_sim_01
+export QPI_DEVICE=mock
+qpi-driver process
 ```
 
 ### systemd Service (Linux)
@@ -101,7 +101,8 @@ curl -LsSf https://raw.githubusercontent.com/sopherapps/qpi/main/qpi-driver/inst
   QPI_ADDR="http://127.0.0.1:8090" \
   CA_FINGERPRINT="<fingerprint>" \
   QPU_NAME="rigetti-aspen-1" \
-  EXECUTOR="qblox" \
+  OPERATION="process" \
+  DEVICE="qblox" \
   bash
 ```
 
@@ -132,17 +133,17 @@ If you prefer to configure it manually, follow these steps:
    Type=simple
 
    Environment="QPI_ACCESS_TOKEN=<your-qpi-access-token>"
-   Environment="QPI_DATA_DIR=/var/qpi-driver/rigetti-aspen-1"
    Environment="QPI_CA_FILE=/var/qpi-driver/rigetti-aspen-1/qpi.ca.pem"
-   Environment="QPI_QUANTIFY_DEVICE_CONFIG=/var/qpi-driver/rigetti-aspen-1/quantify.device.yml"
-   Environment="QPI_QUANTIFY_HARDWARE_CONFIG=/var/qpi-driver/rigetti-aspen-1/quantify.hardware.json"
    Environment=PYTHONUNBUFFERED=1
 
-   ExecStart=/home/<user>/.local/bin/qpi-driver start \
+   ExecStart=/home/<user>/.local/bin/qpi-driver process \
            --ca-fingerprint <your-fingerprint> \
            --qpi-addr <your-qpi-server-address> \
            --name "rigetti-aspen-1" \
-           --executor "qblox"
+           --device "qblox" \
+           -o data_dir=/var/qpi-driver/rigetti-aspen-1 \
+           -o quantify_device_config=/var/qpi-driver/rigetti-aspen-1/quantify.device.yml \
+           -o quantify_hardware_config=/var/qpi-driver/rigetti-aspen-1/quantify.hardware.json
 
    Restart=on-failure
    User=<user>
@@ -254,22 +255,27 @@ The driver uses Python's `multiprocessing` library to isolate responsibilities:
 
 ## CLI Reference
 
-```
-qpi-driver start [OPTIONS]
+A driver is run by its operation subcommand — `process` (a QPU) or `monitor`
+(e.g. a cryostat) — on a specific `--device`. Both share the same universal
+options; each device's own settings are passed as repeatable `-o key=value`.
 
-Options:
-  -a, --qpi-addr TEXT          QPI server URL [env: QPI_ADDR]
-  -t, --token TEXT             QPU access token [env: QPI_ACCESS_TOKEN]
-  -n, --name TEXT              QPU name [env: QPU_NAME]
-  -e, --executor TEXT          Backend: mock, qiskit_aer, quantify, qblox, presto [env: DRIVER_BACKEND]
-  -d, --data-dir PATH          Data directory [env: QPI_DATA_DIR]
-  --is-dummy                   Run in dummy/simulation mode
-  --quantify-hardware-config PATH  Quantify hardware config [env: QPI_QUANTIFY_HARDWARE_CONFIG]
-  --quantify-device-config PATH    Quantify device config [env: QPI_QUANTIFY_DEVICE_CONFIG]
-  --job-timeout INTEGER        Job timeout in seconds [env: QPI_JOB_TIMEOUT]
-  --ca-file PATH               Path to the CA root certificate [env: QPI_CA_FILE]
-  --ca-fingerprint TEXT        Fingerprint to verify the CA root certificate [env: QPI_CA_FINGERPRINT]
-  --help                       Show this message and exit.
+```
+qpi-driver process|monitor [OPTIONS]
+
+Universal options:
+  -a, --qpi-addr TEXT     QPI server URL [env: QPI_ADDR]
+  -t, --token TEXT        Access token identifying the driver [env: QPI_ACCESS_TOKEN]
+  -n, --name TEXT         Human-readable driver name [env: QPI_DRIVER_NAME]
+  -d, --device TEXT       Backend within the operation, e.g. mock, qblox, bluefors_gen1 [env: QPI_DEVICE]
+  -o, --option KEY=VALUE  Operation-specific config, repeatable
+  --ca-file PATH          Path to the CA root certificate [env: QPI_CA_FILE]
+  --ca-fingerprint TEXT   Fingerprint pinning the CA root certificate [env: QPI_CA_FINGERPRINT]
+  --help                  Show this message and exit.
+
+process -o options: data_dir, is_dummy, job_timeout, quantify_hardware_config,
+                     quantify_device_config, use_sdk
+monitor -o options (bluefors_gen1): channels (required), base_url, api_key,
+                     poll_interval, timeout
 ```
 
 ---

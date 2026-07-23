@@ -29,7 +29,8 @@ docker exec -e QPI_TOKEN="mock_token" \
             -e QPI_ADDR="http://mock" \
             -e CA_FINGERPRINT="mock_fingerprint" \
             -e QPU_NAME="mock_qpu" \
-            -e EXECUTOR="mock" \
+            -e OPERATION="process" \
+            -e DEVICE="mock" \
             $CONTAINER_ID bash -c "/install-systemd.sh || true"
 
 echo "Checking if service file was generated..."

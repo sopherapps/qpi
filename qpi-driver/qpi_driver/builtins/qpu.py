@@ -16,16 +16,28 @@ import threading
 from pathlib import Path
 from typing import Any
 
-from qpi_driver.driver import _normalize_qpi_addr, _sanitize_name, execute_job
+from qpi_driver.driver import (
+    _normalize_qpi_addr,
+    _sanitize_name,
+    execute_job,
+    run_driver,
+)
 from qpi_driver.events import Event, EventType
 from qpi_driver.executors import Executor
-from qpi_driver.sdk import QpiDriver
+from qpi_driver.paths import validate_safe_path
+from qpi_driver.sdk import DEFAULT_RECV_TIMEOUT_MS, QpiDriver
 
 log = logging.getLogger(__name__)
+
+# The executor devices the `process` operation can run. Each maps to run_process
+# in the builtins registry (RFC 0001 §4).
+PROCESS_DEVICES = ("mock", "qiskit_aer", "quantify", "qblox", "presto")
 
 
 class QpuDriver(QpiDriver):
     """A QPI driver that runs quantum jobs on an executor."""
+
+    OPERATION = "process"
 
     def __init__(
         self,
@@ -37,6 +49,7 @@ class QpuDriver(QpiDriver):
         data_dir: Path = Path("bin/data"),
         ca_fingerprint: str = "",
         ca_file_path: Path = Path("./bin/qpi.ca.pem"),
+        recv_timeout_ms: int = DEFAULT_RECV_TIMEOUT_MS,
         **executor_options: Any,
     ) -> None:
         super().__init__(
@@ -45,6 +58,7 @@ class QpuDriver(QpiDriver):
             name=_sanitize_name(name),
             ca_fingerprint=ca_fingerprint,
             ca_file_path=Path(ca_file_path).as_posix(),
+            recv_timeout_ms=recv_timeout_ms,
         )
         self.executor = executor
         self.custom_executors = custom_executors
@@ -139,6 +153,7 @@ def run_qpu_driver(
     data_dir: Path = Path("bin/data"),
     ca_fingerprint: str = "",
     ca_file_path: Path = Path("./bin/qpi.ca.pem"),
+    recv_timeout_ms: int = DEFAULT_RECV_TIMEOUT_MS,
     **executor_options: Any,
 ) -> None:
     """Run a QPU on the driver framework — the SDK counterpart to ``run_driver``.
@@ -155,8 +170,59 @@ def run_qpu_driver(
         data_dir=data_dir,
         ca_fingerprint=ca_fingerprint,
         ca_file_path=ca_file_path,
+        recv_timeout_ms=recv_timeout_ms,
         **executor_options,
     ).run()
+
+
+def run_process(
+    *,
+    device: str,
+    options: dict[str, str],
+    qpi_addr: str,
+    token: str,
+    name: str,
+    ca_fingerprint: str,
+    ca_file_path: str,
+    recv_timeout_ms: int,
+) -> None:
+    """Run a QPU (process) driver on executor *device*, config from -o options.
+
+    Recognised options (all optional): ``data_dir``, ``is_dummy``,
+    ``job_timeout``, ``quantify_hardware_config``, ``quantify_device_config``,
+    and ``use_sdk``. ``use_sdk`` runs the QPU on the experimental driver
+    framework (RFC 0001); the legacy runner is the default. Raising
+    ``ValueError`` lets the CLI report a bad option uniformly.
+    """
+    data_dir = Path(options.get("data_dir", "./bin/data"))
+    validate_safe_path(data_dir, "data_dir")
+
+    executor_kwargs: dict[str, Any] = {
+        "qpi_addr": qpi_addr,
+        "token": token,
+        "name": name,
+        "executor": device,
+        "data_dir": data_dir,
+        "ca_fingerprint": ca_fingerprint,
+        "ca_file_path": Path(ca_file_path),
+        "is_dummy": _as_bool(options.get("is_dummy")),
+        "quantify_hardware_config": Path(
+            options.get("quantify_hardware_config", "./quantify.hardware.json")
+        ),
+        "quantify_device_config": Path(
+            options.get("quantify_device_config", "./quantify.device.yml")
+        ),
+        "job_timeout": int(options.get("job_timeout", 10)),
+    }
+
+    if _as_bool(options.get("use_sdk")):
+        run_qpu_driver(recv_timeout_ms=recv_timeout_ms, **executor_kwargs)
+    else:
+        run_driver(**executor_kwargs)
+
+
+def _as_bool(value: str | None) -> bool:
+    return (value or "").strip().lower() in ("1", "true", "yes", "on")
 
 
 def _safe_put(queue: multiprocessing.Queue, item: Any) -> None:

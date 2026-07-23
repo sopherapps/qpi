@@ -17,8 +17,8 @@ framework for supporting custom and extensible drivers.
 - `qpi-ui`: Added the `drivers` collection (behind `enable-driver-framework`) — a driver belongs to exactly
 one QPU, and stores its kind, language, participating events, and hashed token, per RFC 0001.
 - `qpi-ui`: Added `drivers/create`, `drivers/connect`, and `drivers/toggle` endpoints, mirroring the QPU
-registration/connect/toggle handlers; `create` also resolves the kind×language setup snippets (systemd,
-manual CLI, install-and-run, or a base install + stub for pairs with no official build).
+registration/connect/toggle handlers; `create` also resolves the kind×language setup snippets (systemd +
+manual CLI for an official Python driver, or a base install + stub otherwise).
 - `qpi-ui`: Added `driver_framework_enabled` to `GET /api/op/version` so the dashboard can gate the Drivers
 page without probing a `drivers/*` route directly.
 - `qpi-ui`: Added the Drivers dashboard page (RFC 0001 §10) — a full page mirroring the QPU
@@ -31,45 +31,38 @@ toggle, delete, and non-admin inertness) and started the dashboard E2E server wi
 - `qpi-driver`: Added the `QpiDriver` SDK base class (`handle_event()`, `emit()`, `every()`) and
 re-expressed the QPU as a `QpuDriver` handling `JobDispatch` and emitting `JobResult` over the event
 envelope, per RFC 0001 Phase 2.
-- `qpi-driver`: Added `--use-sdk` (`QPI_USE_SDK`) to `qpi-driver start` to run the QPU on the driver
-framework; the legacy runner stays the default.
+- `qpi-driver`: Added an experimental driver-framework mode for the QPU, opted into with the process
+option `-o use_sdk=true`; the legacy runner stays the default.
 - `qpi-ui`: Added the driver job flow behind `enable-driver-framework` — on connect a driver gets
 dispatch/listen goroutines that push `JobDispatch` envelopes and route emitted `JobResult` envelopes
 through the event registry to persist outcomes and deduct QPU-seconds (mirrors the legacy QPU path).
 - `e2e`: Added a `QPI_DRIVER_FRAMEWORK=1` mode (`make test-e2e-driver-framework`) that registers a driver
 and runs the QPU on the driver framework, so the driver suite can run on both paths.
-- `qpi-ui`: Added the `events` collection (behind `enable-driver-framework`) — the single trace log for
-driver-originated events, keyed by `source`/`driver`/`qpu`/`type`/`payload`/`ts`, per RFC 0001 §7. Added
-`events-collection` flag (`QPI_EVENTS_COLLECTION` env var / `eventsCollection` config file key), mirroring
-`drivers-collection`.
-- `qpi-ui`: Added the `CryostatReading` event type and a server handler that appends valid readings to the
-`events` log; a payload with no readings is logged and dropped rather than persisted.
-- `qpi-ui`: Added the `bluefors_gen1` driver kind (RFC 0001 §7, Phase 3) — a driver that only emits
-`CryostatReading` on a timer and never handles `JobDispatch`, for the Bluefors Remote Access Control API Gen.
-1 (Bluefors also ships an unrelated Gen. 2 Control Software with a different API, hence the explicit
-version in the name). It is an officially maintained driver, installed the same way as `qblox`/`quantify`/
-`qiskit_aer` via the `qpi-driver[cli,bluefors_gen1]` extra, and its setup snippet runs the new
-`qpi-driver monitor --kind bluefors_gen1` subcommand instead of the executor CLI's `start --executor`.
-- `qpi-driver`: Restructured the built-in drivers (`QpuDriver` and the new `BlueforsGen1Driver`) into a
-`qpi_driver/builtins/` package, and added a `bluefors_gen1` optional-dependencies group to `pyproject.toml`
-(empty beyond the base install — the Control API is plain HTTP, already covered by the base `requests`
-dependency — but present so the extra installs like the other official drivers).
-- `qpi-driver`: Added the `monitor` CLI command (`qpi-driver monitor --kind bluefors_gen1 ...`) for driver
-kinds that only report upward and never handle `JobDispatch`, alongside the existing executor-shaped `start`
-command. `BlueforsGen1Driver` polls the Bluefors Remote Access Control API Gen. 1's HTTP `values` endpoint
-for a configurable set of value-tree channels on a timer and emits their readings as `CryostatReading`.
-- `qpi-ui`: Added the Monitoring dashboard page (RFC 0001 §10) — live per-channel charts of `CryostatReading`
-readings from the `events` collection over PocketBase realtime, gated the same way as the Drivers page.
-- `e2e`: Added `mock_bluefors_server.py` (a stand-in Bluefors HTTP server) and `test_bluefors_gen1_events`,
-which registers its own `bluefors_gen1` driver, asserts its readings land in `events`, and confirms killing
-it does not disturb its QPU; runs automatically under `make test-e2e-driver-framework` when the framework is
-enabled.
-- `qpi-ui`: Added `install-systemd.sh` support for `EXECUTOR=bluefors_gen1` — prompts for the Bluefors Control
-API base URL and channels, installs the `bluefors_gen1` extra, and generates a systemd unit that runs
-`qpi-driver monitor --kind bluefors_gen1` instead of `start --executor`.
+- `qpi-ui`: Added the `events` collection (behind `enable-driver-framework`) — the trace log for
+driver-originated events (`source`/`driver`/`qpu`/`type`/`payload`/`ts`), with an `events-collection` flag
+(`QPI_EVENTS_COLLECTION` / `eventsCollection`), per RFC 0001 §7.
+- `qpi-ui`: Added the `CryostatReading` event type and a handler that appends readings to the `events` log,
+dropping empty payloads.
+- `qpi-ui`/`qpi-driver`: Added the officially maintained `bluefors_gen1` monitor driver for the Bluefors
+Remote Access Control API Gen. 1 — it polls value-tree channels on a timer and emits `CryostatReading`, never
+handling `JobDispatch`. Installed via the `qpi-driver[cli,bluefors_gen1]` extra and run with
+`qpi-driver monitor --device bluefors_gen1`.
+- `qpi-ui`: Added the Monitoring dashboard page — live per-channel `CryostatReading` charts over PocketBase
+realtime, gated like the Drivers page.
+- `e2e`: Added `mock_bluefors_server.py` and `test_bluefors_gen1_events`, exercising the monitor end to end
+under `make test-e2e-driver-framework`.
 
 ### Changed
 
+- `qpi-driver`: Reorganised the CLI around driver *operations*. The subcommand is now the operation —
+`process` (a QPU, formerly `start`) or `monitor` — run on a `--device` (generalising `--executor`/`--kind`).
+Universal flags (token, qpi-addr, name, device, ca) are shared across operations; each device's own settings
+are passed as repeatable `-o key=value`. Adding a device or operation needs no new flags.
+- `qpi-ui`: Moved the driver catalog into a data-driven `internal/drivers` registry keyed by operation — a new
+device is one `Spec` (operation, install extra, events, options) rather than edits across hand-written maps and
+per-kind snippet builders.
+- `qpi-driver`: The systemd installer takes `OPERATION` + `DEVICE` (generalising `INSTRUMENT`) and passes a
+driver's options through a generic `DRIVER_OPTIONS`.
 - `e2e`: Adapted the two legacy-QPU-specific driver sub-tests to pass on the framework path — under
 `QPI_DRIVER_FRAMEWORK`, `test_qpu_toggle_switch` now toggles and reconnects the driver via
 `drivers/toggle` + `drivers/connect` (asserting the QPU tracks its driver offline/online), and

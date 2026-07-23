@@ -33,16 +33,21 @@ while [ -z "$QPI_ADDR" ]; do read -p "Enter QPI Server Address (e.g. https://qpi
 while [ -z "$CA_FINGERPRINT" ]; do read -p "Enter CA Fingerprint: " CA_FINGERPRINT; done
 while [ -z "$QPU_NAME" ]; do read -p "Enter QPU Name (e.g. rigetti-aspen-1): " QPU_NAME; done
 
-# Optional
-[ -z "$EXECUTOR" ] && read -p "Enter Executor (mock, qiskit_aer, quantify, qblox, presto, bluefors_gen1) [mock]: " EXECUTOR
-EXECUTOR=${EXECUTOR:-mock}
+# A driver is run by its OPERATION (the CLI subcommand: process | monitor) on a
+# specific DEVICE. A process runs jobs (mock, qiskit_aer, quantify, qblox,
+# presto); a monitor reports upward (bluefors_gen1). Both are launched the same
+# way: `qpi-driver <operation> --device <device> … -o key=value`.
+[ -z "$OPERATION" ] && read -p "Enter Operation (process, monitor) [process]: " OPERATION
+OPERATION=${OPERATION:-process}
+[ -z "$DEVICE" ] && read -p "Enter Device (mock, qiskit_aer, quantify, qblox, presto, bluefors_gen1) [mock]: " DEVICE
+DEVICE=${DEVICE:-mock}
 
-# bluefors_gen1 is a monitor, not an executor, but reuses the EXECUTOR
-# variable to pick the extra + service shape below. It needs its own Control
-# API config instead of the QPU/executor settings above.
-if [ "$EXECUTOR" = "bluefors_gen1" ]; then
-    [ -z "$BLUEFORS_BASE_URL" ] && read -p "Enter Bluefors Control API base URL (e.g. http://localhost:49099): " BLUEFORS_BASE_URL
-    [ -z "$BLUEFORS_CHANNELS" ] && read -p "Enter Bluefors channels to poll, optionally suffixed with :unit (e.g. mapper.bf.tmc:K,mapper.bf.pmc:mbar): " BLUEFORS_CHANNELS
+# FIXME: this may not only be for monitor operations
+# A monitor's config (e.g. bluefors_gen1's base_url/channels) is passed as
+# generic DRIVER_OPTIONS ("key=value;key=value"). A process auto-fills its own
+# runtime options (data dir, quantify configs) below, so it is not prompted.
+if [ "$OPERATION" = "monitor" ]; then
+    [ -z "$DRIVER_OPTIONS" ] && read -p "Enter $DEVICE options as key=value;key=value (e.g. base_url=http://localhost:49099;channels=mapper.bf.tmc:K): " DRIVER_OPTIONS
 fi
 
 # The version of qpi-driver to install.
@@ -79,43 +84,42 @@ else
     VERSION_SUFFIX="==$QPI_DRIVER_VERSION"
 fi
 
-# Ensure the correct extras are added based on the executor
-if [ "$EXECUTOR" = "qblox" ]; then
-    sudo -u "$REAL_USER" "$UV_PATH" tool install --python 3.12 --prerelease allow "qpi-driver[cli,qblox]${VERSION_SUFFIX}"
-elif [ "$EXECUTOR" = "quantify" ]; then
-    sudo -u "$REAL_USER" "$UV_PATH" tool install --python 3.12 "qpi-driver[cli,quantify]${VERSION_SUFFIX}"
-elif [ "$EXECUTOR" = "qiskit_aer" ]; then
-    sudo -u "$REAL_USER" "$UV_PATH" tool install --python 3.12 "qpi-driver[cli,aer]${VERSION_SUFFIX}"
-elif [ "$EXECUTOR" = "bluefors_gen1" ]; then
-    sudo -u "$REAL_USER" "$UV_PATH" tool install --python 3.12 "qpi-driver[cli,bluefors_gen1]${VERSION_SUFFIX}"
-else
-    sudo -u "$REAL_USER" "$UV_PATH" tool install --python 3.12 "qpi-driver[cli]${VERSION_SUFFIX}"
-fi
+# Install qpi-driver
+sudo -u "$REAL_USER" "$UV_PATH" tool install --python 3.12 --prerelease allow "qpi-driver[cli,${DEVICE}]${VERSION_SUFFIX}"
+
 
 # 4. Create systemd unit file
 SERVICE_FILE="/etc/systemd/system/${QPU_NAME}.qpi-driver.service"
 echo "Creating systemd service at $SERVICE_FILE..."
 
-# bluefors_gen1 is a monitor, so it runs through `qpi-driver monitor --kind`
-# with its own Control API config, instead of `start --executor` (RFC 0001
-# §7, Phase 3).
-if [ "$EXECUTOR" = "bluefors_gen1" ]; then
-    BLUEFORS_ENV_LINES="Environment=\"BLUEFORS_BASE_URL=$BLUEFORS_BASE_URL\"
-Environment=\"BLUEFORS_CHANNELS=$BLUEFORS_CHANNELS\"
-Environment=\"BLUEFORS_API_KEY=$BLUEFORS_API_KEY\""
-    EXEC_START_CMD="$REAL_HOME/.local/bin/qpi-driver monitor \\
-        --kind bluefors_gen1 \\
-        --ca-fingerprint $CA_FINGERPRINT \\
-        --qpi-addr $QPI_ADDR \\
-        --name \"$QPU_NAME\""
-else
-    BLUEFORS_ENV_LINES=""
-    EXEC_START_CMD="$REAL_HOME/.local/bin/qpi-driver start \\
-        --ca-fingerprint $CA_FINGERPRINT \\
-        --qpi-addr $QPI_ADDR \\
-        --name \"$QPU_NAME\" \\
-        --executor \"$EXECUTOR\""
+# Every operation is launched the same way: `qpi-driver <operation> --device
+# <device> … -o key=value`. A process auto-fills the runtime options this
+# installer manages (data dir, and quantify configs for qblox/quantify); any
+# DRIVER_OPTIONS (how a monitor gets its base_url/channels) are appended after.
+OPT_ARGS=""
+add_opt() {
+    [ -n "$1" ] && OPT_ARGS="$OPT_ARGS \\
+        -o $1"
+}
+
+if [ "$OPERATION" = "process" ]; then
+    add_opt "data_dir=$QPI_DATA_DIR"
+    if [ "$DEVICE" = "qblox" ] || [ "$DEVICE" = "quantify" ]; then
+        add_opt "quantify_device_config=$QPI_QUANTIFY_DEVICE_CONFIG"
+        add_opt "quantify_hardware_config=$QPI_QUANTIFY_HARDWARE_CONFIG"
+    fi
 fi
+
+IFS=';' read -ra _DRIVER_OPTS <<< "$DRIVER_OPTIONS"
+for _opt in "${_DRIVER_OPTS[@]}"; do
+    add_opt "$_opt"
+done
+
+EXEC_START_CMD="$REAL_HOME/.local/bin/qpi-driver $OPERATION \\
+        --device \"$DEVICE\" \\
+        --ca-fingerprint $CA_FINGERPRINT \\
+        --qpi-addr $QPI_ADDR \\
+        --name \"$QPU_NAME\"$OPT_ARGS"
 
 cat > "$SERVICE_FILE" <<EOF
 [Unit]
@@ -126,11 +130,7 @@ After=network.target
 Type=simple
 
 Environment="QPI_ACCESS_TOKEN=$QPI_TOKEN"
-Environment="QPI_DATA_DIR=$QPI_DATA_DIR"
 Environment="QPI_CA_FILE=$QPI_CA_FILE"
-Environment="QPI_QUANTIFY_DEVICE_CONFIG=$QPI_QUANTIFY_DEVICE_CONFIG"
-Environment="QPI_QUANTIFY_HARDWARE_CONFIG=$QPI_QUANTIFY_HARDWARE_CONFIG"
-$BLUEFORS_ENV_LINES
 # Standard Python output buffering disabled to ensure logs appear immediately in journalctl
 Environment=PYTHONUNBUFFERED=1
 

@@ -9,8 +9,10 @@ tests and the e2e suite.
 import json
 from unittest.mock import Mock, patch
 
+import pytest
 from qpi_driver.builtins.bluefors_gen1 import (
     BlueforsGen1Driver,
+    build_from_options,
     normalize_channels,
     parse_channels,
 )
@@ -167,6 +169,42 @@ def test_normalize_channels_accepts_list_dict_or_none():
     assert normalize_channels(None) == {}
     assert normalize_channels(["mapper.bf.tmc"]) == {"mapper.bf.tmc": ""}
     assert normalize_channels({"mapper.bf.tmc": "K"}) == {"mapper.bf.tmc": "K"}
+
+
+def _common_options() -> dict:
+    return dict(
+        qpi_addr="http://localhost:8090",
+        token="t",
+        name="cryostat-1",
+        ca_fingerprint="fp",
+        ca_file_path="./bin/qpi.ca.pem",
+        recv_timeout_ms=200,
+    )
+
+
+def test_build_from_options_reads_all_keys():
+    driver = build_from_options(
+        **_common_options(),
+        options={
+            "base_url": "http://cryo:49099",
+            "channels": "mapper.bf.tmc:K,mapper.bf.pmc:mbar",
+            "api_key": "secret",
+            "poll_interval": "2.5",
+            "timeout": "7",
+        },
+    )
+
+    assert isinstance(driver, BlueforsGen1Driver)
+    assert driver.bluefors_base_url == "http://cryo:49099"
+    assert driver.channels == {"mapper.bf.tmc": "K", "mapper.bf.pmc": "mbar"}
+    assert driver.api_key == "secret"
+    assert driver.poll_interval == 2.5
+    assert driver.timeout == 7.0
+
+
+def test_build_from_options_requires_channels():
+    with pytest.raises(ValueError, match="channels"):
+        build_from_options(**_common_options(), options={"base_url": "http://x"})
 
 
 def test_parse_channels_handles_optional_units():

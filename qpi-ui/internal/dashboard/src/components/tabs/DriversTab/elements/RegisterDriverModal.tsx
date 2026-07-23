@@ -89,11 +89,6 @@ export function RegisterDriverModal({ qpus, onClose, onRegister }: Props) {
     const allSnippets: Array<[string, string, string]> = [
       ["systemd", "Installation Command (Systemd)", snippets.systemd ?? ""],
       ["manual_cli", "Manual CLI Command", snippets.manual_cli ?? ""],
-      [
-        "install_and_run",
-        "Install & Run Command",
-        snippets.install_and_run ?? "",
-      ],
       ["install", "Install Command", snippets.install ?? ""],
       ["stub", "Driver Stub", snippets.stub ?? ""],
     ];

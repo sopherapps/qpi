@@ -20,6 +20,7 @@ import (
 
 	"qpi/internal/config"
 	"qpi/internal/db"
+	"qpi/internal/drivers"
 )
 
 var (
@@ -666,17 +667,17 @@ func handleDriverCreate(re *core.RequestEvent) error {
 		return err
 	}
 
-	kind := DriverKind(req.Kind)
-	language := DriverLanguage(req.Language)
-	if !isKnownDriverKind(kind) {
+	kind := drivers.Kind(req.Kind)
+	language := drivers.Language(req.Language)
+	if !drivers.Default.KnownKind(kind) {
 		return re.Error(http.StatusBadRequest, fmt.Sprintf("unknown kind %q", req.Kind), nil)
 	}
-	if !isKnownDriverLanguage(language) {
+	if !drivers.KnownLanguage(language) {
 		return re.Error(http.StatusBadRequest, fmt.Sprintf("unknown language %q", req.Language), nil)
 	}
 
-	events := eventsForKind(kind)
-	if kind == DriverKindCustom {
+	events := drivers.Default.Events(kind)
+	if kind == drivers.Custom {
 		events = req.Events
 	}
 	if len(events) == 0 {
@@ -718,7 +719,12 @@ func handleDriverCreate(re *core.RequestEvent) error {
 	_ = resp.RefreshFromDbModel(&driver)
 	resp.Token = rawToken
 	resp.QpiAddr = getAddrFromReq(re)
-	resp.Snippets = buildDriverSnippets(kind, language, driver.Name, rawToken, resp.QpiAddr, resp.CaFingerprint)
+	resp.Snippets = drivers.Default.Snippets(kind, language, drivers.Params{
+		Name:          driver.Name,
+		Token:         rawToken,
+		QpiAddr:       resp.QpiAddr,
+		CaFingerprint: resp.CaFingerprint,
+	})
 
 	return re.JSON(http.StatusCreated, resp)
 }

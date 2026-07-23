@@ -251,11 +251,11 @@ export function RegisterQpuModal({ onClose, onRegister }: Props) {
  */
 function getDriverStartCmd(qpuCreationResp: CreateQpuResponse) {
   return `
-    QPI_ACCESS_TOKEN=${qpuCreationResp.access_token} qpi-driver start \\
+    QPI_ACCESS_TOKEN=${qpuCreationResp.access_token} qpi-driver process \\
         --ca-fingerprint ${qpuCreationResp.ca_fingerprint} \\
         --qpi-addr ${qpuCreationResp.qpi_addr} \\
         --name "${qpuCreationResp.name}" \\
-        --executor "${qpuCreationResp.executor_type}"`;
+        --device "${qpuCreationResp.executor_type}"`;
 }
 
 /**
@@ -270,6 +270,7 @@ function getDriverSystemdCmd(qpuCreationResp: CreateQpuResponse) {
   QPI_ADDR="${qpuCreationResp.qpi_addr}" \\
   CA_FINGERPRINT="${qpuCreationResp.ca_fingerprint}" \\
   QPU_NAME="${qpuCreationResp.name}" \\
-  EXECUTOR="${qpuCreationResp.executor_type}" \\
+  OPERATION="process" \\
+  DEVICE="${qpuCreationResp.executor_type}" \\
   QPI_DRIVER_VERSION="${qpuCreationResp.driver_version}" bash`;
 }

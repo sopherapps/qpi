@@ -138,7 +138,6 @@ export interface CreateDriverRequest {
 export interface DriverSnippets {
   systemd?: string;
   manual_cli?: string;
-  install_and_run?: string;
   install?: string;
   stub?: string;
 }

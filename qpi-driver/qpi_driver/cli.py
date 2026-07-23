@@ -2,275 +2,172 @@ import importlib.metadata
 from pathlib import Path
 from typing import Annotated
 
-import qpi_driver.driver as non_sdk_driver
-from qpi_driver.builtins import bluefors_gen1
-from qpi_driver.builtins import qpu as sdk_driver
+from qpi_driver.builtins import MONITOR_DRIVERS, PROCESS_DRIVERS, DriverRunner
 from qpi_driver.compat import typer
-
-# Kinds runnable through the `monitor` command — driver kinds that only
-# report upward and never handle JobDispatch, so they do not fit the
-# executor-shaped `start` command (RFC 0001 §4, §7). Grows as more monitor
-# kinds ship.
-_MONITOR_KINDS = {"bluefors_gen1"}
+from qpi_driver.paths import validate_safe_path
+from qpi_driver.sdk import DEFAULT_RECV_TIMEOUT_MS
 
 app = None
 if typer.IS_TYPER_INSTALLED:
-    app = typer.Typer(help="Quantum Processing Interface (QPI) QPU Driver CLI")
+    app = typer.Typer(help="Quantum Processing Interface (QPI) Driver CLI")
 
-    @app.command()
-    def start(
-        qpi_addr: Annotated[
-            str,
-            typer.Option(
-                "--qpi-addr",
-                "-a",
-                envvar="QPI_ADDR",
-                help="Full URL of the QPI server (e.g. http://localhost:8090 or https://qpi.example.com)",
-            ),
-        ] = "http://127.0.0.1:8090",
-        token: Annotated[
-            str,
-            typer.Option(
-                "--token",
-                "-t",
-                envvar="QPI_ACCESS_TOKEN",
-                help="QPU access token matching a qpus.access_token record",
-            ),
-        ] = "",
-        name: Annotated[
-            str,
-            typer.Option(
-                "--name",
-                "-n",
-                envvar="QPU_NAME",
-                help="Human-readable name for this QPU",
-            ),
-        ] = "qpu_sim_01",
-        executor: Annotated[
-            str,
-            typer.Option(
-                "--executor",
-                "-e",
-                envvar="DRIVER_BACKEND",
-                help="Which executor backend to use (mock, qiskit_aer, quantify, qblox, presto)",
-            ),
-        ] = "mock",
-        data_dir: Annotated[
-            Path,
-            typer.Option(
-                "--data-dir",
-                "-d",
-                envvar="QPI_DATA_DIR",
-                help="Directory where intermediate pickled datasets are written",
-                writable=True,
-                readable=True,
-                dir_okay=True,
-                file_okay=False,
-                resolve_path=True,
-            ),
-        ] = Path("./bin/data"),
-        is_dummy: Annotated[
-            bool,
-            typer.Option(
-                "--is-dummy",
-                help="Whether to run the executor in dummy/simulation mode",
-            ),
-        ] = False,
-        quantify_hardware_config: Annotated[
-            Path,
-            typer.Option(
-                envvar="QPI_QUANTIFY_HARDWARE_CONFIG",
-                help="Path to the quantify hardware-layer configuration file containing specifications about the RF control instruments",
-                readable=True,
-                dir_okay=False,
-                file_okay=True,
-                resolve_path=True,
-            ),
-        ] = Path("./quantify.hardware.json"),
-        quantify_device_config: Annotated[
-            Path,
-            typer.Option(
-                envvar="QPI_QUANTIFY_DEVICE_CONFIG",
-                help="Path to the quantify device-layer configuration file containing specifications about the chip",
-                readable=True,
-                dir_okay=False,
-                file_okay=True,
-                resolve_path=True,
-            ),
-        ] = Path("./quantify.device.yml"),
-        job_timeout: Annotated[
-            int,
-            typer.Option(
-                envvar="QPI_JOB_TIMEOUT",
-                help="The number of seconds to wait for a job to complete.",
-            ),
-        ] = 10,
-        ca_file: Annotated[
-            Path,
-            typer.Option(
-                envvar="QPI_CA_FILE",
-                help="The path to the downloaded CA certificate of the server.",
-                writable=True,
-                readable=True,
-                dir_okay=False,
-                file_okay=True,
-                resolve_path=True,
-            ),
-        ] = Path("./bin/qpi.ca.pem"),
-        ca_fingerprint: str = typer.Option(
+    # Universal options shared by every operation subcommand, defined once so a
+    # new operation reuses them rather than redeclaring their flags/env/help. An
+    # operation's own settings go through --option / -o instead (RFC 0001 §4).
+    QpiAddrOpt = Annotated[
+        str,
+        typer.Option(
+            "--qpi-addr",
+            "-a",
+            envvar="QPI_ADDR",
+            help="Full URL of the QPI server (e.g. http://localhost:8090 or https://qpi.example.com)",
+        ),
+    ]
+    TokenOpt = Annotated[
+        str,
+        typer.Option(
+            "--token",
+            "-t",
+            envvar="QPI_ACCESS_TOKEN",
+            help="Access token identifying this driver to the QPI server",
+        ),
+    ]
+    NameOpt = Annotated[
+        str,
+        typer.Option(
+            "--name",
+            "-n",
+            envvar="QPI_DRIVER_NAME",
+            help="Human-readable name for this driver",
+        ),
+    ]
+    DeviceOpt = Annotated[
+        str,
+        typer.Option(
+            "--device",
+            "-d",
+            envvar="QPI_DEVICE",
+            help="Which backend to run within the operation (e.g. mock, qblox, bluefors_gen1)",
+        ),
+    ]
+    CaFileOpt = Annotated[
+        Path,
+        typer.Option(
+            envvar="QPI_CA_FILE",
+            help="Where the downloaded server root CA certificate is written.",
+            writable=True,
+            readable=True,
+            dir_okay=False,
+            file_okay=True,
+            resolve_path=True,
+        ),
+    ]
+    OptionsOpt = Annotated[
+        list[str] | None,
+        typer.Option(
+            "--option",
+            "-o",
+            help="Operation-specific config as key=value, repeatable — e.g. "
+            "-o data_dir=./bin/data (process) or "
+            "-o channels=mapper.bf.tmc:K,mapper.bf.pmc:mbar (monitor). "
+            "See the chosen device for the keys it reads.",
+        ),
+    ]
+    RecvTimeoutOpt = Annotated[
+        int,
+        typer.Option(
+            envvar="QPI_RECV_TIMEOUT_MS",
+            help="How long the receive loop blocks per attempt before checking "
+            "for a shutdown signal, in milliseconds.",
+        ),
+    ]
+
+    def _ca_fingerprint_option() -> str:
+        return typer.Option(
             default=...,
             envvar="QPI_CA_FINGERPRINT",
-            help="The fingerprint to verify the authenticity the automatically downloaded root CA certificate of the QPI server.",
-        ),
-        use_sdk: Annotated[
-            bool,
-            typer.Option(
-                "--use-sdk",
-                envvar="QPI_USE_SDK",
-                help="Run the QPU on the experimental driver framework (RFC 0001) instead of the legacy runner.",
-            ),
-        ] = False,
+            help="SHA-256 fingerprint pinning the automatically downloaded root CA of the QPI server.",
+        )
+
+    @app.command()
+    def process(
+        device: DeviceOpt = "mock",
+        qpi_addr: QpiAddrOpt = "http://127.0.0.1:8090",
+        token: TokenOpt = "",
+        name: NameOpt = "qpu_sim_01",
+        ca_file: CaFileOpt = Path("./bin/qpi.ca.pem"),
+        ca_fingerprint: str = _ca_fingerprint_option(),
+        options: OptionsOpt = None,
+        recv_timeout_ms: RecvTimeoutOpt = DEFAULT_RECV_TIMEOUT_MS,
     ):
         """
-        Start the QPI driver.
+        Run a process driver — a QPU that executes jobs pushed to it (RFC 0001 §4).
+
+        Executor runtime settings are passed as -o options: data_dir, is_dummy,
+        job_timeout, quantify_hardware_config, quantify_device_config, use_sdk.
         """
-        if not token:
-            typer.echo(
-                "Error: access token is required. "
-                "Set it via --token / -t or the QPI_ACCESS_TOKEN environment variable.",
-                err=True,
-            )
-            raise typer.Exit(code=1)
-
-        _validate_safe_path(data_dir, "--data-dir")
-        _validate_safe_path(ca_file, "--ca-file")
-
-        typer.rich_print(_banner())
-
-        if use_sdk:
-            sdk_driver.run_qpu_driver(
-                qpi_addr=qpi_addr,
-                token=token,
-                name=name,
-                executor=executor,
-                data_dir=data_dir,
-                ca_fingerprint=ca_fingerprint,
-                ca_file_path=ca_file,
-                is_dummy=is_dummy,
-                quantify_hardware_config=quantify_hardware_config,
-                quantify_device_config=quantify_device_config,
-                job_timeout=job_timeout,
-            )
-        else:
-            non_sdk_driver.run_driver(
-                qpi_addr=qpi_addr,
-                token=token,
-                name=name,
-                executor=executor,
-                data_dir=data_dir,
-                ca_fingerprint=ca_fingerprint,
-                ca_file_path=ca_file,
-                is_dummy=is_dummy,
-                quantify_hardware_config=quantify_hardware_config,
-                quantify_device_config=quantify_device_config,
-                job_timeout=job_timeout,
-            )
+        _run_operation(
+            PROCESS_DRIVERS,
+            "process",
+            device=device,
+            qpi_addr=qpi_addr,
+            token=token,
+            name=name,
+            ca_file=ca_file,
+            ca_fingerprint=ca_fingerprint,
+            options=options,
+            recv_timeout_ms=recv_timeout_ms,
+        )
 
     @app.command()
     def monitor(
-        kind: Annotated[
-            str,
-            typer.Option(
-                "--kind",
-                "-k",
-                envvar="DRIVER_KIND",
-                help="Which monitor driver to run (bluefors_gen1)",
-            ),
-        ] = "bluefors_gen1",
-        qpi_addr: Annotated[
-            str,
-            typer.Option(
-                "--qpi-addr",
-                "-a",
-                envvar="QPI_ADDR",
-                help="Full URL of the QPI server (e.g. http://localhost:8090 or https://qpi.example.com)",
-            ),
-        ] = "http://127.0.0.1:8090",
-        token: Annotated[
-            str,
-            typer.Option(
-                "--token",
-                "-t",
-                envvar="QPI_ACCESS_TOKEN",
-                help="Driver access token matching a drivers.token record",
-            ),
-        ] = "",
-        name: Annotated[
-            str,
-            typer.Option(
-                "--name",
-                "-n",
-                envvar="DRIVER_NAME",
-                help="Human-readable name for this driver",
-            ),
-        ] = "bluefors-gen1-monitor",
-        ca_file: Annotated[
-            Path,
-            typer.Option(
-                envvar="QPI_CA_FILE",
-                help="The path to the downloaded CA certificate of the server.",
-                writable=True,
-                readable=True,
-                dir_okay=False,
-                file_okay=True,
-                resolve_path=True,
-            ),
-        ] = Path("./bin/qpi.ca.pem"),
-        ca_fingerprint: str = typer.Option(
-            default=...,
-            envvar="QPI_CA_FINGERPRINT",
-            help="The fingerprint to verify the authenticity the automatically downloaded root CA certificate of the QPI server.",
-        ),
-        bluefors_base_url: Annotated[
-            str,
-            typer.Option(
-                envvar="BLUEFORS_BASE_URL",
-                help="Base URL of the Bluefors Control API (bluefors_gen1 only)",
-            ),
-        ] = "http://127.0.0.1:49099",
-        bluefors_api_key: Annotated[
-            str,
-            typer.Option(
-                envvar="BLUEFORS_API_KEY",
-                help="Bluefors Control API access key, if configured (bluefors_gen1 only)",
-            ),
-        ] = "",
-        bluefors_channels: Annotated[
-            str,
-            typer.Option(
-                envvar="BLUEFORS_CHANNELS",
-                help="Comma-separated value-tree channel paths to poll, each optionally "
-                "suffixed with :unit, e.g. mapper.bf.tmc:K,mapper.bf.pmc:mbar (bluefors_gen1 only)",
-            ),
-        ] = "",
-        poll_interval: Annotated[
-            float,
-            typer.Option(
-                envvar="MONITOR_POLL_INTERVAL",
-                help="Seconds between polls",
-            ),
-        ] = bluefors_gen1.DEFAULT_POLL_INTERVAL,
-        timeout: Annotated[
-            float,
-            typer.Option(
-                envvar="MONITOR_TIMEOUT",
-                help="HTTP timeout per channel read, in seconds",
-            ),
-        ] = bluefors_gen1.DEFAULT_TIMEOUT,
+        device: DeviceOpt = "bluefors_gen1",
+        qpi_addr: QpiAddrOpt = "http://127.0.0.1:8090",
+        token: TokenOpt = "",
+        name: NameOpt = "qpi-monitor",
+        ca_file: CaFileOpt = Path("./bin/qpi.ca.pem"),
+        ca_fingerprint: str = _ca_fingerprint_option(),
+        options: OptionsOpt = None,
+        recv_timeout_ms: RecvTimeoutOpt = DEFAULT_RECV_TIMEOUT_MS,
     ):
         """
-        Start a monitor driver — one that only reports upward on its own
-        schedule and never handles JobDispatch (RFC 0001 §4, §7).
+        Run a monitor driver — one that only reports upward on its own schedule
+        and never handles JobDispatch (RFC 0001 §4, §7).
+
+        The device's settings are passed as -o options, e.g. for bluefors_gen1:
+        -o base_url=... -o channels=path:unit,... -o api_key=...
+        """
+        _run_operation(
+            MONITOR_DRIVERS,
+            "monitor",
+            device=device,
+            qpi_addr=qpi_addr,
+            token=token,
+            name=name,
+            ca_file=ca_file,
+            ca_fingerprint=ca_fingerprint,
+            options=options,
+            recv_timeout_ms=recv_timeout_ms,
+        )
+
+    def _run_operation(
+        registry: dict[str, DriverRunner],
+        operation: str,
+        *,
+        device: str,
+        qpi_addr: str,
+        token: str,
+        name: str,
+        ca_file: Path,
+        ca_fingerprint: str,
+        options: list[str] | None,
+        recv_timeout_ms: int,
+    ) -> None:
+        """Look up a device's runner in *registry* and run it, or exit with an error.
+
+        Shared by every operation subcommand: the operation is the command name,
+        the device selects the backend, and the runner reads its own config from
+        the parsed -o options.
         """
         if not token:
             typer.echo(
@@ -280,37 +177,32 @@ if typer.IS_TYPER_INSTALLED:
             )
             raise typer.Exit(code=1)
 
-        if kind not in _MONITOR_KINDS:
+        runner = registry.get(device)
+        if runner is None:
             typer.echo(
-                f"Error: unknown monitor kind {kind!r}. Known kinds: {sorted(_MONITOR_KINDS)}",
+                f"Error: unknown {operation} device {device!r}. "
+                f"Known devices: {', '.join(sorted(registry))}.",
                 err=True,
             )
             raise typer.Exit(code=1)
 
         _validate_safe_path(ca_file, "--ca-file")
-
         typer.rich_print(_banner())
 
-        if kind == "bluefors_gen1":
-            if not bluefors_channels:
-                typer.echo(
-                    "Error: --bluefors-channels / BLUEFORS_CHANNELS is required for bluefors_gen1.",
-                    err=True,
-                )
-                raise typer.Exit(code=1)
-
-            bluefors_gen1.run_bluefors_gen1_driver(
+        try:
+            runner(
+                device=device,
+                options=_parse_options(options or []),
                 qpi_addr=qpi_addr,
                 token=token,
                 name=name,
-                bluefors_base_url=bluefors_base_url,
-                channels=bluefors_gen1.parse_channels(bluefors_channels),
-                api_key=bluefors_api_key,
-                poll_interval=poll_interval,
-                timeout=timeout,
                 ca_fingerprint=ca_fingerprint,
                 ca_file_path=ca_file.as_posix(),
+                recv_timeout_ms=recv_timeout_ms,
             )
+        except ValueError as exc:
+            typer.echo(f"Error: {exc}", err=True)
+            raise typer.Exit(code=1)
 
     @app.command()
     def version():
@@ -336,7 +228,7 @@ if typer.IS_TYPER_INSTALLED:
             "[bold bright_cyan]  ╚══▀▀═╝ ╚═╝     ╚═╝  [/bold bright_cyan]\n"
             "\n"
             "  [dim]Quantum Processing Interface[/dim]\n"
-            f"  [dim]QPU Driver[/dim]  [bold]{_get_version()}[/bold]\n"
+            f"  [dim]Driver[/dim]  [bold]{_get_version()}[/bold]\n"
             "\n"
             "  [link=https://github.com/sopherapps/qpi]github.com/sopherapps/qpi[/link]"
         )
@@ -346,32 +238,27 @@ if typer.IS_TYPER_INSTALLED:
             padding=(1, 2),
         )
 
+    def _parse_options(pairs: list[str]) -> dict[str, str]:
+        """Turn repeatable ``-o key=value`` options into a dict.
+
+        Each device reads the keys it cares about from the result, so the CLI
+        stays generic across operations and devices.
+        """
+        options: dict[str, str] = {}
+        for pair in pairs:
+            key, sep, value = pair.partition("=")
+            if not sep or not key.strip():
+                raise ValueError(f"invalid option {pair!r}; expected key=value")
+            options[key.strip()] = value.strip()
+        return options
+
     def _validate_safe_path(path: Path, name: str) -> None:
-        """Checks that a given path is not in an unsafe location."""
-        resolved_path_str = path.resolve().as_posix()
-        permitted_folders = (
-            Path("/var/qpi-driver").resolve().as_posix(),
-            Path("/etc/qpi-driver").resolve().as_posix(),
-        )
-        permitted_parent_dirs = (
-            Path.home().resolve().as_posix(),
-            Path("/tmp").resolve().as_posix(),
-            Path("/var/tmp").resolve().as_posix(),
-        )
-
-        for folder in permitted_folders:
-            if resolved_path_str.startswith(folder):
-                return
-
-        for folder in permitted_parent_dirs:
-            if resolved_path_str != folder and resolved_path_str.startswith(folder):
-                return
-
-        typer.echo(
-            f"Error: path for {name} ({path}) is not in a safe location.",
-            err=True,
-        )
-        raise typer.Exit(code=1)
+        """CLI wrapper over validate_safe_path that exits instead of raising."""
+        try:
+            validate_safe_path(path, name)
+        except ValueError as exc:
+            typer.echo(f"Error: {exc}.", err=True)
+            raise typer.Exit(code=1)
 
     if __name__ == "__main__":
         app()

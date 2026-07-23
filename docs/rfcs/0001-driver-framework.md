@@ -89,11 +89,14 @@ driver.
 Illustrative Python SDK shape (the QPU driver):
 
 ```python
-class MyQPU(QpiDriver):                 # base class mirrors this version's events
-    def on_job_dispatch(self, e):       # handle an event QPI-UI sends
-        result = self.backend.execute(e.payload)
-        self.emit(JobResult(job_id=e.payload["job_id"],
-                            status="completed", results=result))
+class MyQPU(QpiDriver):                       # base class mirrors this version's events
+    def handle_event(self, event):            # act on an event QPI-UI sends,
+        if event.type == EventType.JOB_DISPATCH:   # dispatching on its type
+            result = self.backend.execute(event.payload)
+            self.emit(Event(type=EventType.JOB_RESULT,
+                            driver=self.name,
+                            payload={"job_id": event.payload["job_id"],
+                                     "status": "completed", "results": result}))
 ```
 
 A monitoring driver would be its own class emitting its own event on a timer via

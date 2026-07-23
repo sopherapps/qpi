@@ -16,6 +16,16 @@ if has_typer:
     runner = CliRunner()
 
 
+def _output(result) -> str:
+    output = result.stdout or ""
+    try:
+        if result.stderr:
+            output += "\n" + result.stderr
+    except ValueError:
+        pass
+    return output
+
+
 def test_cli_version():
     """Verify that the version command outputs the correct package version."""
     result = runner.invoke(app, ["version"])
@@ -27,52 +37,102 @@ def test_cli_version():
     assert expected_version in result.stdout
 
 
-def test_cli_start_requires_token():
-    """Verify that start command fails if token is not supplied."""
-    result = runner.invoke(app, ["start", "--ca-fingerprint", "test-fingerprint"])
+def test_cli_process_requires_token():
+    """process fails if the access token is not supplied."""
+    result = runner.invoke(app, ["process", "--ca-fingerprint", "fp"])
     assert result.exit_code == 1
-    # Check stdout, stderr, or combined output
-    output = result.stdout or ""
-    try:
-        if result.stderr:
-            output += "\n" + result.stderr
-    except ValueError:
-        pass
-    assert "Error: access token is required" in output
+    assert "Error: access token is required" in _output(result)
 
 
-def test_cli_start_unsafe_data_dir():
-    """Verify that start command fails if data_dir is in an unsafe location."""
+def test_cli_process_rejects_unknown_device():
+    """process rejects an executor device with no registered runner."""
     result = runner.invoke(
         app,
-        [
-            "start",
-            "--token",
-            "test-token",
-            "--ca-fingerprint",
-            "test-fingerprint",
-            "--data-dir",
-            "/var",
-        ],
+        ["process", "--token", "t", "--ca-fingerprint", "fp", "--device", "nope"],
     )
-    assert result.exit_code in (1, 2)
+    assert result.exit_code == 1
+    assert "unknown process device" in _output(result)
 
 
-def test_cli_start_unsafe_ca_file():
-    """Verify that start command fails if ca_file is in an unsafe location."""
+def test_cli_process_unsafe_ca_file():
+    """process fails if the ca-file is in an unsafe location."""
     result = runner.invoke(
         app,
         [
-            "start",
+            "process",
             "--token",
-            "test-token",
+            "t",
             "--ca-fingerprint",
-            "test-fingerprint",
+            "fp",
             "--ca-file",
             "/",
         ],
     )
     assert result.exit_code in (1, 2)
+
+
+def test_cli_process_unsafe_data_dir_option():
+    """A process data_dir option in an unsafe location is rejected."""
+    result = runner.invoke(
+        app,
+        [
+            "process",
+            "--token",
+            "t",
+            "--ca-fingerprint",
+            "fp",
+            "-o",
+            "data_dir=/var",
+        ],
+    )
+    assert result.exit_code == 1
+    assert "safe location" in _output(result)
+
+
+def test_cli_monitor_requires_token():
+    """monitor fails without an access token, like process."""
+    result = runner.invoke(app, ["monitor", "--ca-fingerprint", "fp"])
+    assert result.exit_code == 1
+
+
+def test_cli_monitor_rejects_unknown_device():
+    """monitor rejects a device that no runner is registered for."""
+    result = runner.invoke(
+        app,
+        ["monitor", "--token", "t", "--ca-fingerprint", "fp", "--device", "nope"],
+    )
+    assert result.exit_code == 1
+    assert "unknown monitor device" in _output(result)
+
+
+def test_cli_monitor_reports_missing_required_option():
+    """A device's own option validation surfaces as a clean CLI error."""
+    result = runner.invoke(
+        app,
+        [
+            "monitor",
+            "--token",
+            "t",
+            "--ca-fingerprint",
+            "fp",
+            "--device",
+            "bluefors_gen1",
+        ],
+    )
+    assert result.exit_code == 1
+    assert "channels" in _output(result)
+
+
+def test_parse_options_parses_and_validates():
+    """-o key=value pairs parse into a dict; a pair without '=' is rejected."""
+    from qpi_driver.cli import _parse_options
+
+    assert _parse_options(["base_url=http://x", "channels=a:K,b"]) == {
+        "base_url": "http://x",
+        "channels": "a:K,b",
+    }
+    with pytest.raises(ValueError):
+        _parse_options(["not-a-pair"])
 
 
 def test_validate_safe_path():

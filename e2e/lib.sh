@@ -206,9 +206,9 @@ start_driver() {
     local py
     py="$(detect_python)"
 
-    local extra_flags=""
+    local extra_opts=""
     if [ "$executor" = "quantify" ] || [ "$executor" = "qblox" ]; then
-        extra_flags="--quantify-hardware-config ${PROJECT_ROOT}/qpi-driver/tests/fixtures/quantify.hardware.json --quantify-device-config ${PROJECT_ROOT}/qpi-driver/tests/fixtures/quantify.device.yml"
+        extra_opts="-o quantify_hardware_config=${PROJECT_ROOT}/qpi-driver/tests/fixtures/quantify.hardware.json -o quantify_device_config=${PROJECT_ROOT}/qpi-driver/tests/fixtures/quantify.device.yml"
     fi
 
     # Fetch the CA fingerprint from the server for TLS verification
@@ -223,20 +223,20 @@ start_driver() {
     # In driver-framework mode the driver connects with its own registered token
     # (written by seed.py) over drivers/connect, and runs on the SDK path.
     local token="my-super-secret-token-12345"
-    local sdk_flag=""
+    local sdk_opt=""
     if [ "${QPI_DRIVER_FRAMEWORK:-0}" = "1" ]; then
         token="$(cat "${DATA_DIR}/driver_token.txt")"
-        sdk_flag="--use-sdk"
-        echo "[e2e] Driver framework mode: connecting via drivers/connect with --use-sdk"
+        sdk_opt="-o use_sdk=true"
+        echo "[e2e] Driver framework mode: connecting via drivers/connect (-o use_sdk=true)"
     fi
 
-    QPI_ACCESS_TOKEN="$token" "$py" -u -m qpi_driver.cli start \
-        --executor "$executor" \
-        $sdk_flag \
-        --data-dir "${PROJECT_ROOT}/bin/data" \
+    QPI_ACCESS_TOKEN="$token" "$py" -u -m qpi_driver.cli process \
+        --device "$executor" \
         --ca-fingerprint "$ca_fingerprint" \
         --ca-file "${PROJECT_ROOT}/bin/qpi.ca.pem" \
-        --is-dummy $extra_flags >"$DRIVER_LOG" 2>&1 &
+        -o data_dir="${PROJECT_ROOT}/bin/data" \
+        -o is_dummy=true \
+        $sdk_opt $extra_opts >"$DRIVER_LOG" 2>&1 &
     DRIVER_PID=$!
 }
 

@@ -29,9 +29,11 @@ from qpi_driver.events import Event
 
 log = logging.getLogger(__name__)
 
-# FIXME: this needs to be user-configurable, with the given default.
-#   see how other such configs were handled
-RECV_TIMEOUT_MS = 200
+# Default for the `recv_timeout_ms` constructor argument below. User-facing
+# CLI commands (`start --use-sdk`, `monitor`) expose it as
+# `--recv-timeout-ms` / `QPI_RECV_TIMEOUT_MS`, mirroring how `--job-timeout` /
+# `QPI_JOB_TIMEOUT` exposes a similar knob.
+DEFAULT_RECV_TIMEOUT_MS = 200
 
 
 @dataclass
@@ -60,6 +62,8 @@ class QpiDriver(ABC):
         name: Human-readable name for this driver.
         ca_fingerprint: Expected SHA-256 of the server root CA, pinned over TLS.
         ca_file_path: Where the downloaded root CA certificate is written.
+        recv_timeout_ms: How long the inbound receive loop blocks per attempt
+            before checking for a shutdown signal, in milliseconds.
     """
 
     def __init__(
@@ -69,12 +73,14 @@ class QpiDriver(ABC):
         name: str,
         ca_fingerprint: str = "",
         ca_file_path: str = "./bin/qpi.ca.pem",
+        recv_timeout_ms: int = DEFAULT_RECV_TIMEOUT_MS,
     ) -> None:
         self.qpi_addr = qpi_addr
         self.token = token
         self.name = name
         self.ca_fingerprint = ca_fingerprint
         self.ca_file_path = ca_file_path
+        self.recv_timeout_ms = recv_timeout_ms
 
         self._out_sock: pynng.Push0 | None = None
         self._emit_lock = threading.Lock()
@@ -138,7 +144,9 @@ class QpiDriver(ABC):
     def _recv_loop(self, conn: Connection, tls_config: TLSConfig) -> None:
         """Pull inbound events and dispatch each to its handler until stopped."""
         in_addr = f"tls+tcp://{conn.host}:{conn.in_port}"
-        with pynng.Pull0(tls_config=tls_config, recv_timeout=RECV_TIMEOUT_MS) as sock:
+        with pynng.Pull0(
+            tls_config=tls_config, recv_timeout=self.recv_timeout_ms
+        ) as sock:
             sock.dial(in_addr, block=True)
             log.info("NNG PULL connected to %s", in_addr)
 
@@ -154,7 +162,6 @@ class QpiDriver(ABC):
                 if event is not None:
                     self._deliver(event)
 
-    # FIXME: update the corresponding RFC to show we use handle_event instead of on_<event>
     @abstractmethod
     def handle_event(self, event: Event) -> None:
         """Act on a single inbound event, dispatching on ``event.type``.
