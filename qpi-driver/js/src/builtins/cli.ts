@@ -19,7 +19,7 @@ import { Command } from "commander";
 import type { QpiDriver } from "../driver.js";
 import { BlueforsGen1Driver, parseChannels } from "./bluefors-gen1.js";
 
-const VERSION = "0.1.1";
+const VERSION = "0.1.2";
 
 /** The universal options every operation subcommand shares (commander camelCases them). */
 interface CommonOpts {

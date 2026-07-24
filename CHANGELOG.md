@@ -7,6 +7,8 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-07-24
+
 ### Added
 
 - `qpi-ui`: Added Admin Theme Management feature (RFC 0002) allowing administrators to create, preview, activate, and delete custom themes directly from the dashboard.

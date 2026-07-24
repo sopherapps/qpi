@@ -31,7 +31,7 @@ import (
 
 // version is the CLI version; overridable at build time with
 // -ldflags "-X main.version=…".
-var version = "0.1.1"
+var version = "0.1.2"
 
 // commonFlags are the universal options every operation subcommand shares,
 // mirroring the Python CLI. A device's own settings go through -o instead.
