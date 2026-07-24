@@ -33,7 +33,7 @@
   "homepage": "https://sopherapps.github.io/qpi/clients/javascript/",
   "repository": {
     "type": "git",
-    "url": "https://github.com/sopherapps/qpi"
+    "url": "git+https://github.com/sopherapps/qpi.git"
   },
   "engines": {
     "node": ">=18.0.0"

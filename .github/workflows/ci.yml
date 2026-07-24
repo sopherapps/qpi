@@ -348,17 +348,19 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '22.x'
-        registry-url: 'https://registry.npmjs.org'
         cache: 'npm'
         cache-dependency-path: 'qpi-client/js/package-lock.json'
+
+    - name: Upgrade npm CLI
+      run: npm install -g npm@latest
 
     - name: Install dependencies & build
       run: make package-js
 
     - name: Publish to npm
-      run: cd qpi-client/js && npm publish --provenance --access public
-      env:
-        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      run: |
+        cd qpi-client/js
+        npm publish --provenance --access public
 
   # -------------------------------------------------------------------------
   # Publish qpi-driver/js to npm
@@ -378,17 +380,19 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '22.x'
-        registry-url: 'https://registry.npmjs.org'
         cache: 'npm'
         cache-dependency-path: 'qpi-driver/js/package-lock.json'
+
+    - name: Upgrade npm CLI
+      run: npm install -g npm@latest
 
     - name: Install dependencies & build
       run: make package-driver-js
 
     - name: Publish to npm
-      run: cd qpi-driver/js && npm publish --provenance --access public
-      env:
-        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      run: |
+        cd qpi-driver/js
+        npm publish --provenance --access public
 
   # -------------------------------------------------------------------------
   # Publish Go server binaries to GitHub Release

@@ -18,6 +18,10 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
 - `qpi-ui`: Optimized `OnThemeUpsert` hook to use a raw database query to efficiently deactivate sibling themes, avoiding nested hook executions.
 - `docs`: Added `docs/theming.md` documentation guide for the Dashboard Theming engine.
 
+### Fixed
+
+- `qpi-driver/js` and `qpi-client/js`: Fix failing npm publish in GitHub actions
+
 ## [0.1.1] - 2026-07-23
 
 ### Added
