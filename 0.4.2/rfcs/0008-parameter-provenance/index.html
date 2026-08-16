@@ -1,0 +1,1814 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://sopherapps.github.io/qpi/0.4.2/rfcs/0008-parameter-provenance/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>RFC 0008 — Parameter Provenance - QPI Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#rfc-0008-parameter-provenance" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="QPI Documentation" class="md-header__button md-logo" aria-label="QPI Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            QPI Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              RFC 0008 — Parameter Provenance
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/sopherapps/qpi" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    sopherapps/qpi
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../theming/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Dashboard Theming
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../driver/python/" class="md-tabs__link">
+          
+  
+  
+  Drivers
+
+        </a>
+      </li>
+    
+  
+
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../clients/python/" class="md-tabs__link">
+          
+  
+  
+  Clients
+
+        </a>
+      </li>
+    
+  
+
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../" class="md-tabs__link">
+          
+  
+  
+  RFCs
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../changelog/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="QPI Documentation" class="md-nav__button md-logo" aria-label="QPI Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    QPI Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/sopherapps/qpi" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    sopherapps/qpi
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theming/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dashboard Theming
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Drivers
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Drivers
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_1" id="__nav_3_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python Driver
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Python Driver
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../driver/python/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../driver/python_api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../driver/tuners/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Calibration Tuners
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../driver/go/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Go Driver
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../driver/javascript/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JavaScript Driver
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../driver/operations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operations Runbook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Clients
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Clients
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_4_1" id="__nav_4_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python Client
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Python Client
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/python/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/python_api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/go/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Go Client
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/javascript/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JavaScript Client
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFCs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    RFCs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0001-driver-framework/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0001 Driver Framework
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0002-dashboard-theming/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0002 Dashboard Theming
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0003-driver-extensibility/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0003 Driver Extensibility
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0004-calibration-tuners/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0004 Calibration Tuners
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0005-calibration-graph-completion/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0005 Calibration Graph Completion
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-the-idea" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. The idea
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-vocabulary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Vocabulary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-decisions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Decisions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-what-is-recorded-today-and-where-it-goes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. What is recorded today, and where it goes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-where-it-goes-and-why-not-the-two-existing-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Where it goes, and why not the two existing files
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-what-it-makes-possible" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. What it makes possible
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-why-not-stage-the-writes-until-the-run-succeeds" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Why not stage the writes until the run succeeds
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-provenance-does-not-expire-and-the-timestamp-is-not-a-deadline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Provenance does not expire, and the timestamp is not a deadline
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-testing-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Testing strategy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-implementation-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. Implementation plan
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#11-resolved-while-implementing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11. Resolved while implementing
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#12-what-this-deliberately-does-not-do" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        12. What this deliberately does not do
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="rfc-0008-parameter-provenance">RFC 0008 — Parameter Provenance</h1>
+<ul>
+<li><strong>Status:</strong> Implemented</li>
+<li><strong>Author:</strong> Martin Ahindura</li>
+<li><strong>Created:</strong> 2026-08-12</li>
+<li><strong>Depends on:</strong> RFC 0004 (the device file and its write-back), RFC 0005 (the completed
+  graph), RFC 0007 (which defers this, and has four places waiting on it)</li>
+<li><strong>Touches:</strong> <code>qpi-driver</code> (Python only — no new operation, no new event type, no
+  server or SDK change)</li>
+</ul>
+<h2 id="1-the-idea">1. The idea</h2>
+<p>A device config records what every parameter <em>is</em>. Nothing records <strong>where it came
+from</strong> — and the two cases it cannot tell apart are the ones that matter: a value this
+driver measured, and a value somebody typed in.</p>
+<p>That is all "provenance" means here; §2 says it at more length.</p>
+<p>The August 2026 chip carried <code>clock_freqs.f01: 4735509751.238763</code>. Nine significant
+figures, so it reads as a measurement, and the qubit was 302 MHz away; the line had
+never been there. Six calibration runs were spent on the consequences. Precision is not
+provenance, and a file that cannot say which it is holding forces every reader, human or
+routine, to assume the better case.</p>
+<p>This RFC makes each parameter carry which routine last measured it, when, and from what
+signal, so that "has this ever been measured?" is a question the driver can answer.</p>
+<h2 id="2-vocabulary">2. Vocabulary</h2>
+<ul>
+<li><strong>Provenance</strong> — literally <em>where a thing came from</em>. In a gallery it is the paperwork
+  proving a painting is what it claims to be. Here it is the same idea for a single
+  number: which routine last measured this parameter on this target, in which run, when,
+  and what its fit looked like. The device file says a parameter <strong>is</strong> 4.7364 GHz;
+  provenance says whether anything ever measured that.</li>
+<li><strong>Prior</strong> — a value with no provenance. A design figure, a value from another control
+  stack, a placeholder, or a measurement made before this RFC. Not necessarily wrong;
+  just not attributable.</li>
+<li><strong>Sidecar</strong> — a small file that travels beside a bigger one and describes it, without
+  the thing it describes needing to know it exists. Here: provenance, and nothing else.</li>
+</ul>
+<h2 id="3-decisions">3. Decisions</h2>
+<table>
+<thead>
+<tr>
+<th>Decision</th>
+<th>Resolution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>New operation or event type?</td>
+<td><strong>No.</strong> Python driver only, as RFC 0007. The event payload is a contract asserted in Go and TypeScript; extending it is a separate decision.</td>
+</tr>
+<tr>
+<td>Where provenance lives</td>
+<td><strong>A sidecar the driver owns</strong>, beside the device file, keyed by <code>(target, dotted path)</code>. Not either config file — §5.</td>
+</tr>
+<tr>
+<td>Does it hold values?</td>
+<td><strong>No, metadata only.</strong> A second store of <em>values</em> would be a second source of truth for what the chip is, needing synchronisation with the file the executor reads. Metadata has no such coupling: it never holds a number anything needs to run a circuit.</td>
+</tr>
+<tr>
+<td>What if it is missing</td>
+<td><strong>Every parameter is a prior.</strong> Conservative, correct, and identical to today's behaviour. Nothing may fail for its absence, or a fresh checkout could not calibrate.</td>
+</tr>
+<tr>
+<td>How it is written</td>
+<td><strong>Merged per key</strong>, by the run that produces that parameter. Rewriting the file wholesale would erase the provenance of everything a partial run did not touch.</td>
+</tr>
+<tr>
+<td>Is it an index over report history?</td>
+<td><strong>No — it is the record itself.</strong> RFC 0007 §10 assumed the content already existed and only a lookup was missing. It does not: reports leave the driver through a result queue and nothing persists them locally (§4).</td>
+</tr>
+<tr>
+<td>Staging value commits until a run succeeds</td>
+<td><strong>No</strong>, and the diagnosis matters more than the answer — §7.</td>
+</tr>
+<tr>
+<td>Failing a routine whose input is a prior</td>
+<td><strong>Out of scope.</strong> This RFC makes priors <em>visible</em>; deciding what refuses to run on one is RFC 0007 §11's ledger, which this then sharpens.</td>
+</tr>
+<tr>
+<td>Backfilling provenance for existing chips</td>
+<td><strong>Out of scope</strong>, and unnecessary: absence already means "prior", which is the truth for every value written before this ships.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="4-what-is-recorded-today-and-where-it-goes">4. What is recorded today, and where it goes</h2>
+<p><code>RoutineResult</code> already carries almost exactly the right fields:</p>
+<div class="highlight"><pre><span></span><code><span class="n">routine_name</span><span class="p">:</span> <span class="nb">str</span>      <span class="c1"># which node</span>
+<span class="n">target</span><span class="p">:</span> <span class="nb">str</span>            <span class="c1"># which qubit or edge</span>
+<span class="n">parameters</span><span class="p">:</span> <span class="nb">dict</span>       <span class="c1"># what it wrote</span>
+<span class="n">timestamp</span><span class="p">:</span> <span class="nb">str</span>         <span class="c1"># when</span>
+<span class="n">duration_s</span><span class="p">:</span> <span class="nb">float</span>
+<span class="n">fit</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span>       <span class="c1"># the sweep behind it</span>
+</code></pre></div>
+<p>RFC 0007 §10 concluded from this that provenance needed no new content, only an index.
+<strong>That is wrong, and it is worth correcting explicitly because it made the work look
+smaller than it is.</strong> The report is assembled, converted by <code>to_event_payload</code>, put on a
+result queue, and sent to the server. Nothing writes it to disk. So the driver cannot ask
+what it measured last week — the facts exist, but not anywhere the process needing them
+can read.</p>
+<p>Three consequences:</p>
+<ul>
+<li>A local sidecar is not a cache of something already available. It is the driver's only
+  copy.</li>
+<li>Asking the server instead would put a network round-trip inside the calibration walk,
+  and make a chip un-calibratable when the server is unreachable. A driver that cannot
+  calibrate offline is a worse trade than a file.</li>
+<li>The sidecar and the server's report history will drift, and that is acceptable, because
+  they answer different questions. The server has the audit trail; the sidecar has the
+  one fact the walk needs, per parameter.</li>
+</ul>
+<h2 id="5-where-it-goes-and-why-not-the-two-existing-files">5. Where it goes, and why not the two existing files</h2>
+<p><strong>Not <code>quantify.device.yml</code>.</strong> That file's schema is not ours. It deserialises into a
+<code>QuantumDevice</code> whose parameters are qcodes parameters on real element classes, and
+quantify's models reject unknown keys — <code>output_att</code> validated against the wrong config
+class raised <code>extra_forbidden</code> while RFC 0007 was being researched. Provenance keys there
+mean either a parallel structure inside someone else's format or a fork of it.</p>
+<p><strong>Not <code>calibration.yml</code>.</strong> It is hand-authored intent — the August 2026 one is mostly
+reasoning about why each sweep is the size it is — so a machine writing into it either
+destroys that or needs a comment-preserving round-trip to avoid doing so. RFC 0007 §7
+declines to have the driver edit that file for the same reason, and it would put the
+machine's output and the operator's input in one place, which is what makes both harder to
+trust.</p>
+<p><strong>So: a third file the operator never edits.</strong> Beside the device file, whose path the
+tuner already holds as <code>_device_config_path</code>, so the sidecar is found wherever the
+device config is and moves with it. Keyed by target and dotted path:</p>
+<div class="highlight"><pre><span></span><code><span class="nt">q0</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">clock_freqs.f01</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">routine</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ramsey</span>
+<span class="w">    </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">job-1743</span>
+<span class="w">    </span><span class="nt">at</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2026-08-12T09:22:17Z</span>
+<span class="w">    </span><span class="nt">fit</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">snr</span><span class="p">:</span><span class="w"> </span><span class="nv">13.0</span><span class="p p-Indicator">,</span><span class="nt"> span_over_scatter</span><span class="p">:</span><span class="w"> </span><span class="nv">194.0</span><span class="p p-Indicator">}</span>
+</code></pre></div>
+<p>Two properties to design for, both learned from how the rest of the driver has failed:</p>
+<ul>
+<li><strong>Merge per key, not per file.</strong> A partial run touches few parameters. Rewriting the
+  whole file each walk would erase the provenance of everything it did not measure, which
+  is most of it.</li>
+<li><strong>Safe to delete and safe to be absent.</strong> A missing sidecar means every parameter is a
+  prior — conservative, correct, and exactly today's behaviour. Nothing may fail because
+  it is not there.</li>
+</ul>
+<h2 id="6-what-it-makes-possible">6. What it makes possible</h2>
+<p>Four things are already waiting on this, three of them in RFC 0007:</p>
+<table>
+<thead>
+<tr>
+<th>Consumer</th>
+<th>Today's weaker version</th>
+<th>With provenance</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>RFC 0007 §2's <em>prior</em></td>
+<td>Not decidable; the word is defined and unusable</td>
+<td><code>is there provenance for this parameter?</code></td>
+</tr>
+<tr>
+<td>RFC 0007 §11's ledger</td>
+<td>"did <em>this walk</em> produce it?"</td>
+<td>"was it ever measured, in any run?" — for reporting and for the pre-walk check, <strong>not</strong> for blocking; see the correction below</td>
+</tr>
+<tr>
+<td>RFC 0007 §11's skipped nodes</td>
+<td>Kept, unmarked</td>
+<td>Kept and marked as unconfirmed by this run</td>
+</tr>
+<tr>
+<td>RFC 0007 §11's withdrawn pre-walk check</td>
+<td>Undecidable — a hand-supplied parameter and a disabled producer look alike</td>
+<td>A disabled sole producer is an error only when the parameter has no provenance either</td>
+</tr>
+<tr>
+<td>Write-back gating (§7)</td>
+<td>All-or-nothing per run</td>
+<td>Per parameter: commit what its producer measured and its guards passed</td>
+</tr>
+</tbody>
+</table>
+<p>The ledger row is the substantive one. RFC 0007 §11 blocks a node when <em>this run</em> failed
+to produce a parameter it reads, which is right for a bring-up and too narrow afterwards:
+on a partial recalibration almost nothing was produced by this run, so almost nothing is
+checkable, and a parameter no run ever measured is indistinguishable from one measured
+last week. Provenance separates those two, which is the whole of what the ledger needs.
+Not <em>how old</em> the measurement is — see §8.</p>
+<p><strong>Corrected while implementing phase 4: this must not relax the blocking rule.</strong> The
+tempting reading is that a node blocked because its input failed <em>this</em> run should run
+anyway when an earlier run measured that input — the device does hold a real number. It is
+wrong, and the August 2026 chip is the counterexample: a failure to <em>measure</em> f01 is
+evidence against whatever f01 the file holds, because the usual reason spectroscopy finds
+no line is that the qubit is not where the file says. Running the six nodes behind it
+against last week's value fits the same noise, whatever the value's pedigree. So a failed
+measurement still blocks, and provenance's two uses are the ones below it in the table —
+report, and decide the pre-walk check. Blocking on <em>absent</em> provenance would be worse
+still: every chip calibrated before this shipped has measured values and no sidecar, so it
+would refuse the runs it exists to protect.</p>
+<h2 id="7-why-not-stage-the-writes-until-the-run-succeeds">7. Why not stage the writes until the run succeeds</h2>
+<p>The obvious alternative — hold every fitted value until the whole walk succeeds, then
+commit — was considered and declined. The problem underneath it is real, so it is
+worth being precise about which part.</p>
+<p><strong>The corruption it is aimed at was not caused by writing too early.</strong> On the August 2026
+chip, <code>rabi</code> wrote <code>rxy.amp180 = 0.0158</code> against a calibrated 0.5683, and every later run
+inherited it. A staging store would have held that value for the length of the walk and
+then committed it, because the walk did not fail: <code>require_in_range</code> accepted 0.0158 and
+<code>rabi</code> reported success. Deferring a commit does not help when the producing node believes
+it succeeded, which is the case that actually happened. The August 2026 fit guards are
+what address that, and did.</p>
+<p><strong>Nor can a value be withheld from the walk.</strong> <code>rabi</code> needs the <code>f01</code> that
+<code>qubit_spectroscopy</code> just wrote; downstream nodes read upstream results within a run by
+construction. So the staging boundary could only ever be the file, never the in-memory
+device.</p>
+<p><strong>And all-or-nothing has a cost of its own.</strong> A run that measures the resonator and <code>f01</code>
+correctly and then fails at <code>rabi</code> would discard two good measurements, so the next run
+starts from the same bad priors. On that chip, that is the difference between converging
+and not.</p>
+<p>What is worth taking from the idea is the per-parameter version, which is this RFC:
+commit a parameter when the node that produced it succeeded <em>and</em> its guards passed, and
+record which. That is a strictly finer boundary than a staging store, it needs no second
+copy of any value, and it subsumes the all-or-nothing case.</p>
+<h2 id="8-provenance-does-not-expire-and-the-timestamp-is-not-a-deadline">8. Provenance does not expire, and the timestamp is not a deadline</h2>
+<p>Worth stating outright, because it is the obvious next thought and it is wrong.</p>
+<p>Provenance records <em>when</em> a parameter was measured, so it is tempting to have something
+judge a value stale once it is old enough — a readout frequency drifts in hours, an
+anharmonicity does not move in months, so per-parameter expiry thresholds. <strong>RFC 0005
+already rejected exactly that</strong>, and its reason still holds: it added a <code>check</code> form per
+node so that "staleness is measured rather than remembered". An age threshold is
+remembering. It guesses at the answer a three-point check can go and measure for the cost
+of one acquisition.</p>
+<p>So the two questions are separate, and neither needs the other:</p>
+<table>
+<thead>
+<tr>
+<th>Question</th>
+<th>Answered by</th>
+<th>Kind of answer</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Was this ever measured?</td>
+<td>this RFC</td>
+<td>yes or no, from whether a record exists</td>
+</tr>
+<tr>
+<td>Is it still right?</td>
+<td>RFC 0005's check nodes</td>
+<td>measured, per run</td>
+</tr>
+</tbody>
+</table>
+<p>The timestamp is recorded for the operator and the report — <em>this f01 is from the run
+before last</em> is worth reading — and for §6's ledger row, which asks whether a parameter
+was measured in <em>some</em> run, not whether it was measured within N hours. Nothing here
+compares it against a threshold, and no schema field for one is added.</p>
+<p>The one place age might legitimately return is choosing <em>which</em> checks a drift run bothers
+to evaluate, as a cost heuristic rather than a verdict. That is a scheduling question for
+whatever owns the drift cadence, and it can read the timestamp this file already stores.</p>
+<h2 id="9-testing-strategy">9. Testing strategy</h2>
+<ul>
+<li><strong>Tier 1.</strong> The sidecar's own round trip: merge per key, an absent file, a corrupt
+  file, a file holding a target or path the device no longer has. Every one of those
+  resolves to "prior" rather than an error.</li>
+<li><strong>Tier 2.</strong> A calibration writes provenance for exactly the parameters its successful
+  routines wrote, and for no others: a failed routine leaves no provenance, which is
+  the property the whole thing rests on.</li>
+<li><strong>Tier 3.</strong> Over the simulated chip: a walk, then a second walk that reads the first's
+  provenance and finds every parameter attributable. Then the same with the sidecar
+  deleted between them, which must calibrate identically and report everything as a
+  prior.</li>
+<li><strong>The regression test.</strong> A device file seeded with a nine-significant-figure <code>f01</code> that
+  nothing measured, asserted to be reported as a prior. That is the August 2026 failure
+  written down, and it is the one test that would have saved those six runs.</li>
+</ul>
+<h2 id="10-implementation-plan">10. Implementation plan</h2>
+<ol>
+<li><strong><code>tuners/base/provenance.py</code>.</strong> Load, merge-per-key, save, and query, against a path
+   derived from <code>_device_config_path</code>. Tier-1 tests. Nothing calls it yet, so nothing can
+   regress.</li>
+<li><strong>Record it.</strong> The DAG already knows, per routine and target, what succeeded and what
+   it wrote — RFC 0007 §11's ledger holds exactly that. Write provenance from the same
+   place, beside the device write-back that RFC 0004 §10 gated on success.</li>
+<li><strong>Report it.</strong> Surface a parameter's provenance in the calibration report's notes and
+   in the routine result, so an operator reading a failed run can see which inputs were
+   attributable and which were guesses. Report-only; nothing changes behaviour yet.
+   <code>RoutineResult.priors</code> stays out of <code>to_event_payload</code>, as <code>CalibrationReport.notes</code>
+   already does, so §3's "no payload change" holds: the payload is one contract asserted
+   in Go and TypeScript.</li>
+<li><strong>Consume it.</strong> Mark what a skipped node left unconfirmed and how old it is, and
+   reinstate the pre-walk check that §11 withdrew for want of this. The ledger's blocking
+   rule is deliberately left alone — see §6's correction, which is the one place the plan
+   as drafted was wrong.</li>
+</ol>
+<p>Phases 1 to 3 are additive and observable before anything depends on them, which is
+deliberate: a provenance record that is wrong is worse than none, and phase 3 is where
+that becomes visible on a real chip rather than in a test.</p>
+<p>All four are implemented. Phase 4 is report-only too, in the end, for the reason §6 now
+records — which means nothing in this RFC can refuse a run that would have succeeded
+before it.</p>
+<h2 id="11-resolved-while-implementing">11. Resolved while implementing</h2>
+<p>No open questions remain. Four were open when this was drafted, and building it settled
+all of them — three by finding the answer in the code and one by looking at the output.</p>
+<table>
+<thead>
+<tr>
+<th>Question</th>
+<th>Resolution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>One sidecar or one per target?</td>
+<td><strong>One file</strong>, as the draft leaned. Merging per key makes a partial run's writes disjoint anyway, which was the only thing one-per-qubit bought, and one file is one thing to find, delete and back up.</td>
+</tr>
+<tr>
+<td>What of the fit summary is worth keeping?</td>
+<td><strong>The scalars a guard judged</strong> — <code>snr</code>, <code>reach</code>, <code>contrast</code>, <code>separation</code> — and nothing else, since the rest of a fit payload is the sweep. Chosen by asking which numbers the guards actually compare: <code>require_resolved_curve</code> reads <code>reach</code>, the discriminators read <code>separation</code> and <code>contrast</code>. Infinities are dropped rather than stored, because <code>snr</code> is infinite when a fit had no residual scatter and YAML <code>.inf</code> does not travel.</td>
+</tr>
+<tr>
+<td>Gate the write-back on provenance in phase 2 or phase 4?</td>
+<td><strong>Neither, because it was already true.</strong> <code>report.routine_results</code> holds only routines that succeeded, so writing provenance from <code>_persist</code> after a successful write-back <em>is</em> the per-parameter gate §7 asked for. No new mechanism, and no behaviour change to defer.</td>
+</tr>
+<tr>
+<td>What does the dashboard do with it?</td>
+<td><strong>Still out of scope</strong>, and now cheaper to answer: <code>RoutineResult.priors</code> is computed and available locally: only §3's payload decision stands between it and RFC 0006.</td>
+</tr>
+</tbody>
+</table>
+<p>Three things the implementation found that the draft did not anticipate:</p>
+<ul>
+<li><strong>A prior must be filtered to paths the element actually has.</strong> <code>spec.amplitude</code> and
+  <code>measure.integration_time</code> do not exist on a <code>BasicTransmonElement</code>, so reporting them
+  as unmeasured put a permanent warning in front of every run — the same noise that made
+  RFC 0007 §11 withdraw its pre-walk check in the first place, arriving by a different
+  door. A path that is not there is not an unmeasured one.</li>
+<li><strong>The run identifier is the report's timestamp, not the job id.</strong> The job id is not
+  plumbed into <code>Tuner.calibrate</code> and threading it there would change the tuner contract
+  for a metadata field. Every walk has a timestamp, it distinguishes runs, and <code>at</code> still
+  distinguishes parameters <em>within</em> a run.</li>
+<li><strong>§6's ledger row was wrong about blocking</strong>, which is the one substantive correction —
+  recorded there rather than here because it changes what the RFC claims, not just how it
+  was built.</li>
+</ul>
+<h2 id="12-what-this-deliberately-does-not-do">12. What this deliberately does not do</h2>
+<p>Two are worth stating because they are the obvious next thoughts:</p>
+<ul>
+<li><strong>Nothing expires.</strong> §8's reasoning, unchanged by the implementation: no code compares a
+  timestamp against a threshold, and there is no schema field for one. Staleness is
+  measured by RFC 0005's check nodes.</li>
+<li><strong>Nothing refuses a run.</strong> Every consumer built here reports. A chip that calibrated
+  yesterday calibrates today, whether or not the sidecar exists, is readable, or says
+  anything about the parameters in play.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "search.suggest", "search.highlight", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

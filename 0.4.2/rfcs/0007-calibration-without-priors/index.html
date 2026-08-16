@@ -1,0 +1,2665 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://sopherapps.github.io/qpi/0.4.2/rfcs/0007-calibration-without-priors/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>RFC 0007 — Calibration Without Priors - QPI Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#rfc-0007-calibration-without-priors" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="QPI Documentation" class="md-header__button md-logo" aria-label="QPI Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            QPI Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              RFC 0007 — Calibration Without Priors
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/sopherapps/qpi" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    sopherapps/qpi
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../theming/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Dashboard Theming
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../driver/python/" class="md-tabs__link">
+          
+  
+  
+  Drivers
+
+        </a>
+      </li>
+    
+  
+
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../clients/python/" class="md-tabs__link">
+          
+  
+  
+  Clients
+
+        </a>
+      </li>
+    
+  
+
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../" class="md-tabs__link">
+          
+  
+  
+  RFCs
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../changelog/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="QPI Documentation" class="md-nav__button md-logo" aria-label="QPI Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    QPI Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/sopherapps/qpi" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    sopherapps/qpi
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../theming/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dashboard Theming
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Drivers
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Drivers
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_1" id="__nav_3_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python Driver
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Python Driver
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../driver/python/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../driver/python_api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../driver/tuners/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Calibration Tuners
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../driver/go/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Go Driver
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../driver/javascript/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JavaScript Driver
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../driver/operations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operations Runbook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Clients
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Clients
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_4_1" id="__nav_4_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python Client
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Python Client
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/python/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/python_api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/go/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Go Client
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../clients/javascript/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JavaScript Client
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RFCs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    RFCs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0001-driver-framework/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0001 Driver Framework
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0002-dashboard-theming/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0002 Dashboard Theming
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0003-driver-extensibility/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0003 Driver Extensibility
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0004-calibration-tuners/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0004 Calibration Tuners
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0005-calibration-graph-completion/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0005 Calibration Graph Completion
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-the-idea" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. The idea
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-vocabulary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Vocabulary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-decisions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Decisions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-the-gap-concretely" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. The gap, concretely
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-three-classes-of-bound" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Three classes of bound
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. Three classes of bound">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#a-derived-range-that-will-not-fit-is-chunked-not-refused" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A derived range that will not fit is chunked, not refused
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-guards-in-both-directions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Guards, in both directions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6. Guards, in both directions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#61-refusals-become-retry-signals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.1 Refusals become retry signals
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#62-acceptances-need-a-floor-that-scales" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.2 Acceptances need a floor that scales
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-what-the-operators-config-becomes-and-what-it-means" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. What the operator's config becomes, and what it means
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-testing-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Testing strategy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-implementation-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Implementation plan
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-what-this-defers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. What this defers
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#11-skipping-what-cannot-succeed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11. Skipping what cannot succeed
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="11. Skipping what cannot succeed">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#111-reads-was-under-declared-so-this-did-not-fire-on-the-b-chip" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11.1 reads was under-declared, so this did not fire on the B chip
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#112-the-root-of-the-graph-could-not-re-centre-its-own-sweep" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11.2 The root of the graph could not re-centre its own sweep
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#113-a-broad-spectroscopy-line-is-not-a-wrong-one-closed-having-been-wrong-twice" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11.3 A broad spectroscopy line is not a wrong one — closed, having been wrong twice
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#114-a-routine-may-carry-its-own-timeout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11.4 A routine may carry its own timeout
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#115-the-allxy-equator-error-both-causes-fixed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11.5 The AllXY equator error: both causes fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#12-resolved-during-review" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        12. Resolved during review
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="rfc-0007-calibration-without-priors">RFC 0007 — Calibration Without Priors</h1>
+<ul>
+<li><strong>Status:</strong> Implemented</li>
+<li><strong>Author:</strong> Martin Ahindura</li>
+<li><strong>Created:</strong> 2026-08-12</li>
+<li><strong>Depends on:</strong> RFC 0004 (routines, the DAG walk), RFC 0005 (the completed graph,
+  check/calibrate/diagnose)</li>
+<li><strong>Touches:</strong> <code>qpi-driver</code> (Python only — no new operation, no new event type, no
+  server or SDK change)</li>
+</ul>
+<h2 id="1-the-idea">1. The idea</h2>
+<p>The graph is complete and every node writes what it should. It still cannot calibrate
+a chip nobody has calibrated before, because almost every sweep in it is a <em>window
+around a value the config already holds</em> — and on a new chip that value is a guess.</p>
+<p>The operator is therefore required to know, in advance, roughly what each parameter
+is. That inverts the purpose of the thing: not knowing the parameters is the reason
+the nodes exist.</p>
+<p>This is not a theoretical complaint. On a 5-qubit flux-tunable-coupler chip in
+August 2026, with a driver whose graph was complete and whose fits were all guarded:</p>
+<p><strong><code>qubit_spectroscopy</code> failed six consecutive runs.</strong> Its default sweep is ±20 MHz
+about <code>clock_freqs.f01</code>. The config carried 4.7364 GHz, taken from a
+<code>VNA_f01_frequency</code> in a device description that nothing in this driver had ever
+measured. The qubit was at 4.4339 GHz — 302 MHz away, outside every window the node
+would ever look in. The refusal it printed, <em>"no drive power in the sweep resolved a
+line"</em>, was true and said nothing about the window. Six nodes downstream then measured
+an unexcited qubit and fitted its noise, which read as six unrelated failures.</p>
+<p><strong><code>rabi</code> could not have found the π pulse either.</strong> Its default sweep is
+<code>linear_setpoints(0.0, 0.5, 41)</code> while the element validates <code>amp180</code> in <code>[0, 1]</code> —
+half the addressable range. That chip's own working calibration, from another
+control stack, used <code>amp180 = 0.5683</code>. Above the top of the sweep. And
+<code>require_in_range</code> cannot catch it: it checks that the fitted value lies <em>inside</em> the
+swept range, which is the opposite test.</p>
+<p><strong><code>readout_operating_point</code> sweeps ±1 MHz over 3 points.</strong> The resonator's measured
+linewidth was 370 kHz, so two of its three points sat 2.7 linewidths off resonance and
+the node chose one of them. The linewidth is measured by <code>resonator_spectroscopy</code> two
+nodes earlier and is sitting right there in the report. The node uses a constant
+instead. It had to be hand-set to 200 kHz for readout to work at all.</p>
+<p>Three different nodes, one shape: <strong>a sweep range that is a constant or an operator's
+guess, where a bound was derivable.</strong></p>
+<p>This RFC makes every sweep derive its own range, from the instrument or from physics
+or by escalation, and reduces the operator's config to an optimisation that may narrow
+a search but is never required to make one possible.</p>
+<h2 id="2-vocabulary">2. Vocabulary</h2>
+<ul>
+<li><strong>Prior</strong> — a value in the device config that has not been measured by this driver.
+  A design figure, a value from another control stack, a placeholder. Indistinguishable
+  in the file from a measured one, which is half the problem (§10).</li>
+<li><strong>Addressable band</strong> — the frequencies a port can actually produce. For a Qblox RF
+  module, its LO ±500 MHz. Outside it there is no experiment, only a compile error.</li>
+<li><strong>Bound class</strong> — where a sweep's range comes from: hardware, physics, or escalation
+  (§5).</li>
+<li><strong>Escalation</strong> — widening a sweep and re-running because the result said the window
+  was wrong, rather than failing.</li>
+</ul>
+<h2 id="3-decisions">3. Decisions</h2>
+<table>
+<thead>
+<tr>
+<th>Decision</th>
+<th>Resolution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>New operation or event type?</td>
+<td><strong>No.</strong> <code>calibrate</code> carries this. Python driver only.</td>
+</tr>
+<tr>
+<td>What a <code>RoutineConfig</code> means</td>
+<td><strong>Changed, and this is the core of the RFC.</strong> Today a sweep parameter is often load-bearing: omit it and the node cannot work on this chip. After this, every sweep has a derived default that works on any chip the hardware can address; config may only <em>narrow</em> a search to save time. A node that cannot run without an operator-supplied range is a bug.</td>
+</tr>
+<tr>
+<td>Where a bound comes from</td>
+<td>Hardware config for instrument limits, upstream measurements for physical ones, escalation for the rest. New <code>tuners/base/limits.py</code>; the hardware config is already reachable from a routine via <code>device.hardware_config()</code>, as <code>has_flux_port</code> shows.</td>
+</tr>
+<tr>
+<td>Guards as signals</td>
+<td><strong>Changed.</strong> The six "your window is wrong" guards added in August 2026 raise prose. They gain a structured form the caller can act on, so the same detection drives a retry instead of a failure. §6.</td>
+</tr>
+<tr>
+<td>Routine interface</td>
+<td><strong>Unchanged.</strong> <code>measure</code> already absorbs a routine whose setpoints depend on an earlier acquisition — <code>qubit_spectroscopy</code> is the second implementor. No third interface.</td>
+</tr>
+<tr>
+<td>A supplied range</td>
+<td><strong>A suggestion, tried first, never required.</strong> An operator's <code>span</code> becomes the first attempt and the derived bound the fallback — which is the same two-pass shape §6 already needs, not a second mechanism. A wrong hint costs one wasted sweep, not a failure. §7.</td>
+</tr>
+<tr>
+<td>Rewriting <code>calibration.yml</code></td>
+<td><strong>No.</strong> A hint that keeps failing is reported, not edited away. That file is hand-authored intent — the August 2026 one is mostly reasoning — and <code>spec.amplitude</code> already shows what remembering a search hint costs. §7.</td>
+</tr>
+<tr>
+<td>Guards that wrongly <em>accept</em></td>
+<td><strong>In scope</strong>, §6, moved in from "does not fix". Escalation only fires on a refusal, so a guard that accepts noise bypasses this whole RFC. It is the trigger condition, not a sequel.</td>
+</tr>
+<tr>
+<td>Wide sweeps and the instruction budget</td>
+<td>In scope as a <strong>constraint</strong>. A derived default must fit a sequencer, and where a 2-D band does not, it is <strong>chunked across acquisitions</strong> with overlapping edges rather than refused. §5.</td>
+</tr>
+<tr>
+<td>Skipping blocked nodes</td>
+<td>In scope, §11 — and on <em>parameters</em>, not on failed nodes. <code>depends_on</code> orders the walk and is not a data dependency: <code>cz_chevron</code> depends on two nodes that write nothing at all. Blocked nodes are <strong>skipped with the blocker named</strong>, never auto-failed.</td>
+</tr>
+<tr>
+<td>How <code>reads</code> is known</td>
+<td><strong>Declared, and tested by derivation.</strong> A node's read set is static, so it is stated like <code>updates</code>; a test instruments <code>read_path</code> and asserts the declaration covers what the code really reads. Runtime derivation cannot cover the two <code>measure</code> implementors, which have no schedule to inspect. §11.</td>
+</tr>
+<tr>
+<td>Reads inside <code>analyse</code></td>
+<td><strong>Hoisted into <code>build_schedule</code></strong> — six of them. A read after the acquisition is too late to be a prerequisite. §11.</td>
+</tr>
+<tr>
+<td>Provenance</td>
+<td><strong>Deferred to RFC 0008</strong>, which carries the design this RFC's review settled: a metadata sidecar the driver owns, beside the device file, keyed by target and dotted path. §10 says what deferring it costs.</td>
+</tr>
+<tr>
+<td>A skipped node's stale parameter</td>
+<td><strong>Kept and marked</strong>, not cleared. Clearing it would stop a chip that worked yesterday from running today. §11.</td>
+</tr>
+<tr>
+<td>Mixer calibration</td>
+<td><strong>Out of scope.</strong> Out-of-band, as RFC 0005 had it.</td>
+</tr>
+<tr>
+<td>Crosstalk</td>
+<td><strong>Out of scope</strong>, unchanged from RFC 0005.</td>
+</tr>
+<tr>
+<td>Removing <code>span</code>/<code>points</code> from configs</td>
+<td>In scope, and last. Deleting a knob before its derived default is proven would strand the operator.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="4-the-gap-concretely">4. The gap, concretely</h2>
+<p>Every sweeping node, what it sweeps, and where its range comes from today. "Prior"
+means the range is a window about an unmeasured config value; "constant" means it
+ignores what is known.</p>
+<table>
+<thead>
+<tr>
+<th>Node</th>
+<th>Sweeps</th>
+<th>Default range</th>
+<th>Today</th>
+<th>Class</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>resonator_spectroscopy</code></td>
+<td>readout freq</td>
+<td>±10 MHz, 51</td>
+<td>prior</td>
+<td>hardware</td>
+</tr>
+<tr>
+<td><code>resonator_punchout</code></td>
+<td>freq × amp</td>
+<td>±10 MHz × 0.01–0.5</td>
+<td>prior + partial</td>
+<td>hardware</td>
+</tr>
+<tr>
+<td><code>time_of_flight</code>, <code>resonator_relaxation</code></td>
+<td>trace window</td>
+<td>2 µs</td>
+<td>constant</td>
+<td>physics</td>
+</tr>
+<tr>
+<td><code>qubit_spectroscopy</code></td>
+<td>freq × amp</td>
+<td>±20 MHz, 51 (+600 MHz search)</td>
+<td><strong>partly done</strong></td>
+<td>hardware</td>
+</tr>
+<tr>
+<td><code>rabi</code></td>
+<td>amp</td>
+<td>0–0.5, 41</td>
+<td><strong>partial range</strong></td>
+<td>hardware</td>
+</tr>
+<tr>
+<td><code>resonator_spectroscopy_excited</code></td>
+<td>readout freq</td>
+<td>±10 MHz, 51</td>
+<td>constant</td>
+<td>physics</td>
+</tr>
+<tr>
+<td><code>readout_operating_point</code></td>
+<td>freq × amp</td>
+<td>±1 MHz, 3</td>
+<td>constant</td>
+<td>physics</td>
+</tr>
+<tr>
+<td><code>three_state_operating_point</code></td>
+<td>freq × amp</td>
+<td>±3 MHz, 5</td>
+<td>constant</td>
+<td>physics</td>
+</tr>
+<tr>
+<td><code>f12_spectroscopy</code></td>
+<td>ef freq</td>
+<td>f01−300 MHz ±200 MHz, 81</td>
+<td><strong>already derived</strong></td>
+<td>physics</td>
+</tr>
+<tr>
+<td><code>rabi_12</code></td>
+<td>ef amp</td>
+<td>0–0.5, 41</td>
+<td>partial range</td>
+<td>hardware</td>
+</tr>
+<tr>
+<td><code>drag</code>, <code>drag_12</code></td>
+<td>motzoi</td>
+<td>±<code>drag_span</code>, 31</td>
+<td>constant</td>
+<td>physics</td>
+</tr>
+<tr>
+<td><code>ramsey</code></td>
+<td>delay</td>
+<td>4 ns–10 µs, 41</td>
+<td>constant</td>
+<td>escalation</td>
+</tr>
+<tr>
+<td><code>ramsey_12</code></td>
+<td>delay</td>
+<td>4 ns–30 µs, 241</td>
+<td>constant</td>
+<td>escalation</td>
+</tr>
+<tr>
+<td><code>t1</code>, <code>t2_echo</code></td>
+<td>delay</td>
+<td>0–100 µs, 41</td>
+<td>constant</td>
+<td>escalation</td>
+</tr>
+<tr>
+<td><code>flux_spectroscopy</code></td>
+<td>flux × freq</td>
+<td>±0.2 × ±50 MHz</td>
+<td>constant</td>
+<td>hardware</td>
+</tr>
+<tr>
+<td><code>coupler_anticrossing</code></td>
+<td>current × freq</td>
+<td>0–3 mA × ±100 MHz</td>
+<td>constant</td>
+<td>hardware</td>
+</tr>
+<tr>
+<td><code>cz_spectroscopy</code></td>
+<td>cz freq</td>
+<td>±200 MHz, 81</td>
+<td>prior</td>
+<td>hardware</td>
+</tr>
+<tr>
+<td><code>cz_parametrization</code></td>
+<td>amp × duration</td>
+<td>0.1–0.6 × 20–200 ns</td>
+<td>constant</td>
+<td>hardware + escalation</td>
+</tr>
+<tr>
+<td><code>cz_chevron</code></td>
+<td>amp × duration</td>
+<td>— × 20–400 ns, 39</td>
+<td>constant</td>
+<td>hardware + escalation</td>
+</tr>
+<tr>
+<td><code>conditional_phase</code></td>
+<td>phase</td>
+<td>0–360°, 25</td>
+<td><strong>complete by construction</strong></td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<p>Two rows are worth dwelling on, because they show the answer is already in the
+codebase and was applied once.</p>
+<p><code>f12_spectroscopy</code> centres on <code>f01 + anharmonicity_prior</code> and <strong>ignores the config's
+<code>f12</code> entirely</strong> — a physical relationship beats an unmeasured field, and its docstring
+says so. That is exactly the pattern this RFC generalises. It is also why that node was
+the only one that ever found the August 2026 chip's qubit: it was the only node
+searching from physics rather than from a prior.</p>
+<p><code>conditional_phase</code> sweeps 0–360°. A phase has no range to guess at, so it never had
+this problem. Every other node's range should be as unarguable as that one's.</p>
+<h2 id="5-three-classes-of-bound">5. Three classes of bound</h2>
+<p><strong>Hardware-bounded.</strong> The range is a property of the instrument and is readable. A
+Qblox RF module reaches its LO ±500 MHz — <code>NCO_FREQ_LIMIT_STEPS</code> over
+<code>NCO_FREQ_STEPS_PER_HZ</code> in quantify's own constants — and the LO is in the hardware
+config:</p>
+<div class="highlight"><pre><span></span><code><span class="n">device</span><span class="o">.</span><span class="n">hardware_config</span><span class="p">()</span><span class="o">.</span><span class="n">hardware_options</span><span class="o">.</span><span class="n">modulation_frequencies</span><span class="p">[</span><span class="s2">&quot;q0:mw-q0.01&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">lo_freq</span>
+<span class="c1"># 4550000000.0</span>
+</code></pre></div>
+<p>So q0's drive port addresses 4.05–5.05 GHz and nothing else, and <code>qubit_spectroscopy</code>
+can sweep that band by construction. Amplitudes are the same kind of fact: the element
+validates <code>[0, 1]</code>, so a sweep that stops at 0.5 is not a bound, it is a typo with a
+long life. There is nothing for an operator to know here, and no chip on which a
+different answer is right.</p>
+<p><strong>Physics-bounded.</strong> The range follows from something already measured plus a
+constraint. A transmon's anharmonicity is negative and a few hundred MHz, so
+<code>f12</code> lies in <code>[f01 − 400 MHz, f01 − 150 MHz]</code>. A readout optimum is within a few
+linewidths of the resonance, and the linewidth was <em>measured upstream</em>:
+<code>resonator_spectroscopy</code> reports it, and <code>readout_operating_point</code> ignores it. The
+two trace nodes need a window a few ring-up times long, which is the same linewidth read
+as a time. A DRAG optimum is near <code>−1/(2·alpha)</code>, which is why <code>drag_span</code> exists; it
+should be centred on the measured anharmonicity rather than on zero.</p>
+<p>Note the direction of the dependency: every one of these is downstream of the node that
+measures what bounds it. The graph already orders them correctly, so nothing here needs
+a topology change — only for a node to read the report instead of a constant.</p>
+<p><strong>Escalation-bounded.</strong> Time constants have no upper bound to derive. A fixed 0–100 µs
+T1 sweep is wrong in both directions: at T1 = 300 µs the curve decays 28% and the
+August 2026 span-over-scatter guard rightly refuses it, and at T1 = 2 µs it is over by
+the second point. This is the only class that needs a loop, and it is the interesting
+part of the design.</p>
+<h3 id="a-derived-range-that-will-not-fit-is-chunked-not-refused">A derived range that will not fit is chunked, not refused</h3>
+<p>A derived bound is not free. A 1 GHz band at 2 MHz steps is 501 acquisitions, about 6,500
+Q1ASM instructions, against per-module ceilings of 16,384 for a QCM and <strong>12,288 for a
+QRM</strong> — <code>MAX_NUMBER_OF_INSTRUCTIONS_*</code>, the same in both schedulers. The QRM's is the
+binding one for anything that acquires. A 1-D band sweep fits with room; a 2-D sweep over
+the same band — a frequency band against five drive powers — does not.</p>
+<p>(An earlier draft quoted an empirical 12,376-works / 13,074-fails bracket from the August
+2026 cluster. Those were <em>acquisitions × an estimated instructions-per-acquisition</em>, not
+counted instructions, and the estimate straddles the QRM's real 12,288 — so the bracket
+was measuring the estimate. Use the schedulers' constants and count the compiled program,
+which <code>_log_program</code> already reports at debug level.)</p>
+<p>Where it does not fit, the sweep is <strong>split across several acquisitions</strong> rather than
+refused, because refusing puts the operator back to choosing a range by hand and that is
+the thing this RFC exists to stop. <code>measure</code> already runs a routine's own loop, and the
+allowance is already summed across it, so the machinery is in place.</p>
+<p>One constraint on the split, worth stating because it is easy to get wrong: <strong>the chunks
+must overlap by at least one linewidth.</strong> A line that lands exactly on a boundary is
+otherwise half in each chunk and resolved in neither, which is a spurious refusal that
+looks like a dead qubit.</p>
+<p>Chunking moves the binding limit from the sequencer to wall-clock — a band against five
+drive powers at 1024 shots is tens of minutes, fine for a bring-up and not for a drift
+check. So each node carries <strong>a cap on total acquisitions, with a default</strong>, and chunks up
+to it. That is a knob, and it is deliberately a different kind from the ones this RFC
+removes: a resource budget needs no knowledge of the chip, where a range needs to know
+roughly where the answer is. <code>routine_timeout_s</code> is already exactly this kind of knob, and
+nobody has to know a qubit's frequency to set it.</p>
+<h2 id="6-guards-in-both-directions">6. Guards, in both directions</h2>
+<p>The six guards added in August 2026 all detect the same thing from different angles:
+<em>the window you swept cannot support the number you are about to write.</em></p>
+<table>
+<thead>
+<tr>
+<th>Guard</th>
+<th>What it detects</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>require_resolved_line</code></td>
+<td>line narrower than the step, or not above the noise</td>
+</tr>
+<tr>
+<td><code>require_resolved_curve</code></td>
+<td>fitted curve no taller than its own residual scatter</td>
+</tr>
+<tr>
+<td><code>MIN_SHIFT_TO_LINEWIDTH</code></td>
+<td>the X gate did not excite the qubit</td>
+</tr>
+<tr>
+<td><code>MIN_SEARCH_PEAK</code></td>
+<td>nothing in a wide search stands above the scatter</td>
+</tr>
+<tr>
+<td><code>MAX_DEMODULATED</code></td>
+<td>a fine-amplitude sweep far past its model's bound</td>
+</tr>
+<tr>
+<td><code>require_in_range</code></td>
+<td>fitted value outside what was swept</td>
+</tr>
+</tbody>
+</table>
+<p>Each is wired to a terminal failure. That is right when the chip is dead and wrong when
+the window is. And there is a second failure mode, on the other side of the same
+decision, which turns out to matter more.</p>
+<h3 id="61-refusals-become-retry-signals">6.1 Refusals become retry signals</h3>
+<p>Several of these are more usefully read as instructions: <em>"the decay was never seen in
+this window"</em> is a request for longer delays, not a verdict on the chip.
+<code>require_in_range</code> firing on the high side is a request for more amplitude.</p>
+<p>The proposal is a structured error the caller can act on:</p>
+<div class="highlight"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">OutOfRange</span><span class="p">(</span><span class="n">RoutineError</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The sweep was wrong, and in a known direction.&quot;&quot;&quot;</span>
+    <span class="n">axis</span><span class="p">:</span> <span class="nb">str</span>          <span class="c1"># &quot;delays&quot;, &quot;amplitudes&quot;, &quot;frequencies&quot;</span>
+    <span class="n">direction</span><span class="p">:</span> <span class="nb">str</span>     <span class="c1"># &quot;wider&quot; | &quot;narrower&quot; | &quot;higher&quot;</span>
+    <span class="n">suggested</span><span class="p">:</span> <span class="nb">float</span>   <span class="c1"># a scale factor or an endpoint</span>
+</code></pre></div>
+<p>and one shared helper on the base routine that re-sweeps on it, with a bounded number
+of attempts and a hard stop at the class's own bound — full scale for an amplitude, the
+addressable band for a frequency, a configured ceiling for a delay. A node that
+escalates three times and still cannot resolve its curve has found a dead qubit, which
+is the only case that should fail.</p>
+<p>Two properties this must keep, both learned the hard way:</p>
+<ul>
+<li><strong>Escalation must never widen what gets written.</strong> The August 2026 search pass
+  chooses where to look and nothing else; the value still comes from a narrow sweep
+  that clears <code>require_resolved_line</code>. Widening a <em>reported</em> range would turn a guard
+  into a rubber stamp.</li>
+<li><strong>The timeout must follow the sweep, not bound it.</strong> Already true: <code>allow()</code> raises
+  a schedule's wait to fit its own pulses, and as of August 2026 a multi-schedule
+  routine is judged on the sum of its allowances. So escalation cannot fail for being
+  slow, only for being stuck. Nothing further is needed here.</li>
+</ul>
+<h3 id="62-acceptances-need-a-floor-that-scales">6.2 Acceptances need a floor that scales</h3>
+<p>Escalation only fires when a guard refuses. So a guard that <em>accepts</em> noise does not
+merely report one wrong number — it silently bypasses everything else in this RFC,
+because the widening never runs. This is the trigger condition for §6.1, which is why it
+belongs here rather than in a sequel.</p>
+<p>It is not hypothetical. Measured on the simulated chip while writing this: a 61-point
+window of pure noise 250 MHz from the qubit produced a Lorentzian that cleared
+<code>MIN_LINE_SNR</code> and returned a confident frequency; a 101-point window did the same. The
+existing floor is a constant 3.0, and the tallest of <em>n</em> noise draws grows with <em>n</em> —
+about <code>sqrt(2 ln n)</code>, so 2.6 at 30 points and 3.4 at 300. A constant floor is therefore
+too tight at one end of the range and too loose at the other, and 3.0 is on the wrong
+side for every sweep worth calling wide.</p>
+<p>Two changes, both cheap:</p>
+<ul>
+<li><strong>Scale the floor with the number of points.</strong> <code>MIN_SEARCH_PEAK = 6.0</code> was already
+  chosen this way for the wide search, against a measured 115–126 on the line and
+  2.5–2.9 off it. <code>require_resolved_line</code> should use the same reasoning, not a constant.</li>
+<li><strong>Require the line to reproduce.</strong> <code>qubit_spectroscopy</code> already sweeps drive amplitude
+  and <code>fit_spectroscopy_power</code> already fits every row; today it picks the best row and
+  discards the rest. Requiring the chosen centre to agree with a second row to within a
+  linewidth costs nothing, since the data is already acquired, and noise does not
+  reproduce across powers. On the August 2026 chip this would have refused run one rather
+  than run six: its three rows fitted 782.7 kHz, 8.5 kHz and 28 kHz, which no real line
+  does.</li>
+</ul>
+<p>The second is the stronger test and the cheaper one, and it generalises: any node that
+already sweeps a second axis can ask its answer to survive that axis.</p>
+<h2 id="7-what-the-operators-config-becomes-and-what-it-means">7. What the operator's config becomes, and what it means</h2>
+<p>Today a working <code>calibration.yml</code> for a new chip carries a paragraph of reasoning per
+node and a hand-derived span for six of them, and every one of those numbers was found by
+a failed run. After this RFC it carries which qubits, which edges, a timeout — and
+optionally a hint.</p>
+<p><strong>A supplied range is a suggestion, not a requirement.</strong> It is tried first; if the guard
+refuses what it produced, the derived bound runs as the fallback. This is not a second
+mechanism: it is §6.1's escalation with the operator's window as the first attempt. The
+narrow-then-widen shape <code>qubit_spectroscopy</code> already has <em>is</em> this design, and reading it
+that way removes a distinction the earlier draft was carrying for nothing.</p>
+<p>So a good hint saves a wide sweep, and a wrong hint costs one wasted narrow sweep before
+the fallback — bounded, visible in the report, and never a failure. Which means an
+operator can guess freely, and that is the point: a hint that could break the run is not
+a hint, it is a requirement wearing a suggestion's clothes.</p>
+<p><strong>The config is not rewritten.</strong> A tempting extension is to have the driver comment out
+or replace a hint it proved wrong, so later runs skip it. This RFC declines, for two
+reasons. <code>calibration.yml</code> is hand-authored intent — the August 2026 one is mostly
+<em>reasoning</em>, and a machine that edits it either destroys that or needs a comment-
+preserving YAML round-trip to avoid doing so. And remembering a search hint is a known
+failure on this codebase already: <code>spec.amplitude</code> latched at 0.16 in the <em>device</em> file
+and from then on <code>qubit_spectroscopy</code> only ever tried multiples of it, never reaching back
+to its own defaults, which is why the August 2026 config had to name amplitudes outright
+to break the latch. A self-updating hint is that bug with a wider blast radius.</p>
+<p>Report it instead. The run already produces a report; it can say <em>this hint was tried,
+fell back, and here is the range that worked</em> — the same information, in a place the
+operator chooses to act on. And if the derived default does its job, a hint that keeps
+failing is one nobody needs to keep.</p>
+<p>The test of all this is §8, and it is not satisfiable by argument.</p>
+<h2 id="8-testing-strategy">8. Testing strategy</h2>
+<p>Three tiers as RFC 0004 §7 has them, plus one acceptance test that is the whole point.</p>
+<ul>
+<li><strong>Tier 1.</strong> <code>limits.py</code> against hand-written hardware configs: an LO at each end, a
+  missing entry, an unreadable config. Every derived range asserted against the
+  arithmetic, not against a recorded constant.</li>
+<li><strong>Tier 2.</strong> Every derived default compiles, and a chunked one compiles per chunk with
+  its edges overlapping. A band-wide frequency sweep is hundreds of setpoints, and the
+  sequencer's instruction budget is what makes this more than a formality (§5).</li>
+<li><strong>Tier 3.</strong> Per class: a simulated chip whose true value sits outside the <em>old</em>
+  default and inside the derived one. The August 2026 work has two of these already
+  (<code>test_a_configured_f01_hundreds_of_mhz_out_is_still_located</code>, and the refusal case).</li>
+<li><strong>Acceptance.</strong> <code>test_a_chip_known_only_from_its_design_document_calibrates</code>: seed the
+  device with frequencies good to ±300 MHz, <code>amp180 = 0</code>, no coherence times, and
+  require the full walk to complete and <code>rb</code> to clear a fidelity threshold.</li>
+</ul>
+<p>That last test is the definition of "start from knowing nothing", and it belongs in
+<code>test_calibration_e2e.py</code>, which walks the whole DAG over a simulated chip. Note for
+whoever picks this up: that suite was red from late July to 12 August 2026 — every node
+died on <code>AttributeError: 'SimulatedBackend' object has no attribute 'last_allowance_s'</code>
+— and the failure was read as a stable baseline for two weeks of work. A suite that
+proves the headline claim of the driver deserves a CI leg that cannot be mistaken for
+noise, which is an argument for making it non-optional rather than <code>-m scqubits</code>.</p>
+<h2 id="9-implementation-plan">9. Implementation plan</h2>
+<p>In this order, so each step is independently mergeable and the escalation loop comes
+after the two classes that need no loop at all.</p>
+<ol>
+<li><strong><code>reads</code>, and skipping on it — done</strong> (August 2026). Declare what each routine
+   consumes with a test that derives it, hoist the six <code>analyse</code>-time reads, block on an
+   unproduced parameter, report the blocker. First because it makes the failures of the
+   phases after it legible: a regression in one node shows as one failure and a list of
+   skips rather than a graph-wide puzzle. It also stood alone, which is why it went in
+   ahead of the rest.</li>
+</ol>
+<p>Landed in three commits: the hoists, the declarations and their derivation test, then
+   the ledger the walk blocks on. Two corrections against what §11 predicted — the
+   pre-walk config check was withdrawn as unwritable without provenance, and the one read
+   the notation cannot express turned out to be <code>coupler_anticrossing</code>'s of its <em>parent
+   qubit's</em> <code>f01</code>. Twenty-three of thirty-three routines read a device parameter at all.
+1. <strong>The accept side</strong> (§6.2) — <strong>done and merged.</strong> Not as planned: scaling the
+   signal-to-noise floor with the point count cannot work at any setting, because <code>snr</code>
+   divides a fitted parameter by the residual, and 16% to 55% of pure-noise fits cleared
+   the old 3.0 floor with a tail into the thousands. What works is the fitted curve's
+   travel over its residual scatter — noise maxes at 4.2 over 1800 trials, a real line
+   reaches 93 to 139 — so the guard judges that at a floor of 5.0. <code>snr</code> keeps the one
+   job it can do, ranking one drive power against another.</p>
+<p>Reproducing a centre across drive powers, the other half of what §6.2 proposed, turned
+   out not to apply on the chip that motivated it: only one row there survives the
+   linewidth test, so there is nothing to reproduce against.</p>
+<p>Before the derived ranges, not after, and that ordering paid twice. It exposed §13's
+   detuning gap, and then two pieces of §5's physics-bounded class that no amount of
+   phase-2 work would have reached. Both landed with it rather than waiting for phase 4:</p>
+<ul>
+<li><strong>Only a power that shows a line may set the broadening reference.</strong>
+     <code>fit_spectroscopy_power</code> judged each row against its narrowest, and a row that
+     converged, cleared the sweep step and still showed nothing <em>was</em> the narrowest — so
+     <code>MAX_BROADENING</code> rejected every row that did show the line. The eligibility rule is
+     <code>MIN_LINE_REACH</code>, which moved to <code>fitting/core.py</code>.</li>
+<li><strong>The sweep that confirms a searched-out line is sized from the width the search
+     measured</strong>, not from the operator's span and not from a constant. The line's width is
+     set by the drive amplitude that same sweep is choosing, so a fixed window is wrong
+     for some power: 20 MHz refused outright, 40 MHz passed at a reach of exactly 5.0
+     against a floor of 5.0, 100 to 400 MHz reached 31 to 84. <code>_search</code> now reports how
+     wide as well as where, counted in bins rather than fitted.</li>
+</ul>
+<p>Together these take <code>test_calibration_loop.py</code> from 28 fixture errors to green, with
+   f01 recovered 0.42 MHz from the truth at a reach of 27.
+2. <strong><code>tuners/base/limits.py</code></strong> — <strong>done and merged</strong>, and it grew a second job.
+   <code>addressable_band(device, port_clock, if_limit_hz)</code> from the LO and the backend's IF
+   limit, which is 500 MHz and identical in both schedulers. Every frequency sweep and
+   the widening search trim to it, because a span symmetric about a configured frequency
+   is not symmetric about the LO — and the part outside fails compilation with
+   <code>Attempting to set NCO frequency</code>, naming neither routine nor setpoint. Two bugs found
+   here: two call sites never threaded the backend, and clamping to the edge exactly put a
+   setpoint <em>on</em> the limit for the NCO's quarter-hertz rounding to push outside.
+   <code>full_scale(element, path)</code> is still to do, with the amplitude sweeps in phase 3.
+3. <strong>The hardware-bounded class — done.</strong> Frequency sweeps trim to the addressable band
+   and <code>qubit_spectroscopy</code> widens over it. Amplitudes go to full scale, but by
+   <em>escalation</em> rather than by default: starting there put <code>amp180</code> 6.9% out and took
+   <code>rabi_12</code> off its sqrt(2) ladder, because a strongly driven transmon stops being the
+   cosine the fit assumes. So the default measures where the model holds and <code>fit_rabi</code>
+   asks for more when the pi pulse is above the sweep. Chunking a too-wide grid was not
+   needed: nothing derived here exceeded the sequencer.
+4. <strong>The physics-bounded class — done, except one.</strong> <code>readout_operating_point</code> takes 0.6
+   of the measured linewidth, a coefficient two independent chips agree on; the two
+   excited-state sweeps take eight of it. <code>f12_spectroscopy</code> bounds the anharmonicity it
+   searches around <em>and</em> the one it fits. <code>CalibratedTransmon</code> gained
+   <code>resonator.linewidth</code>, which RFC 0005 §13 had asked for, because the value was measured
+   every run and thrown away.</p>
+<p><code>three_state_operating_point</code> resisted, and the reason is recorded at the code. Sharing
+   the two-state coefficient broke <code>ramsey_12</code> outright, and matching the old constant
+   left it passing by nothing. Placement there wants more <em>points</em>, and points are
+   capped at five by the sequencer's single-shot registers — so that span waits for the
+   register budget, not for a better coefficient.</p>
+<p><code>drag</code> is deliberately untouched: §5 proposed centring it on the measured
+   anharmonicity, and nothing measured says the symmetric sweep is wrong. Its failure on
+   the August 2026 chip was contrast, not placement.
+5. <strong>Escalation — done.</strong> <code>OutOfRange</code> carries the axis and the direction; <code>escalating</code>
+   follows it, bounded at three attempts, and leaves an operator who named the axis alone.
+   Two directions turned out to be needed rather than one: a flat <em>decay</em> wants a longer
+   window, and a flat <em>oscillation</em> wants a denser one, and asking for the wrong one makes
+   the other worse.
+6. <strong>The acceptance test, then the knobs — done.</strong> §8's test calibrates a chip known only
+   from its design document, recovering f01 to 0.6 MHz from 214 MHz away with nothing
+   supplied, and the loop config's four hints are deleted. Writing it found the last two
+   range bugs, which is what it was for.</p>
+<h2 id="10-what-this-defers">10. What this defers</h2>
+<p>One thing, and it is provenance. Everything else this RFC once listed here has since been
+pulled into scope — the accept side of the guards is §6.2.</p>
+<p><strong>A prior is still indistinguishable from a measurement.</strong> After this RFC the driver finds
+the qubit wherever it is, but nothing says whether <code>clock_freqs.f01</code> was measured by this
+driver or typed in from a design document. The August 2026 chip carried
+<code>f01: 4735509751.238763</code> — nine significant figures, and the line was never there.</p>
+<p>Three things here want that distinction: §2's definition of a prior, §11's "no
+trustworthy value", and §11's marking of what a skipped node did not confirm. A fourth is
+the pre-walk check §11 withdrew during phase 0, which cannot tell a hand-supplied
+parameter from a disabled producer without it.</p>
+<p>Each has a weaker version that works without it, which is why this could be deferred at
+all: §11's ledger asks "did this walk produce it?" rather than "was this ever measured?".
+That is right for a bring-up and blind on a recalibration, which is the cost of the
+deferral and the reason it should not be deferred indefinitely.</p>
+<p><strong>RFC 0008 is now implemented, and answered three of the four rather than all four.</strong> The
+ledger's <em>blocking</em> rule stayed as it is, on purpose: a failure to measure a parameter is
+evidence against whatever the file holds for it, whether or not an earlier run measured it
+— see RFC 0008 §6. What provenance changed is what the run <em>says</em>: the withdrawn check
+below is back as a report, a skipped node now says how old what it left standing is, and
+each result names the inputs nothing had ever measured.</p>
+<p><strong>RFC 0008</strong> carries the design, which was argued out in review here: where provenance
+lives, why neither config file is its home, and why staging value commits does not address
+what actually went wrong. It also corrects a claim this section used to make — that the
+content already existed and only a lookup was missing. Reports leave the driver on a
+result queue and nothing persists them locally, so a sidecar is the driver's only copy,
+not an index over one.</p>
+<h2 id="11-skipping-what-cannot-succeed">11. Skipping what cannot succeed</h2>
+<p>A node whose prerequisite was never produced cannot measure anything, and running it
+anyway is how one failure became six. The August 2026 chip is the worked example:
+<code>qubit_spectroscopy</code> failed, and <code>rabi</code>, <code>resonator_spectroscopy_excited</code>,
+<code>readout_discrimination</code>, <code>allxy</code>, <code>drag</code> and <code>readout_fidelity</code> all then measured a
+qubit still in <code>|0⟩</code> and reported confident numbers from its noise. Six failures with
+six different-looking causes, none of them naming the one that mattered. Before the
+August 2026 guards existed those nodes did not even fail — they wrote the noise to the
+device file, and the next run inherited it.</p>
+<p>So this is worth doing, and the wall-clock saving is the smaller half of the benefit.
+The mechanism matters, though, because the obvious one — <em>if a node fails, skip its
+dependents</em> — is wrong on this graph in three separate ways.</p>
+<p><strong><code>depends_on</code> is not a data dependency.</strong> It orders the walk. <code>cz_chevron</code> depends on
+<code>rb</code> and <code>flux_spectroscopy</code>, and <em>neither writes a parameter</em> — both have empty
+<code>updates</code>. Blocking two-qubit calibration because a benchmark came out low would be
+plainly wrong. Twelve of the thirty-three nodes write nothing at all, so nothing can
+depend on their output, and some are still depended on in the walk order.</p>
+<p><strong>Disabled is not failed.</strong> <code>qubit_spectroscopy</code> depends on <code>resonator_punchout</code>, which
+is switched off on the August 2026 chip because its amplitude grid never reaches
+punch-through, which phase 3 fixes (§12). <code>time_of_flight</code> is off too, and under naive
+propagation disabling either would skip the entire graph beneath it — which is to say,
+everything. That both are off <em>because</em> of range bugs this RFC fixes does not help: the
+operator must be able to switch a node off without the graph collapsing.</p>
+<p><strong>A refiner is not a producer.</strong> Seven parameters have two writers, where the first
+produces and the second refines:</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Produced by</th>
+<th>Refined by</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>clock_freqs.readout</code></td>
+<td><code>resonator_spectroscopy</code></td>
+<td><code>resonator_punchout</code></td>
+</tr>
+<tr>
+<td><code>clock_freqs.f01</code></td>
+<td><code>qubit_spectroscopy</code></td>
+<td><code>ramsey</code></td>
+</tr>
+<tr>
+<td><code>clock_freqs.f12</code></td>
+<td><code>f12_spectroscopy</code></td>
+<td><code>ramsey_12</code></td>
+</tr>
+<tr>
+<td><code>rxy.amp180</code></td>
+<td><code>rabi</code></td>
+<td><code>fine_amplitude</code></td>
+</tr>
+<tr>
+<td><code>r12.ef_amp180</code></td>
+<td><code>rabi_12</code></td>
+<td><code>fine_amplitude_12</code></td>
+</tr>
+<tr>
+<td><code>cz.square_amp</code>, <code>cz.square_duration</code></td>
+<td><code>cz_parametrization</code></td>
+<td><code>cz_chevron</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>drag</code> depends on <code>ramsey</code>, but <code>ramsey</code> only refines an <code>f01</code> that
+<code>qubit_spectroscopy</code> already produced. If <code>ramsey</code> fails, <code>f01</code> keeps a measured value
+and <code>drag</code> can legitimately run — as can <code>allxy</code>, <code>fine_amplitude</code>, <code>rb</code> and
+<code>allxy_check</code> behind it. Node-level propagation would skip five nodes for nothing.</p>
+<p><strong>The proposal: block on an unsatisfied parameter, not on a failed node.</strong></p>
+<ul>
+<li>Routines gain a <code>reads</code> set, the counterpart of the <code>updates</code> they already have, which
+  makes the data dependencies explicit and separable from walk order. <strong>Declared, and
+  tested by derivation.</strong> A node's read set is static — which paths it needs is fixed at
+  authoring time, only the values are dynamic — so it can simply be stated, the way
+  <code>updates</code> already is. The objection to declaring is that a list can drift from what the
+  code really reads, and that is answered by a test rather than by a mechanism:
+  <code>read_path</code> is the single way a routine touches the device, so instrumenting it during
+  a build-and-analyse over the simulated chip derives the true set and asserts the
+  declaration covers it.</li>
+</ul>
+<p>Declaring rather than deriving at runtime matters for one concrete reason. The two
+  routines that override <code>measure</code> — <code>coupler_anticrossing</code> and <code>qubit_spectroscopy</code> —
+  own their whole acquisition loop, so there is no <code>build_schedule</code> to inspect before
+  deciding whether to run them. A derived-at-runtime set cannot cover those two at all;
+  a declared one covers every node uniformly.</p>
+<p>This supersedes the previous resolution, which was derive-at-runtime via
+  <em>build, inspect, decide</em>. What changed it: a node knows its reads before it runs, so the
+  runtime machinery buys nothing a test does not, and it fails exactly where the interface
+  is least uniform.
+- <strong>Six reads move out of <code>analyse</code>.</strong> <code>ef.py:439</code>, <code>ef.py:660</code>, <code>single_qubit.py:233</code>,
+  <code>single_qubit.py:513</code>, <code>spectroscopy.py:594</code> and <code>spectroscopy.py:1018</code> read the device
+  after their acquisition — <code>resonator_spectroscopy_excited</code> reads <code>clock_freqs.readout</code>
+  there to difference against, <code>ramsey</code> reads the <code>f01</code> it is about to correct. Each is a
+  one-line hoist into <code>build_schedule</code>, stored on the instance as the setpoints already
+  are, and each removes a read that happens too late to be a prerequisite. Worth doing
+  regardless of this section: a value read before the sweep and a value read after it are
+  the same number today only because nothing writes in between.
+- A node is blocked when a parameter it reads has no trustworthy value — not produced
+  in this walk, and no measured prior. A failed <em>refiner</em> leaves the value trustworthy,
+  so nothing behind it is blocked.
+- ~~A disabled node that is the only producer of a parameter something reads is a
+  <strong>config error reported before the walk starts</strong>.~~ <strong>Withdrawn on implementation.</strong>
+  The check cannot be written without §10's provenance, because it cannot tell "never
+  produced by design" from "producer switched off". Two read paths —
+  <code>measure.integration_time</code> and <code>r12.ef_duration</code> — have no producer anywhere in the
+  graph and are supplied by hand on every chip, so a sole-producer rule fires on them
+  every run; and the August 2026 chip disables <code>time_of_flight</code> while its
+  <code>measure.acq_delay</code> is a perfectly good hand-set 200 ns. Nothing is lost by waiting:
+  the parameter view below already declines to block on either case.
+  <strong>Reinstated by RFC 0008 as a report, not an error.</strong> Provenance splits the three cases
+  the rule could not: a prior a routine in this run will measure, a prior whose producer is
+  out of this run, and a path no routine produces anywhere. Only the middle one is
+  reported, and it names the routine that would produce it. It reports rather than refuses
+  because every chip calibrated before the sidecar existed has measured values and no
+  provenance, so refusing would take working chips down for want of a file.
+- Blocked nodes are recorded as <strong>skipped, with the blocker named</strong> — not failed.
+  Auto-failing would replace six misleading failures with six fabricated ones, and would
+  feed the drift check a history of failures that never happened.
+- A skipped node's parameter is <strong>kept and marked, not cleared.</strong> Clearing it would mean a
+  chip that ran jobs yesterday cannot run today because one node was blocked, which is a
+  worse outcome than running on a value this walk did not confirm — provided the report
+  says which values were not confirmed. That proviso is §10's provenance field, and RFC
+  0008 supplies it: a skipped node's note now names each parameter it left standing and the
+  routine and time that last measured it.</p>
+<p><code>diagnose</code> already walks <code>depends_on</code> to blame the deepest failing ancestor rather than
+the symptom (RFC 0005 §8), so the traversal exists and the calibrate path can borrow its
+shape.</p>
+<p>The <em>fully</em> correct version of "no trustworthy value" wants §10's provenance, since a
+design value and a measurement are indistinguishable in the device file. A useful version
+needs less: on a first calibration, "produced in this walk" is sufficient, and that is
+exactly the case this RFC is about. It is also what makes §8's acceptance test readable:
+on a chip known only from its design document the first walk will have failures, and
+without skip-propagation its report is the same six-way puzzle that motivated this RFC.</p>
+<h3 id="111-reads-was-under-declared-so-this-did-not-fire-on-the-b-chip">11.1 <code>reads</code> was under-declared, so this did not fire on the B chip</h3>
+<p><strong>Fixed in August 2026.</strong> Found on hardware, and it was the failure this section exists to
+prevent, recurring for a reason the section did not anticipate.</p>
+<p>q5 on the B chip produced eight failures from one fault. <code>qubit_spectroscopy</code> found no
+line; the qubit was never excited; and then <code>rabi</code>, <code>t1</code>, <code>t2_echo</code>, <code>rb</code>,
+<code>readout_discrimination</code>, <code>readout_fidelity</code> and <code>resonator_spectroscopy_excited</code> each ran
+anyway and fitted its own noise, reporting seven further errors with seven different-looking
+causes. The guards did their job — every one of those seven refused rather than writing —
+but the walk should not have run them at all.</p>
+<p>Why the ledger let them through:</p>
+<table>
+<thead>
+<tr>
+<th>Node</th>
+<th>Declares</th>
+<th>Actually needs</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>rabi</code>, <code>t1</code>, <code>t2_echo</code>, <code>rb</code></td>
+<td><em>(nothing)</em></td>
+<td><code>clock_freqs.f01</code>, and <code>rxy.amp180</code> for the last three</td>
+</tr>
+<tr>
+<td><code>readout_discrimination</code>, <code>readout_fidelity</code></td>
+<td>the two <code>measure_2state</code> paths</td>
+<td><code>rxy.amp180</code> as well</td>
+</tr>
+<tr>
+<td><code>resonator_spectroscopy_excited</code></td>
+<td><code>clock_freqs.readout</code>, <code>resonator.linewidth</code></td>
+<td><code>clock_freqs.f01</code> and <code>rxy.amp180</code> as well</td>
+</tr>
+</tbody>
+</table>
+<p>None of them reads those paths through <code>read_path</code>. They get the drive frequency and the pi
+pulse from the <em>compiled gate</em> — <code>backend.Rxy</code> and the gate library resolve them off the
+device element directly — so <code>test_a_routine_declares_every_parameter_it_reads</code>, which
+derives the truth by instrumenting <code>read_path</code>, structurally cannot see the dependency.
+The test asserts a lower bound and the declaration is the contract; here the contract is
+simply short, and nothing was in a position to say so.</p>
+<p>With honest declarations the same run reports <strong>one</strong> error naming <code>qubit_spectroscopy</code> and
+seven skips: f01 unsatisfied skips <code>rabi</code>, which leaves <code>rxy.amp180</code> unsatisfied, which
+skips the other six. That is what §11 promised.</p>
+<p><strong>What was built.</strong> An audit of all 34 routines found the gap wider than the seven: <strong>22</strong>
+qubit-targeted nodes were short, not seven. Every one that plays a gate now declares
+<code>clock_freqs.f01</code>, and every one that plays a gate without supplying its own amplitude also
+declares <code>rxy.amp180</code>. <code>rabi</code> is the exception that proves the rule — it produces
+<code>rxy.amp180</code>, so declaring that it reads it would make it block itself on a first bring-up.</p>
+<p><strong>Deriving the true set is not possible, so the rule is asserted instead.</strong> Instrumenting
+<code>read_path</code> is the wrong probe for a dependency that never passes through it; the obvious
+alternative — instrument the element and compile — does not work either, because quantify
+compiles by way of <code>generate_device_config</code>, which serialises <em>every</em> parameter, so an
+instrumented element reports all of them and distinguishes nothing.
+<code>test_a_routine_playing_a_gate_declares_the_gate_parameters</code> therefore asserts the
+structural fact: play a gate, declare the two paths. Coarse, and it is exactly the class
+that bit us. <code>test_a_failed_qubit_spectroscopy_blocks_everything_that_needs_a_gate</code> pins the
+graph-level consequence by walking the real routine set with <code>qubit_spectroscopy</code> failing.</p>
+<p><strong>Edges needed a ledger change, not a declaration.</strong> A gate on an edge is played on its
+endpoint <em>qubits</em>, and the ledger keyed on <code>(target, path)</code> — <code>("q5_q10", "rxy.amp180")</code> is
+a path no routine writes and no element has, so declaring it on <code>cz_chevron</code> would have been
+true and inert. <code>blockers</code> now asks about an edge's endpoints as well as the edge itself,
+splitting the name the way <code>CalibrationConfig.validate_targets</code> already does; that
+convention was load-bearing before it got here, and <code>validate_targets</code>' own docstring states
+the dependency ("a two-qubit gate is measured <em>through</em> its qubits") that the ledger could
+not express. Both spellings are tried per path rather than classifying paths by where they
+live, so an irrelevant spelling is silently absent rather than wrong.</p>
+<p>So a failed <code>rabi</code> on either end of an edge now skips the edge, which is what
+<code>validate_targets</code> refuses the <em>configuration</em> for and the walk previously allowed anyway.</p>
+<h3 id="112-the-root-of-the-graph-could-not-re-centre-its-own-sweep">11.2 The root of the graph could not re-centre its own sweep</h3>
+<p><strong>Fixed in August 2026,</strong> and it is the refusal that opened the investigation §11.1 came
+out of: <code>resonator_spectroscopy</code> on a B-chip qubit reported a centre 2.8 MHz below the
+20 MHz window it had swept, and stopped. It writes the frequency every other node reads,
+so a refusal there stops the chip rather than one routine — and a resonator a few MHz
+outside its window is the commonest bring-up state there is, since fabrication scatter
+alone moves one by tens of MHz.</p>
+<p>It was the only node in §5's escalation-bounded class with no escalation, and pointing the
+existing machinery at it would not have worked. Three separate reasons, all in <code>_widened</code>:</p>
+<ul>
+<li>It anchors a widened axis at <code>low</code> and extends <strong>upward</strong>, which is right for a delay
+  and backwards for a resonator that sits below its window.</li>
+<li>It holds the point count, so a wider frequency span steps over the line it was widened
+  to find — and <code>require_resolved_line</code> then refuses it for being thinner than the grid.</li>
+<li>It writes the result as explicit setpoints, and <code>_frequency_sweep</code> passes explicit
+  <code>frequencies</code> through <strong>unclamped</strong>, so the next attempt asks the NCO for a frequency
+  outside its ±500 MHz reach.</li>
+</ul>
+<p>So escalation widens <strong><code>span</code></strong>, a scalar, and leaves centring, resolution and the band
+clamp where they already live. <code>points</code> moves with it to hold the step size, bounded by
+<code>MAX_SWEEP_POINTS</code> because the sequencer's ceiling is real — and that bound was set wrong
+the first time. A frequency sweep costs three operations per point (<code>Reset</code>,
+<code>SetClockFrequency</code>, <code>Measure</code>), which a 846-acquisition <code>resonator_punchout</code> on the B chip
+measured at <strong>15.0 Q1ASM instructions each</strong> against the QRM's 12288: the "roughly 950
+acquisitions" rule of thumb assumed one group per point and is 30% optimistic for exactly
+the routines that escalate. quantify <em>warns</em> rather than raising when a program is too long
+and the sequencer may still run it, which is the trap — a truncated sweep loses its last
+setpoints, meaning the far end of the range escalation had just widened to reach.</p>
+<p><strong>Both of the fit's refusals escalate, in opposite directions.</strong> <code>require_in_range</code> — the
+centre outside the window — asks for a wider span, by a factor derived from the excursion
+and then doubled, since an extrapolated centre says which side the line is on and not how
+far. <code>require_resolved_line</code> splits: a flat window asks for more spectrum, and a line
+thinner than the grid asks for more grid over the same span. Getting that second one
+backwards would make the failure worse, which is why the direction travels with the
+refusal rather than being inferred from the axis.</p>
+<p>Discovered while testing, and worth recording: for a line <em>far</em> outside a narrow window
+there is no signal at all, so the flat-window guard fires before the range guard ever sees
+the fit. Escalating only <code>require_in_range</code> would have covered a band of cases a few
+linewidths wide and missed the one that motivated it.</p>
+<p>An operator who names <code>span</code> is still left alone, per §7 — including on the B chip, whose
+<code>calibration.yml</code> sets 4 MHz.</p>
+<h3 id="113-a-broad-spectroscopy-line-is-not-a-wrong-one-closed-having-been-wrong-twice">11.3 A broad spectroscopy line is not a wrong one — closed, having been wrong twice</h3>
+<p><strong>Closed. No guard was added, and the section is kept because it took two wrong attempts to
+establish that none is wanted.</strong></p>
+<p>The starting observation looked damning. <code>qubit_spectroscopy</code> on the B chip reported success
+on a 48.0 MHz line in a 54.0 MHz window — 89% of it — at Q = 111, three orders below any
+transmon, and the <code>rabi</code> that read the frequency could not find a pi pulse. It looked like a
+fit of noise dressed as a measurement.</p>
+<p><strong>First attempt: bound the linewidth against the span</strong>, on the reasoning that a Lorentzian
+filling its window has no baseline to be determined against. It refuses the B-chip fit and
+accepts the resonator's 8%. It also refuses the <em>simulated</em> chip at 99%, and capping the
+confirming span to make room broke §8's acceptance test — because that chip's line, measured
+per drive power in the acceptance test's own configuration, reaches 124 with a centre 1.35 MHz
+from truth while filling a 153 MHz window. So a line filling its own window can be a perfectly
+good measurement, and <code>CONFIRM_SPAN_IN_WIDTHS</code> was right all along.</p>
+<p><strong>Second attempt: test for power dependence</strong>, since power broadening is by definition a
+dependence on power, and the sweep already fits every row. That refuses a line whose width
+grows with the drive that shows it, needs no threshold in Hz, and is portable between chips.</p>
+<p><strong>It refuses the physics simulator's own textbook behaviour</strong>, which is what settled the
+question. That chip's linewidths are 1.51, 3.06, 6.12 and 12.37 MHz at drives of 0.005, 0.01,
+0.02 and 0.04 — <em>proportional</em> to the amplitude, exactly as a driven two-level system
+broadens, and <code>test_qubit_spectroscopy_finds_the_transmons_real_f01</code> passes throughout.</p>
+<p>Which is the physics both attempts had wrong. <strong>Power broadening is symmetric: it widens a
+line without moving its centre.</strong> The effect that pulls a centre is the AC Stark shift, which
+is a different mechanism and does not follow from width. So a broad line is a <em>less precise</em>
+measurement of f01, not a wrong one, and there is nothing here for a guard to refuse — the
+existing floors already reject a line that is not there at all, which is the failure that
+matters.</p>
+<p><strong>What this means for the B chip's failure.</strong> The 48 MHz line was power broadening at a drive
+of 0.3, and its centre was not thereby wrong. <code>rabi</code> failed for a reason found separately and
+since fixed: escalation widened its amplitude sweep past full scale and the compiler refused a
+gain of 1.05 (§11.2's clamp). The two were unrelated, and reading the wide line as the cause
+was a wrong inference from a coincidence of timing.</p>
+<p>The one thing worth keeping from the investigation: <code>SimulatedTuner</code> and
+<code>QuantifyTuner(is_simulated=True)</code> report 1.24 MHz and 99 MHz for the same measurement at the
+same drive. The second is a fit pinned near its window rather than a linewidth, which is worth
+knowing when reading either.</p>
+<h3 id="114-a-routine-may-carry-its-own-timeout">11.4 A routine may carry its own timeout</h3>
+<p><strong>Implemented in August 2026.</strong> A single <code>routine_timeout_s</code> has to be set for the slowest
+node, which makes it no ceiling at all for the fast ones. On the B chip <code>qubit_spectroscopy</code>
+legitimately ran <strong>299 s of a 300 s budget</strong> — it pays for a search across everything the
+drive port reaches and then a confirming sweep at each drive power — while a <code>rabi</code> taking
+more than a few seconds is hung. Raising the global number to let spectroscopy average more
+shots also lets every other node sit for five minutes.</p>
+<p>So <code>RoutineConfig</code> gains <code>timeout_s</code>, and <code>CalibrationConfig.timeout_for</code> resolves it against
+the walk's. A field rather than one of the sweep parameters, so a typo is a startup error
+instead of a silently ignored key, and so nothing that widens an axis can mistake it for one.
+Read through <code>timeout_for</code> at every point that enforces a ceiling — the acquisition, the check
+schedules, and the over-budget refusal — so all three agree on which number applied, and the
+refusal now names the routine and says which setting to raise.</p>
+<p>It is a resource budget, which RFC 0007 §5 already distinguishes from the ranges this RFC
+removes: it needs no knowledge of the chip, only of how long the operator is willing to wait.</p>
+<h3 id="115-the-allxy-equator-error-both-causes-fixed">11.5 The AllXY equator error: both causes fixed</h3>
+<p><strong>Fixed, in two halves and two runs.</strong> Found on the B chip's first fully calibrated run, which is worth stating
+because the chip was <em>working</em>: randomised benchmarking measured 0.9879 over seven depths, T1
+63.6 us, T2echo 87.3 us, and an AllXY whose two plateaus read 0.0086 and 0.0090 rms against
+their ideals. All of the error sat in the equator block, antisymmetrically:</p>
+<div class="highlight"><pre><span></span><code>-0.103 -0.126 -0.090 -0.077 -0.018 +0.013 -0.020 -0.039 +0.091 +0.109 +0.092 +0.064
+</code></pre></div>
+<p>The two pairs that are a single <code>X90</code>/<code>Y90</code> then an identity — which should land exactly on
+the equator — read 0.397 and 0.374. That shape is read as <em>either</em> a residual detuning or a
+pi/2 amplitude error, and one rms deviation cannot separate them.</p>
+<p><strong>Fixed: <code>ramsey</code> now refines until the residual is unresolvable.</strong> One pass could never land
+on the answer, and the reason is in its own <code>analyse</code>: the correction is
+<code>current_f01 - detuning</code>, and the detuning was measured with the <em>old</em> f01 in the drive. A
+megahertz of error means the fringe was fitted a megahertz off resonance, so the correction
+lands near the answer rather than on it — the B chip moved f01 by 1.032 MHz in a single pass
+and had no way to ask what remained. Each pass now starts from where the last left the device,
+so the residual falls geometrically.</p>
+<p>Bounded three ways, and the first is the interesting one. It stops when the detuning is under
+what the sweep could tell from zero — <code>1/(2*pi*window)</code>, derived from the operator's own
+delays rather than set as a constant, which is 6.6 kHz for the 24 us default and 27 kHz for a
+6 us one. It stops if the residual stops falling, keeping the better of the two passes, since
+another would be measuring noise. And it stops after <code>MAX_REFINEMENTS</code> regardless. Each pass
+is a full <code>escalating</code> call, so a window too short for the chip is still widened by the guard
+that already knows how.</p>
+<p><strong>Was blocked: nothing could correct a pi/2 amplitude error, and it was not this graph's
+fault.</strong> <code>fine_amplitude</code> refines <code>rxy.amp180</code> by repeating pi pulses; there was no
+equivalent for pi/2 and no field to write one to. quantify's <code>rxy_drag_pulse</code> derives every
+angle from <code>amp180</code> by linear interpolation — its own docstring says so, and qblox's is the
+same function under a different parameter name — so a separately calibrated pi/2 amplitude had
+nowhere to live and nothing that would honour it.</p>
+<p>That was not worth building before the detuning half was ruled out, which the refinement above
+does automatically: if the equator block collapsed on the next run, this was detuning and there
+was nothing further to do.</p>
+<p><strong>It did not collapse, and that settles it.</strong> The refinement drove the residual detuning from
+1032421.7 Hz to -384.2 Hz — a factor of 2687, and three orders of magnitude below the 6.6 kHz
+the window can resolve, so what is left is not detuning by any reading. The equator block moved
+by 5%:</p>
+<div class="highlight"><pre><span></span><code>before   pairs 6-9  -0.0991   pairs 14-17  +0.0890   split  +0.1881
+after    pairs 6-9  -0.0706   pairs 14-17  +0.1089   split  +0.1795
+</code></pre></div>
+<p>An antisymmetric split that survives the detuning going to zero is a pi/2 amplitude error, and
+the mechanism is the one already suspected: <code>amp180</code> of 0.5757 sits above half of full scale,
+where the rotation angle stops being linear in amplitude, so halving it does not halve the
+rotation — which is exactly what quantify's interpolation assumes.</p>
+<p><strong>Fixed: <code>fine.amp90</code>, an interpolation that honours it, and <code>fine_amplitude_90</code>.</strong> Three
+pieces, and the middle one is the one that has to be got right, since it changes how every
+gate on every chip compiles.</p>
+<p>The interpolation is piecewise-linear through <code>(0, 0)</code>, <code>(amp90, 90)</code> and
+<code>(amp180, 180)</code>. Not a curve fitted through the two measurements: two points do not
+determine a compression curve, and a quadratic through them turns back on itself before 180 —
+handing a larger angle a smaller amplitude, which is worse than the straight line it replaces.
+Monotonic is worth more here than smooth. With <code>amp90</code> unmeasured, which is every element on
+every chip until the routine runs, it reproduces <code>amp180 * theta / 180</code> to the bit, and so
+does an <code>amp90</code> that happens to equal half. Both are asserted rather than assumed.</p>
+<p>The routine amplifies the pi/2 the way <code>fine_amplitude</code> amplifies the pi, with two
+differences. It plays no pre-rotation: there the pulse under test is the pi and a pi/2 in
+front of it turns an even response into a signed one, but here the pulse under test <em>is</em> the
+pi/2, so a pre-rotation would be played by the very pulse being calibrated and its error would
+enter twice. And its repetition counts are <code>1, 5, 9, 13</code> rather than <code>1..n</code>, because only
+after <code>4k+1</code> quarter turns does the accumulated error lie along the axis being measured — at
+<code>4k+3</code> the quadratures have swapped and at even counts the response is flat in the error to
+first order. <code>fit_fine_amplitude</code> now refuses the wrong counts rather than fitting them, which
+it could do silently before because a pi pulse behind a pi/2 satisfies the condition at every
+integer.</p>
+<p>The counts are short for a second reason: the fit takes the slope of <code>sin(n*d)</code> as <code>d</code>,
+which is exact only for small <code>n*d</code>, and the equator block above implies <code>d</code> near 0.2 —
+already 2.6 by the thirteenth pulse. So the routine refines, in the same shape and under the
+same three bounds as <code>ramsey</code> above, each pass starting from the corrected amplitude and
+measuring what remains.</p>
+<p>The simulated drive is exactly linear, so the full-DAG test asserts <code>amp90</code> lands within 5%
+of half of <code>amp180</code> on both qubits under both schedulers. That is the no-op case, and it is
+the one worth asserting here: a sign error, a wrong demodulation or the wrong counts would all
+still <em>fit</em>, and would write a confidently wrong amplitude to every gate on the chip. The
+hardware case is the interesting one and cannot be asserted in a test — the evidence for it is
+the B chip measurement above.</p>
+<p><strong>Deliberately not recommended: changing <code>rxy.duration</code>.</strong> A longer pulse needs less
+amplitude and would move <code>amp180</code> out of the nonlinear region, but 56 ns is already 14 times
+the 4 ns the measured 250.6 MHz anharmonicity sets as a leakage floor, and doubling it doubles
+the decoherence-limited error per gate from 0.088% to 0.176% against an RB-measured 1.21%.
+Trading a known cost for an unverified mechanism is the wrong way round, and the duration is a
+chip-level choice rather than something this graph should move.</p>
+<h2 id="12-resolved-during-review">12. Resolved during review</h2>
+<p>No open questions remain. Recorded because the reasoning is worth keeping, and because
+several of these changed the shape of the RFC rather than just settling a detail.</p>
+<table>
+<thead>
+<tr>
+<th>Question</th>
+<th>Resolution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Chunk a too-wide derived sweep, or refuse it?</td>
+<td><strong>Chunk</strong>, §5. Refusing hands range-picking back to the operator, which is the thing being removed. Chunks overlap by a linewidth so a line on a boundary is not lost in both.</td>
+</tr>
+<tr>
+<td>How wide is a chunked sweep allowed to get?</td>
+<td><strong>A per-node cap on acquisitions, with a default</strong> (§5). A resource budget is not the kind of knob this RFC removes: it needs no knowledge of the chip, which is exactly what distinguishes it from a range. <code>routine_timeout_s</code> is already this.</td>
+</tr>
+<tr>
+<td>Harden the <em>accept</em> side here, or in a sequel?</td>
+<td><strong>Here</strong>, §6.2. It is not a parallel concern: escalation only fires on a refusal, so a guard that accepts noise bypasses the entire RFC. It is the trigger condition.</td>
+</tr>
+<tr>
+<td><code>reads</code> declared or derived?</td>
+<td><strong>Declared, with a test that derives</strong> — reversing an earlier resolution in this table. A node's reads are static, so runtime derivation buys nothing a test does not, and it cannot cover the two <code>measure</code> implementors at all. §11.</td>
+</tr>
+<tr>
+<td>Hoist the <code>analyse</code>-time reads?</td>
+<td><strong>Yes, six of them</strong> (§11). A read after the acquisition cannot be a prerequisite, and it is a one-line move per routine.</td>
+</tr>
+<tr>
+<td>Does a skipped node keep its stale parameter?</td>
+<td><strong>Keep and mark</strong>, §11. Clearing it stops a chip that ran yesterday from running today.</td>
+</tr>
+<tr>
+<td>Put provenance in <code>calibration.yml</code> rather than the device file?</td>
+<td><strong>Neither — a sidecar the driver owns</strong>, now RFC 0008 §5. And the blanket "no second store" from the round before was too blunt: it is sound against a second store of <em>values</em>, not against metadata that never holds a number anything needs to run a circuit.</td>
+</tr>
+<tr>
+<td>Report a disabled sole producer before the walk?</td>
+<td><strong>Withdrawn during phase 0</strong> (§11). Undecidable without §10's provenance: two read paths have no producer anywhere and are hand-supplied on every chip, so the rule fires on them every run.</td>
+</tr>
+<tr>
+<td>Where does the IF limit live?</td>
+<td><strong>On <code>SchedulerBackend</code>, like <code>drag_span</code></strong> — but checked rather than assumed, and the two schedulers <em>agree</em>: <code>NCO_FREQ_LIMIT_STEPS / NCO_FREQ_STEPS_PER_HZ</code> is 500 MHz in quantify-scheduler 0.28 and qblox-scheduler 1.0.0b4 alike. That weakens the case for a property without removing it: the fact belongs to the backend either way, and no divergence is being modelled speculatively.</td>
+</tr>
+<tr>
+<td>What does "high fidelity" mean in the acceptance test?</td>
+<td><strong>Assert against the error the simulator was given</strong>, not a constant — the last open question, settled in <code>TestFidelityAgainstWhatTheSimulatorInjected</code>. A constant is unfalsifiable low and simulator-tuning-dependent high. Two claims replace it: <code>rb</code> recovers the injected error, and a worse chip benchmarks worse. Both hold at any injected level. The expected number is derived, not written down: the simulator depolarises per primitive rotation, so a Clifford of n of them costs <code>0.5*(1-(1-p)**n)</code> with n read from <code>clifford_to_gates</code> — which also caught that the naive <code>p/2</code> was 3x low, since a Clifford averages 3.08 primitives.</td>
+</tr>
+<tr>
+<td>Escalation in the DAG or in <code>measure</code>?</td>
+<td><strong>In <code>measure</code></strong>, with the attempt count reported so the DAG and the report still see it.</td>
+</tr>
+<tr>
+<td>Does <code>resonator_punchout</code> come back?</td>
+<td><strong>Yes, and now actually.</strong> This row first claimed phase 3 had fixed the amplitude grid; it had not — phase 3 raised the ceilings in <code>single_qubit.py</code> and <code>ef.py</code> and never touched <code>spectroscopy.py</code>, where <code>full_scale</code> did not appear at all. Found in August 2026 while debugging q5 on the B chip, and the leftover mattered there: carrying <code>output_att: 20</code> on its readout, a grid stopping at 0.5 is some 26 dB short of what the module can emit, so punch-through was unreachable rather than merely hard to reach. The grid now runs to <code>full_scale</code>, with no accuracy bound pulling the other way — a resonator driven hard does not stop being a resonator — so unlike <code>rabi</code> it needs no escalation.</td>
+</tr>
+<tr>
+<td>Stage writes in a separate store until the run succeeds?</td>
+<td><strong>No</strong>, now RFC 0008 §7 — and the diagnosis matters more than the answer. The August 2026 corruption was not an early commit; <code>rabi</code> reported <em>success</em> while writing 0.0158, so a staging store would have committed it too. The finer boundary is per-parameter commit gated on provenance.</td>
+</tr>
+<tr>
+<td>Treat operator-supplied ranges as suggestions with a derived fallback?</td>
+<td><strong>Yes</strong>, §7 — and it collapsed a distinction the draft was carrying for nothing: a supplied window is just escalation's first attempt.</td>
+</tr>
+<tr>
+<td>Rewrite <code>calibration.yml</code> when a hint proves wrong?</td>
+<td><strong>No</strong>, §7. It is hand-authored reasoning, and <code>spec.amplitude</code>'s latch already showed what remembering a search hint costs. Report the range that worked and let the operator decide.</td>
+</tr>
+<tr>
+<td>## 13. The gate paths ignored the drive detuning — done, and narrower than stated</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>Found while building phase 1; <strong>fixed</strong> in August 2026, and the fix corrected this
+section twice. Both corrections are worth keeping, because one of them removed a
+blocker this RFC had invented.</p>
+<p><strong>What was true.</strong> <code>TransmonSimulator._anharmonic_hamiltonian(detuning_ghz=0.0)</code> is the
+drive-frame Hamiltonian and already carried a <code>delta * number</code> term, but only
+spectroscopy passed a detuning; <code>rabi</code>, <code>t1</code>, <code>t2_echo</code> and <code>ramsey</code> took the default. So
+a drive far off resonance rotated the simulated qubit exactly as well as one on it. Each
+now takes the detuning, and <code>SimulatedBackend</code> reads <code>configured f01 - true f01</code> off
+the device it was handed, per run: a walk that corrects f01 at spectroscopy has to get
+gates that then work. Measured on the integrator, rabi's peak-to-peak by detuning:
+0.996 on resonance, 0.446 at 50 MHz, 0.038 at 302 MHz, which is
+<code>Omega^2/(Omega^2 + delta^2)</code> against a Rabi rate of about pi/20ns.</p>
+<p><strong>Correction 1: this was never true of <code>test_calibration_loop.py</code>.</strong> That suite runs the
+tuners over <code>SimulatedCoordinator</code>, which reads clock frequencies off the compiled
+schedule's clock resources and has always tracked per-qubit detunings — and it already
+carried the negative test, <code>test_an_uncalibrated_chip_gets_the_answer_wrong</code>, asserting
+that an X gate 214 MHz off leaves the qubit in <code>|0&gt;</code>. The blind spot was only ever in
+<code>tests/utils/simulation.py</code>'s schedule-reading shortcut, which <code>test_calibration_e2e.py</code>
+and the tier-3 tests use. Claiming "the suites" when one of the two was already honest
+overstated it.</p>
+<p><strong>Correction 2, and this is the one that mattered.</strong> On the strength of correction 1, the
+loop fixture's <code>f01: 5e9</code> is <em>load-bearing and correct</em> — spectroscopy's 600 MHz span
+genuinely finds 5.2142 GHz, and the fixture's LO puts that line at 224 MHz of IF, well
+inside the 500 MHz limit. So the <code>5.040000e+08</code> setpoint that suite rejects on
+<code>wip/rfc0007-accept-side-and-band</code> is <strong>not</strong> a fixture question and never had three
+possible fixes: it is the widening search overshooting a clamp that is not being applied.
+Changing the fixture or widening the span would have restored the blind spot for nothing,
+which is exactly the trap this section warned about — while pointing at the wrong door.</p>
+<p><strong>What this leaves.</strong> Phase 3's acceptance test can now be written honestly: a wrong f01
+fails on its own through both simulator paths. And phase 2's remaining work is a plain
+bug in <code>addressable_band</code>'s application, with a suite that can judge it.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "search.suggest", "search.highlight", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>
