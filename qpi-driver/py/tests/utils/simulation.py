@@ -175,16 +175,70 @@ def _operation(kind: str) -> type[_Operation]:
     return type(kind, (_Operation,), {"kind": kind})
 
 
+#: Duration given to a recorded operation that does not carry one. A `Reset` or a
+#: `Measure` takes its length from the device, which this stand-in does not read — so
+#: without a nominal figure every operation would be instantaneous and `_Schedule`
+#: could not tell an appended schedule from an aligned one, which is the whole thing a
+#: fused schedule has to get right (RFC 0009 §6.1).
+_NOMINAL_DURATION_S = 1e-6
+
+
+class _Placed:
+    """One operation and when it starts, which is what `ref_op` refers back to."""
+
+    def __init__(self, operation: Any, start: float, duration: float) -> None:
+        self.operation = operation
+        self.start = start
+        self.duration = duration
+
+    @property
+    def end(self) -> float:
+        return self.start + self.duration
+
+
 class _Schedule:
-    """A recorded schedule: its name, its repetitions, and its operations in order."""
+    """A recorded schedule: its name, its repetitions, and its operations in order.
+
+    Timing is kept as well as order. `schedule.add` appends by default and places an
+    operation alongside another when given ``ref_op``, so a test can assert that a
+    group's pulses actually coincide rather than that the right arguments were passed.
+    """
 
     def __init__(self, name: str, repetitions: int = 1) -> None:
         self.name = name
         self.repetitions = repetitions
         self.operations: list[_Operation] = []
+        self.placed: list[_Placed] = []
 
-    def add(self, operation: Any, **kwargs: Any) -> None:
+    def add(
+        self,
+        operation: Any,
+        *,
+        ref_op: Any = None,
+        ref_pt: str | None = None,
+        ref_pt_new: str | None = None,
+        rel_time: float = 0.0,
+        **kwargs: Any,
+    ) -> _Placed:
+        if ref_op is None:
+            start = self.placed[-1].end if self.placed else 0.0
+        else:
+            start = ref_op.start if ref_pt == "start" else ref_op.end
+        duration = getattr(operation, "kwargs", {}).get("duration")
+        placed = _Placed(
+            operation,
+            start + rel_time,
+            float(duration) if duration else _NOMINAL_DURATION_S,
+        )
         self.operations.append(operation)
+        self.placed.append(placed)
+        return placed
+
+    def starts_of(self, kind: str) -> list[float]:
+        """When each operation of *kind* starts — what an alignment test asserts on."""
+        return [
+            p.start for p in self.placed if getattr(p.operation, "kind", "") == kind
+        ]
 
     def __repr__(self) -> str:
         return f"<_Schedule {self.name!r} with {len(self.operations)} operations>"
@@ -259,6 +313,57 @@ class StubBackend(RecordingBackend):
         )
 
 
+def _channels_of(schedule: _Schedule) -> dict[int, str]:
+    """Which target each acquisition channel of *schedule* belongs to.
+
+    Read off the `Measure` operations, which is where a fused routine states it: the channel
+    is the target's position in its group (RFC 0009 D5).
+    """
+    channels: dict[int, str] = {}
+    for op in schedule.operations:
+        if op.kind != "Measure":
+            continue
+        channel = op.kwargs.get("acq_channel")
+        target = op.args[0] if op.args else op.kwargs.get("qubit")
+        if channel is not None and target is not None:
+            channels[int(channel)] = str(target)
+    return channels
+
+
+def _mentions(op: _Operation, target: str) -> bool:
+    """Whether *op* acts on *target* — by name, or through its port or clock."""
+    if target in op.args:
+        return True
+    for key in ("qubit", "target"):
+        if op.kwargs.get(key) == target:
+            return True
+    for key in ("port", "clock"):
+        value = op.kwargs.get(key)
+        if isinstance(value, str) and value.split(":")[0].split(".")[0] == target:
+            return True
+    return False
+
+
+def _only(schedule: _Schedule, target: str) -> _Schedule:
+    """*schedule* with only the operations acting on *target*.
+
+    An operation naming no target at all — an `IdlePulse`, which is dead time on every port
+    — is kept, because it is part of every target's sequence.
+    """
+    narrowed = _Schedule(schedule.name, repetitions=schedule.repetitions)
+    for op in schedule.operations:
+        if _mentions(op, target) or not _names_a_target(op):
+            narrowed.operations.append(op)
+    return narrowed
+
+
+def _names_a_target(op: _Operation) -> bool:
+    """Whether *op* is addressed to some particular qubit."""
+    if op.args:
+        return True
+    return any(key in op.kwargs for key in ("qubit", "target", "port", "clock"))
+
+
 class SimulatedBackend(RecordingBackend):
     """A backend that answers ``run`` from the simulator.
 
@@ -311,8 +416,29 @@ class SimulatedBackend(RecordingBackend):
                 f"data that means nothing. Simulated: "
                 f"{', '.join(sorted(self._ACQUISITIONS))}"
             )
-        values = np.asarray(acquire(self, schedule), dtype=float)
-        return xr.Dataset({"y0": ("acq_index", values)})
+        channels = _channels_of(schedule)
+        if len(channels) <= 1:
+            values = np.asarray(acquire(self, schedule), dtype=float)
+            return xr.Dataset({"y0": ("acq_index", values)})
+
+        # A fused schedule carries several targets, each measured on its own channel. The
+        # physics here is written for one qubit at a time, so rather than teach every
+        # acquisition about groups, the schedule is split back into one per target and each
+        # is answered as it was before. That keeps every existing acquisition unchanged and
+        # is what lets a grouped routine be checked against real dynamics at all — without
+        # it a fused walk silently loses every target but the first.
+        #
+        # Crosstalk is not modelled either way (RFC 0009 D10), so splitting loses nothing
+        # a joined evaluation would have had.
+        return xr.Dataset(
+            {
+                channel: (
+                    "acq_index",
+                    np.asarray(acquire(self, _only(schedule, target)), dtype=float),
+                )
+                for channel, target in sorted(channels.items())
+            }
+        )
 
     @staticmethod
     def _of_kind(schedule: _Schedule, kind: str) -> list[_Operation]:

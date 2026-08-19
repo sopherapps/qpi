@@ -19,12 +19,20 @@ answer.
 from typing import Any
 
 import math
+from collections.abc import Mapping, Sequence
 
 import numpy as np
 import xarray as xr
 
 from qpi_driver.tuners.base.backend import SchedulerBackend
 from qpi_driver.tuners.base.config import RoutineConfig
+from qpi_driver.tuners.base.fusion import (
+    add_after,
+    add_together,
+    channels_of,
+    grouped_by_grid,
+    grouped_by_size,
+)
 from qpi_driver.tuners.base.device import (
     measured_linewidth,
     read_path,
@@ -38,6 +46,7 @@ from qpi_driver.tuners.base.routines import (
     linear_setpoints,
     setpoints_of,
 )
+from qpi_driver.tuners.base.sweep import Sweep
 from qpi_driver.tuners.fitting import (
     fit_readout_discrimination,
     fit_readout_integration_time,
@@ -124,30 +133,79 @@ class ReadoutOperatingPoint(CalibrationRoutine):
     MAX_SINGLE_SHOT_ACQUISITIONS = 32
 
     def build_schedule(
-        self, target: str, device: Any, config: RoutineConfig, backend: SchedulerBackend
+        self,
+        target: str,
+        device: Any,
+        config: RoutineConfig,
+        backend: SchedulerBackend,
+        sweep: Sweep,
     ) -> Any:
-        element = device.get_element(target)
-        self._settings = self._grid(element, config)
-        shots = int(config.get("shots", 300))
-        schedule = backend.new_schedule(self.name, repetitions=shots)
+        return self.build_group_schedule(
+            [target], device, config, backend, {target: sweep}
+        )
+
+    def compatible_groups(
+        self, targets: Sequence[str], device: Any, config: RoutineConfig
+    ) -> list[list[str]]:
+        """By grid size: each point is this qubit's own frequency and drive amplitude."""
+        return grouped_by_size(
+            targets, lambda t: self._grid(device.get_element(t), config)
+        )
+
+    def build_group_schedule(
+        self,
+        targets: Sequence[str],
+        device: Any,
+        config: RoutineConfig,
+        backend: SchedulerBackend,
+        sweeps: Mapping[str, Sweep],
+    ) -> Any:
+        """Both prepared states at every setting, for every target at once.
+
+        Single-shot, so the acquisitions are the measurement: each target's spread is the
+        noise its separation is quoted in. The frequency and the amplitude are both
+        per-target hardware, so each sweeps its own grid over a shared index.
+        """
+        grids = {}
+        for target in targets:
+            grids[target] = self._grid(device.get_element(target), config)
+            sweeps[target]["settings"] = grids[target]
+        schedule = backend.new_schedule(
+            self.name, repetitions=int(config.get("shots", 300))
+        )
         index = 0
-        for frequency, amplitude in self._settings:
-            schedule.add(
-                backend.SetClockFrequency(
-                    clock=f"{target}.ro", clock_freq_new=frequency
-                )
+        for position in range(len(grids[targets[0]])):
+            add_together(
+                schedule,
+                [
+                    backend.SetClockFrequency(
+                        clock=f"{target}.ro",
+                        clock_freq_new=grids[target][position][0],
+                    )
+                    for target in targets
+                ],
             )
             for prepare in (0, 1):
-                schedule.add(backend.Reset(target))
+                anchor = add_together(
+                    schedule, [backend.Reset(target) for target in targets]
+                )
                 if prepare:
-                    schedule.add(backend.X(target))
-                schedule.add(
-                    backend.Measure(
-                        target,
-                        acq_index=index,
-                        bin_mode=backend.BinMode.APPEND,
-                        pulse_amp=amplitude,
+                    anchor = add_together(
+                        schedule, [backend.X(target) for target in targets]
                     )
+                add_after(
+                    schedule,
+                    [
+                        backend.Measure(
+                            target,
+                            acq_channel=channel,
+                            acq_index=index,
+                            bin_mode=backend.BinMode.APPEND,
+                            pulse_amp=grids[target][position][1],
+                        )
+                        for channel, target in enumerate(targets)
+                    ],
+                    anchor,
                 )
                 index += 1
         return schedule
@@ -188,10 +246,15 @@ class ReadoutOperatingPoint(CalibrationRoutine):
         return grid
 
     def analyse(
-        self, dataset: xr.Dataset, target: str, device: Any, config: RoutineConfig
+        self,
+        dataset: xr.Dataset,
+        target: str,
+        device: Any,
+        config: RoutineConfig,
+        sweep: Sweep,
     ) -> dict[str, Any]:
-        ground, excited = _swept_clouds(dataset, len(self._settings))
-        return fit_readout_operating_point(self._settings, ground, excited)
+        ground, excited = _swept_clouds(dataset, len(sweep["settings"]))
+        return fit_readout_operating_point(sweep["settings"], ground, excited)
 
     def apply(self, device: Any, target: str, params: dict[str, Any]) -> None:
         element = device.get_element(target)
@@ -293,6 +356,7 @@ class ReadoutIntegrationTime(CalibrationRoutine):
         config: RoutineConfig,
         backend: SchedulerBackend,
         timeout_s: float,
+        sweep: Sweep,
     ) -> Any:
         """One schedule per window, because a schedule may only have one of them.
 
@@ -312,7 +376,7 @@ class ReadoutIntegrationTime(CalibrationRoutine):
                 enabled=config.enabled,
                 params={**config.params, "windows": [window]},
             )
-            dataset = super().acquire(target, device, single, backend, timeout_s)
+            dataset = super().acquire(target, device, single, backend, timeout_s, sweep)
             # ``(shots, 2)`` — the two prepared states of this one window. Kept 2-D,
             # because the shots *are* the measurement here: their spread is the noise the
             # separation is quoted in, and flattening them reads as one shot per state.
@@ -323,7 +387,7 @@ class ReadoutIntegrationTime(CalibrationRoutine):
                     f"expected |0> and |1>"
                 )
             rows.append(values[..., :2])
-        self._windows = windows
+        sweep["windows"] = windows
         # Side by side, so the acquisition axis unpacks as |0>,|1> per window — the same
         # interleaving `_swept_clouds` expects from a single-schedule sweep.
         return xr.Dataset(
@@ -331,27 +395,121 @@ class ReadoutIntegrationTime(CalibrationRoutine):
         )
 
     def build_schedule(
-        self, target: str, device: Any, config: RoutineConfig, backend: SchedulerBackend
+        self,
+        target: str,
+        device: Any,
+        config: RoutineConfig,
+        backend: SchedulerBackend,
+        sweep: Sweep,
     ) -> Any:
         """``|0>`` and ``|1>`` at *one* window — see :meth:`acquire` for why only one."""
-        windows = self._grid(device.get_element(target), config)
-        self._windows = windows[:1]
+        return self.build_group_schedule(
+            [target], device, config, backend, {target: sweep}
+        )
+
+    def compatible_groups(
+        self, targets: Sequence[str], device: Any, config: RoutineConfig
+    ) -> list[list[str]]:
+        """Exactly, because an integration length is shared hardware.
+
+        Every square acquisition compiled into one Qblox program shares it — see
+        :meth:`acquire` — so the group cannot hold two targets wanting different windows any
+        more than one schedule can hold two windows. `grouped_by_grid`, not
+        `grouped_by_size`.
+        """
+        return grouped_by_grid(
+            targets, lambda t: self._grid(device.get_element(t), config)
+        )
+
+    def build_group_schedule(
+        self,
+        targets: Sequence[str],
+        device: Any,
+        config: RoutineConfig,
+        backend: SchedulerBackend,
+        sweeps: Mapping[str, Sweep],
+    ) -> Any:
+        """``|0>`` and ``|1>`` at one window, on every target at once."""
+        windows = self._grid(device.get_element(targets[0]), config)
+        for target in targets:
+            sweeps[target]["windows"] = windows[:1]
         schedule = backend.new_schedule(
             self.name, repetitions=int(config.get("shots", 300))
         )
         for index, prepare in enumerate((0, 1)):
-            schedule.add(backend.Reset(target))
+            anchor = add_together(
+                schedule, [backend.Reset(target) for target in targets]
+            )
             if prepare:
-                schedule.add(backend.X(target))
-            schedule.add(
-                backend.Measure(
-                    target,
-                    acq_index=index,
-                    bin_mode=backend.BinMode.APPEND,
-                    acq_duration=self._windows[0],
+                anchor = add_together(
+                    schedule, [backend.X(target) for target in targets]
                 )
+            add_after(
+                schedule,
+                [
+                    backend.Measure(
+                        target,
+                        acq_channel=channel,
+                        acq_index=index,
+                        bin_mode=backend.BinMode.APPEND,
+                        acq_duration=windows[0],
+                    )
+                    for channel, target in enumerate(targets)
+                ],
+                anchor,
             )
         return schedule
+
+    def acquire_group(
+        self,
+        targets: Sequence[str],
+        device: Any,
+        config: RoutineConfig,
+        backend: SchedulerBackend,
+        timeout_s: float,
+        sweeps: Mapping[str, Sweep],
+    ) -> Any:
+        """One schedule per window for the whole group — see :meth:`acquire`.
+
+        The windows are the group's, not each target's: `compatible_groups` has already
+        split any target wanting a different grid, because the integration length is one
+        property of the program rather than one per target.
+        """
+        windows = self._grid(device.get_element(targets[0]), config)
+        rows: dict[str, list[Any]] = {target: [] for target in targets}
+        for window in windows:
+            single = RoutineConfig(
+                enabled=config.enabled,
+                params={**config.params, "windows": [window]},
+            )
+            dataset = super().acquire_group(
+                targets, device, single, backend, timeout_s, sweeps
+            )
+            sliced = channels_of(dataset, targets)
+            for target in targets:
+                piece = sliced.get(target)
+                if piece is None:
+                    raise RoutineError(
+                        f"the fused acquisition carried no channel for {target}"
+                    )
+                values = np.atleast_2d(_acquisition_values(piece))
+                if values.shape[-1] < 2:
+                    raise RoutineError(
+                        f"window {window:.4g} s returned {values.shape[-1]} acquisitions "
+                        f"for {target}, expected |0> and |1>"
+                    )
+                rows[target].append(values[..., :2])
+        for target in targets:
+            sweeps[target]["windows"] = windows
+        return xr.Dataset(
+            {
+                channel: (
+                    ("shot", "acq_index"),
+                    np.concatenate(rows[target], axis=-1),
+                )
+                for channel, target in enumerate(targets)
+            }
+        )
 
     def _grid(self, element: Any, config: RoutineConfig) -> list[float]:
         ceiling = float(
@@ -427,11 +585,16 @@ class ReadoutIntegrationTime(CalibrationRoutine):
         return min(instrument, driven + ringdown)
 
     def analyse(
-        self, dataset: xr.Dataset, target: str, device: Any, config: RoutineConfig
+        self,
+        dataset: xr.Dataset,
+        target: str,
+        device: Any,
+        config: RoutineConfig,
+        sweep: Sweep,
     ) -> dict[str, Any]:
-        ground, excited = _swept_clouds(dataset, len(self._windows))
+        ground, excited = _swept_clouds(dataset, len(sweep["windows"]))
         return fit_readout_integration_time(
-            self._windows,
+            sweep["windows"],
             ground,
             excited,
             incumbent=float(
@@ -470,42 +633,76 @@ class ReadoutDiscrimination(CalibrationRoutine):
         "rxy.amp180",
     )
 
-    def build_schedule(
-        self, target: str, device: Any, config: RoutineConfig, backend: SchedulerBackend
+    def build_group_schedule(
+        self,
+        targets: Sequence[str],
+        device: Any,
+        config: RoutineConfig,
+        backend: SchedulerBackend,
+        sweeps: Mapping[str, Sweep],
     ) -> Any:
+        """|0> and |1> on every target at once — the preparation is the same on each."""
         shots = int(config.get("shots", 2000))
         schedule = backend.new_schedule(f"{self.name}", repetitions=shots)
-        point = _operating_point(device.get_element(target))
-        if point:
-            # At the point that will be used, not at the one the calibration reads on.
-            # A line fitted where the clouds are not is a line fitted somewhere else,
-            # which is the whole reason this depends on `readout_operating_point`.
-            schedule.add(
-                backend.SetClockFrequency(
-                    clock=f"{target}.ro", clock_freq_new=point["frequency"]
+        points = {
+            target: _operating_point(device.get_element(target)) for target in targets
+        }
+        for target, point in points.items():
+            if point:
+                # At the point that will be used, not at the one the calibration reads
+                # on. A line fitted where the clouds are not is a line fitted somewhere
+                # else, which is the whole reason this depends on
+                # `readout_operating_point`.
+                schedule.add(
+                    backend.SetClockFrequency(
+                        clock=f"{target}.ro", clock_freq_new=point["frequency"]
+                    )
                 )
-            )
-        measure_kwargs = {"pulse_amp": point["pulse_amp"]} if point else {}
         # Single shots, not an average: the whole measurement is the *distribution* of
-        # each cloud, and its width is what sets the threshold and the fidelity. An
-        # averaged acquisition gives two points and no way to say how often they are
-        # confused.
+        # each cloud, and its width is what sets the threshold and the fidelity.
         for index, prepare in enumerate((0, 1)):
-            schedule.add(backend.Reset(target))
+            anchor = add_together(schedule, [backend.Reset(t) for t in targets])
             if prepare:
-                schedule.add(backend.X(target))
-            schedule.add(
-                backend.Measure(
-                    target,
-                    acq_index=index,
-                    bin_mode=backend.BinMode.APPEND,
-                    **measure_kwargs,
-                )
+                anchor = add_after(schedule, [backend.X(t) for t in targets], anchor)
+            add_after(
+                schedule,
+                [
+                    backend.Measure(
+                        target,
+                        acq_channel=channel,
+                        acq_index=index,
+                        bin_mode=backend.BinMode.APPEND,
+                        **(
+                            {"pulse_amp": points[target]["pulse_amp"]}
+                            if points[target]
+                            else {}
+                        ),
+                    )
+                    for channel, target in enumerate(targets)
+                ],
+                anchor,
             )
         return schedule
 
+    def build_schedule(
+        self,
+        target: str,
+        device: Any,
+        config: RoutineConfig,
+        backend: SchedulerBackend,
+        sweep: Sweep,
+    ) -> Any:
+        return self.build_group_schedule(
+            [target], device, config, backend, {target: sweep}
+        )
+
     def analyse(
-        self, dataset: xr.Dataset, target: str, device: Any, config: RoutineConfig
+        self,
+        dataset: xr.Dataset,
+        target: str,
+        device: Any,
+        config: RoutineConfig,
+        sweep: Sweep,
     ) -> dict[str, Any]:
         ground, excited = _shot_clouds(dataset)
         return fit_readout_discrimination(ground, excited)
@@ -530,7 +727,12 @@ class ReadoutDiscrimination(CalibrationRoutine):
     CHECK_MIN_FIDELITY = 0.95
 
     def build_check_schedule(
-        self, target: str, device: Any, config: RoutineConfig, backend: SchedulerBackend
+        self,
+        target: str,
+        device: Any,
+        config: RoutineConfig,
+        backend: SchedulerBackend,
+        sweep: Sweep,
     ) -> Any:
         """The same experiment with fewer shots — the one case where that is right.
 
@@ -545,10 +747,16 @@ class ReadoutDiscrimination(CalibrationRoutine):
             device,
             RoutineConfig(params={"shots": int(config.get("check_shots", 400))}),
             backend,
+            sweep,
         )
 
     def analyse_check(
-        self, dataset: xr.Dataset, target: str, device: Any, config: RoutineConfig
+        self,
+        dataset: xr.Dataset,
+        target: str,
+        device: Any,
+        config: RoutineConfig,
+        sweep: Sweep,
     ) -> CheckOutcome:
         ground, excited = _shot_clouds(dataset)
         fitted = fit_readout_discrimination(ground, excited)
@@ -619,38 +827,75 @@ class ReadoutFidelity(CalibrationRoutine):
         "rxy.amp180",
     )
 
-    def build_schedule(
-        self, target: str, device: Any, config: RoutineConfig, backend: SchedulerBackend
+    def build_group_schedule(
+        self,
+        targets: Sequence[str],
+        device: Any,
+        config: RoutineConfig,
+        backend: SchedulerBackend,
+        sweeps: Mapping[str, Sweep],
     ) -> Any:
+        """|0> and |1> on every target at once — the preparation is the same on each."""
         shots = int(config.get("shots", 2000))
         schedule = backend.new_schedule(self.name, repetitions=shots)
-        point = _operating_point(device.get_element(target))
-        if point:
-            # Where the discriminator was fitted, which is where the shots it grades
-            # will be taken. Reading anywhere else measures a line against clouds it
-            # was not drawn for.
-            schedule.add(
-                backend.SetClockFrequency(
-                    clock=f"{target}.ro", clock_freq_new=point["frequency"]
+        points = {
+            target: _operating_point(device.get_element(target)) for target in targets
+        }
+        for target, point in points.items():
+            if point:
+                # Where the discriminator was fitted, which is where the shots it
+                # grades will be taken. Reading anywhere else measures a line against
+                # clouds it was not drawn for.
+                schedule.add(
+                    backend.SetClockFrequency(
+                        clock=f"{target}.ro", clock_freq_new=point["frequency"]
+                    )
                 )
-            )
-        measure_kwargs = {"pulse_amp": point["pulse_amp"]} if point else {}
+        # Single shots, not an average: the whole measurement is the *distribution* of
+        # each cloud, and its width is what sets the threshold and the fidelity.
         for index, prepare in enumerate((0, 1)):
-            schedule.add(backend.Reset(target))
+            anchor = add_together(schedule, [backend.Reset(t) for t in targets])
             if prepare:
-                schedule.add(backend.X(target))
-            schedule.add(
-                backend.Measure(
-                    target,
-                    acq_index=index,
-                    bin_mode=backend.BinMode.APPEND,
-                    **measure_kwargs,
-                )
+                anchor = add_after(schedule, [backend.X(t) for t in targets], anchor)
+            add_after(
+                schedule,
+                [
+                    backend.Measure(
+                        target,
+                        acq_channel=channel,
+                        acq_index=index,
+                        bin_mode=backend.BinMode.APPEND,
+                        **(
+                            {"pulse_amp": points[target]["pulse_amp"]}
+                            if points[target]
+                            else {}
+                        ),
+                    )
+                    for channel, target in enumerate(targets)
+                ],
+                anchor,
             )
         return schedule
 
+    def build_schedule(
+        self,
+        target: str,
+        device: Any,
+        config: RoutineConfig,
+        backend: SchedulerBackend,
+        sweep: Sweep,
+    ) -> Any:
+        return self.build_group_schedule(
+            [target], device, config, backend, {target: sweep}
+        )
+
     def analyse(
-        self, dataset: xr.Dataset, target: str, device: Any, config: RoutineConfig
+        self,
+        dataset: xr.Dataset,
+        target: str,
+        device: Any,
+        config: RoutineConfig,
+        sweep: Sweep,
     ) -> dict[str, Any]:
         ground, excited = _shot_clouds(dataset)
         fitted = fit_readout_discrimination(ground, excited)

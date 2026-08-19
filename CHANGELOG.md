@@ -5,6 +5,50 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project follows versions of format `{year}.{month}.{patch_number}`.
 
+## [Unreleased]
+
+### Added
+
+- `qpi-driver/py`: `parallel` in `calibration.yml` groups a routine's targets into sets that
+  can be measured at once, coloured from the coupling graph — `qubit_spacing`,
+  `edge_spacing`, `max_group`, `exclude`, or explicit `groups`. Off unless the file says so,
+  and a walk with no readable coupling graph runs one target at a time rather than guessing.
+- `qpi-driver/py`: every routine in the graph can measure a group in one schedule, so a
+  group costs one arm-and-wait cycle instead of one per target. Each target reads its own
+  acquisition channel, and a group whose instruments cannot play it at once — readout clocks
+  outside one LO band, amplitudes that would clip, more clocks than sequencers — is split,
+  with the measured figure and the ceiling in the message.
+- `qpi-driver/py`: `parallel.measure_penalty` benchmarks each target alone as well as in
+  company and reports `parallel_penalty` per target — the fidelity the group cost it, which
+  is what a tighter `qubit_spacing` has to be earned with. Off by default: it doubles what
+  the benchmarks cost.
+- `qpi-driver/py`: `make bench-parallel` reports what grouping saves on a 3-qubit,
+  2-coupler chain — 52 acquisitions sequentially against 37 grouped. Skipped unless
+  `QPI_BENCH=1`, so a normal run does not pay for it.
+- `docs`: RFC 0009 — Parallel Calibration. Why a group is a colouring of the coupling graph
+  rather than a hand-written list, why concurrent submission to one cluster cannot work, and
+  what licenses a tighter spacing.
+
+### Changed
+
+- `qpi-driver/py`: a two-qubit routine resets and excites both of an edge's qubits at the
+  same time rather than one after the other, which halves the reset every CZ sweep waits
+  through. This applies to a single edge too, not only to a group.
+
+### Fixed
+
+- `qpi-driver/py`, `qpi-ui`: the calibration graph draws the node a walk is on. A progress
+  event only fired after a target finished, so a single-target node went straight from
+  `pending` to `done` and the `running` style was unreachable; a node whose every target was
+  blocked stayed `pending` for the whole run.
+- `qpi-driver/py`: a routine's swept setpoints belong to the target rather than to the
+  routine. They were kept on the routine and read back in `analyse`, so a routine measuring
+  several targets in one schedule would have fitted every one against whichever target built
+  last — a plausible curve against the wrong axis, not an error.
+- `qpi-driver/py`: check schedules are compiled once per scheduler rather than once against
+  both. The only such compile in the suite needed both installed, so under the per-extra CI
+  matrix it ran nowhere.
+
 ## [0.4.2] - 2026-08-16
 
 ### Added
@@ -359,7 +403,7 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
   with `AttributeError: 'SimulatedBackend' object has no attribute 'last_allowance_s'`.
 - `qpi-driver/py`: a quantify tuner or executor resets the cluster when it opens one.
   Sequencer offsets, NCO frequencies and `sync_en` survive a reconnect, so the driver
-  inherited whatever the last process left emitting — which held this chip's qubit in a
+  inherited whatever the last process left emitting — which held a qubit in a
   mixture that made X the identity, and deadlocked `wait_sync` before that.
 - `qpi-driver/py`: a quantify tuner or executor stops the cluster after every run,
   including a failed one. Only `stop` clears `sync_en` on the modules a schedule did

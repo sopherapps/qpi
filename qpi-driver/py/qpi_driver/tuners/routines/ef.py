@@ -16,6 +16,7 @@ therefore assembled here, and its parameters live in `EFDrive` on a
 same opt-in every other addition in this RFC makes.
 """
 
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 import logging
@@ -42,6 +43,14 @@ from qpi_driver.tuners.base.routines import (
     linear_setpoints,
     setpoints_of,
 )
+from qpi_driver.tuners.base.fusion import (
+    add_after,
+    add_together,
+    grouped_by_grid,
+    grouped_by_size,
+    readouts,
+)
+from qpi_driver.tuners.base.sweep import Sweep
 from qpi_driver.tuners.fitting import (
     fit_drag,
     fit_fine_amplitude,
@@ -55,9 +64,13 @@ from qpi_driver.tuners.fitting import (
 
 #: Shared with `resonator_spectroscopy_excited`: the same experiment one rung up wants
 #: the same window, and two constants that must agree are one written twice.
-from qpi_driver.tuners.routines.single_qubit import amplified  # noqa: E402
+from qpi_driver.tuners.routines.single_qubit import (  # noqa: E402
+    amplified,
+    amplified_group,
+)
 from qpi_driver.tuners.routines.spectroscopy import (  # noqa: E402
     EXCITED_SPAN_IN_LINEWIDTHS,
+    sweep_readout_frequency,
 )
 
 log = logging.getLogger(__name__)
@@ -206,6 +219,24 @@ def ef_path(element: Any, name: str) -> str | None:
     return f"{EF}.{name}"
 
 
+def ef_amplitude_grid(element: Any, config: RoutineConfig) -> list[float]:
+    """The EF drive amplitudes `rabi_12` and `ef_ladder` both sweep.
+
+    Half scale, and deliberately *not* full scale the way `rabi` is. The bound here is the
+    model rather than the hardware: `_drive_ef` neglects the off-resonant 0-1 term, and
+    `f12_spectroscopy` records that half a pi pulse is already where that starts to matter.
+    Sweeping to 1.0 samples a regime the cosine this fit assumes does not describe.
+
+    `full_scale` is still the ceiling on the ceiling, for an element declaring something
+    tighter still.
+    """
+    return setpoints_of(
+        config,
+        "amplitudes",
+        linear_setpoints(0.0, min(0.5, full_scale(element, f"{EF}.ef_amp180")), 41),
+    )
+
+
 def ef_duration(element: Any, config: RoutineConfig) -> float:
     """How long an EF pulse plays: the config, the element, or ``rxy.duration``.
 
@@ -241,8 +272,14 @@ def add_ef_pulse(
     phase_deg: float = 0.0,
     drag: float = 0.0,
     transition: str = "12",
-) -> None:
+    ref_op: Any = None,
+) -> Any:
     """One pulse on the ``.<transition>`` clock, into the port ``rxy`` uses.
+
+    Returns the schedulable it added, and takes *ref_op* to start against, so a fused group
+    can place one per target at the same time. Without that these append, and a group's EF
+    pulses would play one after another — which is not merely slower: whatever the readout
+    was anchored to would no longer be the last thing before it.
 
     *transition* is ``"12"`` for every caller that calibrates the EF chain. `ef_ladder`
     passes ``"01"`` to play this exact pulse on the lower transition instead, which is the
@@ -259,8 +296,13 @@ def add_ef_pulse(
     """
     clock = f"{target}.{transition}"
     port = f"{target}:mw"
+    placement = (
+        {"ref_op": ref_op, "ref_pt": "start", "ref_pt_new": "start"}
+        if ref_op is not None
+        else {}
+    )
     if drag or phase_deg % 360.0:
-        schedule.add(
+        return schedule.add(
             backend.drag_pulse(
                 amp=amplitude,
                 drag=drag,
@@ -268,12 +310,52 @@ def add_ef_pulse(
                 port=port,
                 clock=clock,
                 phase_deg=phase_deg,
-            )
+            ),
+            **placement,
         )
-        return
-    schedule.add(
-        backend.SquarePulse(amp=amplitude, duration=duration, port=port, clock=clock)
+    return schedule.add(
+        backend.SquarePulse(amp=amplitude, duration=duration, port=port, clock=clock),
+        **placement,
     )
+
+
+def add_ef_pulses(
+    schedule: Any,
+    backend: SchedulerBackend,
+    targets: Sequence[str],
+    per_target: Mapping[str, tuple[float, float]],
+    transition: str = "12",
+    phase_deg: float = 0.0,
+    drag: float = 0.0,
+) -> Any:
+    """One EF pulse per target, all starting together, returning the longest as the anchor.
+
+    The group counterpart of :func:`add_ef_pulse`. Each target's pulse is on its own
+    ``.<transition>`` clock and its own ``:mw`` port, so they can coincide; *per_target*
+    gives each one's ``(amplitude, duration)``, since both are read from that element.
+
+    *phase_deg* and *drag* are shared rather than per target, because where they vary they
+    are the swept axis — the same value on every target of the group.
+    """
+    anchor = None
+    longest = (0.0, None)
+    for target in targets:
+        amplitude, duration = per_target[target]
+        placed = add_ef_pulse(
+            schedule,
+            backend,
+            target,
+            amplitude,
+            duration,
+            phase_deg=phase_deg,
+            drag=drag,
+            transition=transition,
+            ref_op=anchor,
+        )
+        anchor = anchor or placed
+        if duration >= longest[0]:
+            longest = (duration, placed)
+    return longest[1]
 
 
 class Rabi12(CalibrationRoutine):
@@ -309,84 +391,104 @@ class Rabi12(CalibrationRoutine):
         return has_ef_drive(device, target)
 
     def build_schedule(
-        self, target: str, device: Any, config: RoutineConfig, backend: SchedulerBackend
+        self,
+        target: str,
+        device: Any,
+        config: RoutineConfig,
+        backend: SchedulerBackend,
+        sweep: Sweep,
     ) -> Any:
-        element = device.get_element(target)
-        # Half scale, and deliberately *not* full scale the way `rabi` now is. The bound
-        # here is the model rather than the hardware: `_drive_ef` neglects the
-        # off-resonant 0-1 term, and `f12_spectroscopy` records that half a pi pulse is
-        # already where that starts to matter. Sweeping to 1.0 samples a regime the
-        # cosine this fit assumes does not describe, and it showed: the fitted ef pi
-        # moved to 0.1577 against 0.1429 for a sqrt(2) ladder, and `ramsey_12`'s fringe
-        # fell to 2.8x its scatter against the 3x its guard allows.
-        #
-        # So the ef ceiling is physics-bounded (RFC 0007 §5) and lower than full scale.
-        # `full_scale` is still the ceiling on the ceiling, for an element that declares
-        # something tighter still.
-        self._amplitudes = setpoints_of(
-            config,
-            "amplitudes",
-            linear_setpoints(0.0, min(0.5, full_scale(element, f"{EF}.ef_amp180")), 41),
+        return self.build_group_schedule(
+            [target], device, config, backend, {target: sweep}
         )
-        self._duration = ef_duration(element, config)
+
+    def compatible_groups(
+        self, targets: Sequence[str], device: Any, config: RoutineConfig
+    ) -> list[list[str]]:
+        """By grid size: the ceiling is each element's own — see `ef_amplitude_grid`."""
+        return grouped_by_size(
+            targets, lambda t: ef_amplitude_grid(device.get_element(t), config)
+        )
+
+    def build_group_schedule(
+        self,
+        targets: Sequence[str],
+        device: Any,
+        config: RoutineConfig,
+        backend: SchedulerBackend,
+        sweeps: Mapping[str, Sweep],
+    ) -> Any:
+        """The EF Rabi on every target at once, read back through ``|0>``."""
+        grids = {}
+        for target in targets:
+            element = device.get_element(target)
+            grids[target] = ef_amplitude_grid(element, config)
+            sweeps[target]["amplitudes"] = grids[target]
+            sweeps[target]["duration"] = ef_duration(element, config)
         schedule = backend.new_schedule(
             self.name, repetitions=int(config.get("shots", 2048))
         )
-        for index, amplitude in enumerate(self._amplitudes):
-            schedule.add(backend.Reset(target))
-            # Into |1> first, which is what makes this the 1-2 transition rather than
-            # a second look at 0-1.
-            schedule.add(backend.X(target))
-            add_ef_pulse(schedule, backend, target, amplitude, self._duration)
+        for index in range(len(grids[targets[0]])):
+            add_together(schedule, [backend.Reset(t) for t in targets])
+            # Into |1> first, which is what makes this the 1-2 transition rather than a
+            # second look at 0-1.
+            add_together(schedule, [backend.X(t) for t in targets])
+            add_ef_pulses(
+                schedule,
+                backend,
+                targets,
+                {
+                    target: (grids[target][index], sweeps[target]["duration"])
+                    for target in targets
+                },
+            )
             # Back to |0> if the ef drive did nothing, and left in |2> if it turned a pi.
             #
-            # Without this the readout has to tell |1> from |2> *directly*, and it is sitting
-            # at an operating point chosen to separate |0> from |1> — where the two upper
-            # levels project close together, because a 0-1 discriminator is tuned to put its
-            # threshold between the first two and not the second two. The trace then barely
-            # oscillates, and `fit_rabi` halves the period of whatever cosine it can find: on
-            # the August 2026 B chip that returned an ef pi of 0.0677 against the 0.4071 the
-            # sqrt(2) ladder predicts, six times out and near the *bottom* of a sweep that
-            # reached 0.5, so no range guard could see it either.
+            # Without this the readout has to tell |1> from |2> *directly*, and it sits at
+            # an operating point chosen to separate |0> from |1> — where the two upper
+            # levels project close together. The trace then barely oscillates, and
+            # `fit_rabi` halves the period of whatever cosine it can find: in an August
+            # 2026 bring-up that returned an ef pi six times out and near the *bottom* of a
+            # sweep that reached 0.5, so no range guard could see it either.
             #
             # A second 0-1 pi maps |1> back to |0> and leaves |2> where it is, off-resonant
-            # by the 250 MHz anharmonicity against a pulse whose bandwidth is some 18 MHz. So
-            # the ef oscillation appears in the |0> population, which is the one quantity this
-            # readout is already good at, and the contrast is the full readout contrast rather
-            # than the difference between two dispersive shifts.
+            # by the anharmonicity against a pulse whose bandwidth is far narrower. So the
+            # ef oscillation appears in the |0> population — the one quantity this readout
+            # is already good at — at the full readout contrast.
             #
             # This is also what unblocks the chain's bootstrap: every other EF node reads at
-            # `measure_3state`, which cannot be calibrated until something has populated |2>,
-            # and this is the node that has to do it first.
-            schedule.add(backend.X(target))
-            schedule.add(
-                backend.Measure(
-                    target, acq_index=index, bin_mode=backend.BinMode.AVERAGE
-                )
-            )
+            # `measure_3state`, which cannot be calibrated until something has populated
+            # |2>, and this is the node that has to do it first.
+            anchor = add_together(schedule, [backend.X(t) for t in targets])
+            add_after(schedule, readouts(backend, targets, index), anchor)
         return schedule
 
     def analyse(
-        self, dataset: xr.Dataset, target: str, device: Any, config: RoutineConfig
+        self,
+        dataset: xr.Dataset,
+        target: str,
+        device: Any,
+        config: RoutineConfig,
+        sweep: Sweep,
     ) -> dict[str, Any]:
         # Seeded with what the ladder predicts, not checked against it afterwards. The two
         # cosines that fit a thin 1-2 sweep differ by a factor of two in period and the
         # data often cannot separate them; `_best_rabi_fit` keeps the physical one only
         # while that stays true, so this steers the fit without deciding it.
         fitted = fit_rabi(
-            np.asarray(self._amplitudes),
+            np.asarray(sweep["amplitudes"]),
             signal_of(dataset),
-            expected_amp180=ladder_amplitude(device, target, self._duration) or None,
+            expected_amp180=ladder_amplitude(device, target, sweep["duration"]) or None,
         )
         _require_ef_ladder(
             device,
             target,
             fitted["amp180"],
-            self._duration,
+            sweep["duration"],
             contrast=float(fitted.get("contrast", 0.0)),
             reference_contrast=measured_contrast(device.get_element(target)),
             fit=fitted.get("fit"),
-            span=float(max(self._amplitudes)) - float(min(self._amplitudes)),
+            span=float(max(sweep["amplitudes"])) - float(min(sweep["amplitudes"])),
         )
         # The trace on success too, which only a refusal carried before. The shape is the
         # one thing separating the two ways this node comes back wrong, and they are
@@ -395,7 +497,7 @@ class Rabi12(CalibrationRoutine):
         # the second has happened on this chip before.
         return {
             "ef_amp180": fitted["amp180"],
-            "ef_duration": self._duration,
+            "ef_duration": sweep["duration"],
             "fit": fitted.get("fit"),
         }
 
@@ -489,38 +591,84 @@ class ThreeStateOperatingPoint(CalibrationRoutine):
         return has_three_state_readout(device, target)
 
     def build_schedule(
-        self, target: str, device: Any, config: RoutineConfig, backend: SchedulerBackend
+        self,
+        target: str,
+        device: Any,
+        config: RoutineConfig,
+        backend: SchedulerBackend,
+        sweep: Sweep,
     ) -> Any:
-        element = device.get_element(target)
-        self._ef_amplitude = _required_ef_amplitude(element, target)
-        self._duration = ef_duration(element, config)
-        self._settings = self._grid(element, config)
+        return self.build_group_schedule(
+            [target], device, config, backend, {target: sweep}
+        )
 
+    def compatible_groups(
+        self, targets: Sequence[str], device: Any, config: RoutineConfig
+    ) -> list[list[str]]:
+        """By grid size: each point is this qubit's own frequency and drive amplitude."""
+        return grouped_by_size(
+            targets, lambda t: self._grid(device.get_element(t), config)
+        )
+
+    def build_group_schedule(
+        self,
+        targets: Sequence[str],
+        device: Any,
+        config: RoutineConfig,
+        backend: SchedulerBackend,
+        sweeps: Mapping[str, Sweep],
+    ) -> Any:
+        """All three levels at every setting, for every target at once."""
+        grids = {}
+        ef = {}
+        for target in targets:
+            element = device.get_element(target)
+            grids[target] = self._grid(element, config)
+            sweeps[target]["settings"] = grids[target]
+            sweeps[target]["ef_amplitude"] = _required_ef_amplitude(element, target)
+            sweeps[target]["duration"] = ef_duration(element, config)
+            ef[target] = (
+                sweeps[target]["ef_amplitude"],
+                sweeps[target]["duration"],
+            )
         schedule = backend.new_schedule(
             self.name, repetitions=int(config.get("shots", 300))
         )
         index = 0
-        for frequency, amplitude in self._settings:
-            schedule.add(
-                backend.SetClockFrequency(
-                    clock=f"{target}.ro", clock_freq_new=frequency
-                )
+        for position in range(len(grids[targets[0]])):
+            add_together(
+                schedule,
+                [
+                    backend.SetClockFrequency(
+                        clock=f"{target}.ro",
+                        clock_freq_new=grids[target][position][0],
+                    )
+                    for target in targets
+                ],
             )
             for level in (0, 1, 2):
-                schedule.add(backend.Reset(target))
+                anchor = add_together(
+                    schedule, [backend.Reset(target) for target in targets]
+                )
                 if level >= 1:
-                    schedule.add(backend.X(target))
+                    anchor = add_together(
+                        schedule, [backend.X(target) for target in targets]
+                    )
                 if level >= 2:
-                    add_ef_pulse(
-                        schedule, backend, target, self._ef_amplitude, self._duration
-                    )
-                schedule.add(
-                    backend.Measure(
-                        target,
-                        acq_index=index,
-                        bin_mode=backend.BinMode.APPEND,
-                        pulse_amp=amplitude,
-                    )
+                    anchor = add_ef_pulses(schedule, backend, targets, ef)
+                add_after(
+                    schedule,
+                    [
+                        backend.Measure(
+                            target,
+                            acq_channel=channel,
+                            acq_index=index,
+                            bin_mode=backend.BinMode.APPEND,
+                            pulse_amp=grids[target][position][1],
+                        )
+                        for channel, target in enumerate(targets)
+                    ],
+                    anchor,
                 )
                 index += 1
         return schedule
@@ -597,11 +745,16 @@ class ThreeStateOperatingPoint(CalibrationRoutine):
         return grid
 
     def analyse(
-        self, dataset: xr.Dataset, target: str, device: Any, config: RoutineConfig
+        self,
+        dataset: xr.Dataset,
+        target: str,
+        device: Any,
+        config: RoutineConfig,
+        sweep: Sweep,
     ) -> dict[str, Any]:
-        shots = _prepared_clouds(dataset, 3 * len(self._settings))
-        clouds = [shots[i * 3 : i * 3 + 3] for i in range(len(self._settings))]
-        return fit_three_state_operating_point(self._settings, clouds)
+        shots = _prepared_clouds(dataset, 3 * len(sweep["settings"]))
+        clouds = [shots[i * 3 : i * 3 + 3] for i in range(len(sweep["settings"]))]
+        return fit_three_state_operating_point(sweep["settings"], clouds)
 
     def apply(self, device: Any, target: str, params: dict[str, Any]) -> None:
         element = device.get_element(target)
@@ -673,15 +826,29 @@ class ResonatorSpectroscopySecondExcited(CalibrationRoutine):
         return has_ef_drive(device, target)
 
     def build_schedule(
-        self, target: str, device: Any, config: RoutineConfig, backend: SchedulerBackend
+        self,
+        target: str,
+        device: Any,
+        config: RoutineConfig,
+        backend: SchedulerBackend,
+        sweep: Sweep,
     ) -> Any:
+        return self.build_group_schedule(
+            [target], device, config, backend, {target: sweep}
+        )
+
+    def compatible_groups(
+        self, targets: Sequence[str], device: Any, config: RoutineConfig
+    ) -> list[list[str]]:
+        """By point count: the span is sized from each resonator's own linewidth."""
+        return grouped_by_size(targets, lambda t: self._band(device, t, config)[0])
+
+    def _band(
+        self, device: Any, target: str, config: RoutineConfig
+    ) -> tuple[list[float], float]:
+        """This target's sweep and the ground-state centre it is measured against."""
         element = device.get_element(target)
-        amplitude = _required_ef_amplitude(element, target)
-        duration = ef_duration(element, config)
-        # The reference `analyse` differences against, read here rather than there: a
-        # prerequisite has to be readable before the acquisition to be one at all, and
-        # this sweep is already centred on the same value.
-        self._ground = centre = float(read_path(element, "clock_freqs.readout"))
+        centre = float(read_path(element, "clock_freqs.readout"))
         # From the measured linewidth, as `resonator_spectroscopy_excited` does and for the
         # same reason: this has to find a resonance the ladder has moved, so it wants
         # several linewidths rather than a refinement's fraction of one.
@@ -692,38 +859,64 @@ class ResonatorSpectroscopySecondExcited(CalibrationRoutine):
             )
         )
         points = int(config.get("points", 51))
-        self._frequencies = setpoints_of(
-            config,
-            "frequencies",
-            linear_setpoints(centre - span / 2, centre + span / 2, points),
+        return (
+            setpoints_of(
+                config,
+                "frequencies",
+                linear_setpoints(centre - span / 2, centre + span / 2, points),
+            ),
+            centre,
         )
 
+    def build_group_schedule(
+        self,
+        targets: Sequence[str],
+        device: Any,
+        config: RoutineConfig,
+        backend: SchedulerBackend,
+        sweeps: Mapping[str, Sweep],
+    ) -> Any:
+        """The same sweep with every qubit taken up the ladder to ``|2>`` first."""
+        bands = {}
+        ef = {}
+        for target in targets:
+            element = device.get_element(target)
+            bands[target], centre = self._band(device, target, config)
+            sweeps[target]["frequencies"] = bands[target]
+            # The reference `analyse` differences against, read here rather than there: a
+            # prerequisite has to be readable before the acquisition to be one at all, and
+            # this sweep is already centred on the same value.
+            sweeps[target]["ground"] = centre
+            ef[target] = (
+                _required_ef_amplitude(element, target),
+                ef_duration(element, config),
+            )
         schedule = backend.new_schedule(
             self.name, repetitions=int(config.get("shots", 1024))
         )
-        for index, frequency in enumerate(self._frequencies):
-            schedule.add(backend.Reset(target))
-            schedule.add(backend.X(target))
-            add_ef_pulse(schedule, backend, target, amplitude, duration)
-            schedule.add(
-                backend.SetClockFrequency(
-                    clock=f"{target}.ro", clock_freq_new=frequency
-                )
-            )
-            schedule.add(
-                backend.Measure(
-                    target, acq_index=index, bin_mode=backend.BinMode.AVERAGE
-                )
-            )
+
+        def prepare(sched: Any, group: Sequence[str], _anchor: Any) -> Any:
+            add_together(sched, [backend.X(t) for t in group])
+            # A raw pulse per target on its own ``.12`` clock, so they cannot be one
+            # operation the way a gate can — but they must still coincide, and the readout
+            # must follow the longest of them.
+            return add_ef_pulses(sched, backend, group, ef)
+
+        sweep_readout_frequency(schedule, backend, targets, bands, prepare=prepare)
         return schedule
 
     def analyse(
-        self, dataset: xr.Dataset, target: str, device: Any, config: RoutineConfig
+        self,
+        dataset: xr.Dataset,
+        target: str,
+        device: Any,
+        config: RoutineConfig,
+        sweep: Sweep,
     ) -> dict[str, Any]:
-        fitted = fit_resonator_spectroscopy(self._frequencies, signal_of(dataset))
-        require_resolved_line(fitted, self._frequencies)
+        fitted = fit_resonator_spectroscopy(sweep["frequencies"], signal_of(dataset))
+        require_resolved_line(fitted, sweep["frequencies"])
         second = fitted["readout_frequency"]
-        ground = self._ground
+        ground = sweep["ground"]
         return {
             "readout_frequency_second_excited": second,
             # See `resonator_spectroscopy_excited`: the reference is not measured here.
@@ -792,6 +985,7 @@ class FineAmplitude12(CalibrationRoutine):
         device: Any,
         config: RoutineConfig,
         backend: SchedulerBackend,
+        sweep: Sweep,
         bias: Any = None,
         timeout_s: float = DEFAULT_ROUTINE_TIMEOUT_S,
     ) -> dict[str, Any]:
@@ -804,43 +998,77 @@ class FineAmplitude12(CalibrationRoutine):
         spanned 1.707 of its contrast, asked to be shortened, and was refused outright on
         every run because this method was not here.
         """
-        return amplified(self, target, device, config, backend, timeout_s, step=1)
+        return amplified(
+            self, target, device, config, backend, timeout_s, sweep, step=1
+        )
+
+    def measure_group(
+        self,
+        targets: Sequence[str],
+        device: Any,
+        config: RoutineConfig,
+        backend: SchedulerBackend,
+        sweeps: Mapping[str, Sweep],
+        bias: Any = None,
+        timeout_s: float = DEFAULT_ROUTINE_TIMEOUT_S,
+    ) -> dict[str, dict[str, Any] | Exception]:
+        """The same shortening, applied only to the ladders that outran their model."""
+        return amplified_group(
+            self, targets, device, config, backend, timeout_s, sweeps, step=1
+        )
 
     def build_schedule(
-        self, target: str, device: Any, config: RoutineConfig, backend: SchedulerBackend
+        self,
+        target: str,
+        device: Any,
+        config: RoutineConfig,
+        backend: SchedulerBackend,
+        sweep: Sweep,
     ) -> Any:
-        element = device.get_element(target)
-        self._amplitude = _required_ef_amplitude(element, target)
-        self._duration = ef_duration(element, config)
-        self._repetitions = [
+        return self.build_group_schedule(
+            [target], device, config, backend, {target: sweep}
+        )
+
+    def build_group_schedule(
+        self,
+        targets: Sequence[str],
+        device: Any,
+        config: RoutineConfig,
+        backend: SchedulerBackend,
+        sweeps: Mapping[str, Sweep],
+    ) -> Any:
+        """The amplified EF ladder on every target at once. The counts are one grid."""
+        repetitions = [
             int(n) for n in setpoints_of(config, "repetitions", list(range(1, 26)))
         ]
+        pulses = {}
+        for target in targets:
+            element = device.get_element(target)
+            sweeps[target]["repetitions"] = repetitions
+            sweeps[target]["amplitude"] = _required_ef_amplitude(element, target)
+            sweeps[target]["duration"] = ef_duration(element, config)
+            pulses[target] = (
+                sweeps[target]["amplitude"],
+                sweeps[target]["duration"],
+            )
+        halves = {t: (amp / 2.0, dur) for t, (amp, dur) in pulses.items()}
 
         schedule = backend.new_schedule(
             self.name, repetitions=int(config.get("shots", 1024))
         )
-
-        for index, count in enumerate(self._repetitions):
-            schedule.add(backend.Reset(target))
-            schedule.add(backend.X(target))
-            # Half the amplitude is half the rotation: the drive is linear in it at
-            # fixed duration, which is the same assumption `rabi_12` fits under.
-            add_ef_pulse(
-                schedule, backend, target, self._amplitude / 2.0, self._duration
-            )
+        for index, count in enumerate(repetitions):
+            add_together(schedule, [backend.Reset(t) for t in targets])
+            add_together(schedule, [backend.X(t) for t in targets])
+            # Half the amplitude is half the rotation: the drive is linear in it at fixed
+            # duration, which is the same assumption `rabi_12` fits under.
+            add_ef_pulses(schedule, backend, targets, halves)
             for _ in range(count):
-                add_ef_pulse(schedule, backend, target, self._amplitude, self._duration)
-            # Back to |0> if the ef pulses left the qubit in |1>, and untouched in |2>.
-            # See the class docstring: this is what puts the accumulated ef error into
-            # the |0> population and lets a 0-1 readout resolve it.
-            schedule.add(backend.X(target))
-            schedule.add(
-                backend.Measure(
-                    target,
-                    acq_index=index,
-                    bin_mode=backend.BinMode.AVERAGE,
-                )
-            )
+                add_ef_pulses(schedule, backend, targets, pulses)
+            # Back to |0> if the ef pulses left the qubit in |1>, and untouched in |2>. See
+            # the class docstring: this is what puts the accumulated ef error into the |0>
+            # population and lets a 0-1 readout resolve it.
+            anchor = add_together(schedule, [backend.X(t) for t in targets])
+            add_after(schedule, readouts(backend, targets, index), anchor)
 
         # The EF subspace's two states, measured through the *same* map-back as the sweep
         # above — otherwise the contrast the fit divides by is not the contrast the sweep
@@ -851,46 +1079,45 @@ class FineAmplitude12(CalibrationRoutine):
         # So both references end with the mapping pi: no ef pulse leaves |1>, which maps to
         # |0>, and one ef pi leaves |2>, which does not. They are the two ends of the
         # population axis this sweep actually moves along.
-        reference = len(self._repetitions)
+        reference = len(repetitions)
         for offset, prepare_two in enumerate((False, True)):
-            schedule.add(backend.Reset(target))
-            schedule.add(backend.X(target))
+            add_together(schedule, [backend.Reset(t) for t in targets])
+            add_together(schedule, [backend.X(t) for t in targets])
             if prepare_two:
-                add_ef_pulse(schedule, backend, target, self._amplitude, self._duration)
-            schedule.add(backend.X(target))
-            schedule.add(
-                backend.Measure(
-                    target,
-                    acq_index=reference + offset,
-                    bin_mode=backend.BinMode.AVERAGE,
-                )
-            )
+                add_ef_pulses(schedule, backend, targets, pulses)
+            anchor = add_together(schedule, [backend.X(t) for t in targets])
+            add_after(schedule, readouts(backend, targets, reference + offset), anchor)
         return schedule
 
     def analyse(
-        self, dataset: xr.Dataset, target: str, device: Any, config: RoutineConfig
+        self,
+        dataset: xr.Dataset,
+        target: str,
+        device: Any,
+        config: RoutineConfig,
+        sweep: Sweep,
     ) -> dict[str, Any]:
         signal = signal_of(dataset)
-        expected = len(self._repetitions) + 2
+        expected = len(sweep["repetitions"]) + 2
         if signal.size < expected:
             raise RoutineError(
                 f"fine amplitude 12 expected {expected} acquisitions, got {signal.size}"
             )
-        swept = signal[: len(self._repetitions)]
+        swept = signal[: len(sweep["repetitions"])]
         in_one, in_two = (
-            float(signal[len(self._repetitions)]),
-            float(signal[len(self._repetitions) + 1]),
+            float(signal[len(sweep["repetitions"])]),
+            float(signal[len(sweep["repetitions"]) + 1]),
         )
         fitted = fit_fine_amplitude(
-            np.asarray(self._repetitions, dtype=float),
+            np.asarray(sweep["repetitions"], dtype=float),
             swept,
-            self._amplitude,
+            sweep["amplitude"],
             ground=in_one,
             excited=in_two,
         )
         return {"ef_amp180": fitted["amplitude"], **fitted}
 
-    def uncorrected(self, device: Any, target: str) -> dict[str, Any]:
+    def uncorrected(self, device: Any, target: str, sweep: Sweep) -> dict[str, Any]:
         element = device.get_element(target)
         path = ef_path(element, "ef_amp180")
         current = float(read_path(element, path)) if path else 0.0
@@ -950,50 +1177,84 @@ class EfLadder(CalibrationRoutine):
         return has_ef_drive(device, target)
 
     def build_schedule(
-        self, target: str, device: Any, config: RoutineConfig, backend: SchedulerBackend
+        self,
+        target: str,
+        device: Any,
+        config: RoutineConfig,
+        backend: SchedulerBackend,
+        sweep: Sweep,
     ) -> Any:
-        element = device.get_element(target)
-        self._duration = ef_duration(element, config)
-        # `rabi_12`'s own sweep, so the two amplitudes are read off the same grid. Any
-        # difference between them is then the transitions and not the sampling.
-        self._amplitudes = setpoints_of(
-            config,
-            "amplitudes",
-            linear_setpoints(0.0, min(0.5, full_scale(element, f"{EF}.ef_amp180")), 41),
+        return self.build_group_schedule(
+            [target], device, config, backend, {target: sweep}
         )
+
+    def compatible_groups(
+        self, targets: Sequence[str], device: Any, config: RoutineConfig
+    ) -> list[list[str]]:
+        """By grid size, since it is `rabi_12`'s grid — see `ef_amplitude_grid`."""
+        return grouped_by_size(
+            targets, lambda t: ef_amplitude_grid(device.get_element(t), config)
+        )
+
+    def build_group_schedule(
+        self,
+        targets: Sequence[str],
+        device: Any,
+        config: RoutineConfig,
+        backend: SchedulerBackend,
+        sweeps: Mapping[str, Sweep],
+    ) -> Any:
+        """The 0-1 half of the ladder on every target at once.
+
+        `rabi_12`'s own grid, so the two amplitudes are read off the same sampling and any
+        difference between them is the transitions rather than the grid.
+        """
+        grids = {}
+        for target in targets:
+            element = device.get_element(target)
+            grids[target] = ef_amplitude_grid(element, config)
+            sweeps[target]["amplitudes"] = grids[target]
+            sweeps[target]["duration"] = ef_duration(element, config)
         schedule = backend.new_schedule(
             self.name, repetitions=int(config.get("shots", 2048))
         )
-        for index, amplitude in enumerate(self._amplitudes):
-            schedule.add(backend.Reset(target))
+        for index in range(len(grids[targets[0]])):
+            anchor = add_together(schedule, [backend.Reset(t) for t in targets])
             # From the ground state and on the lower clock, so this is an ordinary Rabi —
             # the only thing borrowed from the EF chain is the pulse itself.
-            add_ef_pulse(
+            anchor = add_ef_pulses(
                 schedule,
                 backend,
-                target,
-                float(amplitude),
-                self._duration,
+                targets,
+                {
+                    target: (
+                        float(grids[target][index]),
+                        sweeps[target]["duration"],
+                    )
+                    for target in targets
+                },
                 transition="01",
             )
-            schedule.add(
-                backend.Measure(
-                    target, acq_index=index, bin_mode=backend.BinMode.AVERAGE
-                )
-            )
+            add_after(schedule, readouts(backend, targets, index), anchor)
         return schedule
 
     def analyse(
-        self, dataset: xr.Dataset, target: str, device: Any, config: RoutineConfig
+        self,
+        dataset: xr.Dataset,
+        target: str,
+        device: Any,
+        config: RoutineConfig,
+        sweep: Sweep,
     ) -> dict[str, Any]:
         signal = signal_of(dataset)
-        if signal.size < len(self._amplitudes):
+        if signal.size < len(sweep["amplitudes"]):
             raise RoutineError(
-                f"ef ladder expected {len(self._amplitudes)} acquisitions, "
+                f"ef ladder expected {len(sweep['amplitudes'])} acquisitions, "
                 f"got {signal.size}"
             )
         fitted = fit_rabi(
-            np.asarray(self._amplitudes, dtype=float), signal[: len(self._amplitudes)]
+            np.asarray(sweep["amplitudes"], dtype=float),
+            signal[: len(sweep["amplitudes"])],
         )
         matched = float(fitted["amp180"])
         measured = _measured_ef_amplitude(device, target)
@@ -1003,7 +1264,7 @@ class EfLadder(CalibrationRoutine):
             "a ladder of %.3f against the %.3f a transmon's sqrt(2) requires (%.2fx out)",
             self.name,
             target,
-            self._duration * 1e9,
+            sweep["duration"] * 1e9,
             matched,
             measured,
             ratio,
@@ -1018,7 +1279,7 @@ class EfLadder(CalibrationRoutine):
             # The number to read: one means the ladder holds and the pulse conventions
             # explain everything; anything else is the output chain.
             "ladder_agreement": ratio / LADDER_RATIO if LADDER_RATIO else 0.0,
-            "pulse_duration": self._duration,
+            "pulse_duration": sweep["duration"],
             "contrast": float(fitted.get("contrast", 0.0)),
             "fit": fitted.get("fit"),
         }
@@ -1076,76 +1337,129 @@ class Ramsey12(CalibrationRoutine):
         return has_three_state_readout(device, target)
 
     def build_schedule(
-        self, target: str, device: Any, config: RoutineConfig, backend: SchedulerBackend
+        self,
+        target: str,
+        device: Any,
+        config: RoutineConfig,
+        backend: SchedulerBackend,
+        sweep: Sweep,
     ) -> Any:
-        element = device.get_element(target)
-        # Half the pi amplitude is half the rotation, at fixed duration.
-        self._half = _required_ef_amplitude(element, target) / 2.0
-        self._duration = ef_duration(element, config)
-        # The clock this run corrects, read before the acquisition rather than after it.
-        self._current_f12 = float(read_path(element, "clock_freqs.f12"))
-        # On the instrument's 1 ns grid. A linear sweep between two round numbers
-        # generally is not — 41 points from 4 ns to 2 us step 49.9 ns — and the
-        # compiler rejects a schedule whose operations do not land on it, some way
-        # from the sweep that asked for them.
-        # Squeezed from both ends, like `ramsey`'s, and measured rather than guessed.
-        #
-        # Long enough to *contain* the decay. The fit refuses a T2* the window never
-        # saw, and rightly: a 2 us sweep against this coherence returned 1.4 seconds.
-        # A 12 us one then fitted 15.5 us — accepted by the fit, but extrapolated past
-        # its own window, which is a number to distrust. The 1-2 coherence here runs
-        # about 15 us, so 30 us holds two time constants of it.
-        #
-        # Fine enough for the fringe: 125 ns steps put Nyquist at 4 MHz, well clear of
-        # the 1 MHz advance below.
-        self._delays = [
+        return self.build_group_schedule(
+            [target], device, config, backend, {target: sweep}
+        )
+
+    def compatible_groups(
+        self, targets: Sequence[str], device: Any, config: RoutineConfig
+    ) -> list[list[str]]:
+        """Exactly, since the axis is delay — one timeline for the whole group."""
+        return grouped_by_grid(targets, lambda _target: self._delays(config))
+
+    def _delays(self, config: RoutineConfig) -> list[float]:
+        """The EF Ramsey delays, on the instrument's 1 ns grid.
+
+        A linear sweep between two round numbers generally is not on it — 41 points from
+        4 ns to 2 us step 49.9 ns — and the compiler rejects a schedule whose operations do
+        not land on it, some way from the sweep that asked for them.
+
+        Squeezed from both ends, and measured rather than guessed. Long enough to *contain*
+        the decay: the fit refuses a T2* the window never saw, and rightly — a 2 us sweep
+        returned 1.4 seconds, and a 12 us one fitted 15.5 us, accepted by the fit but
+        extrapolated past its own window. The 1-2 coherence runs about 15 us, so 30 us holds
+        two time constants. Fine enough for the fringe: 125 ns steps put Nyquist at 4 MHz,
+        well clear of the 1 MHz advance below.
+        """
+        return [
             grid_duration(delay)
             for delay in setpoints_of(
                 config, "delays", linear_setpoints(4e-9, 30e-6, 241)
             )
         ]
-        self._detuning = float(config.get("artificial_detuning", 1e6))
+
+    def build_group_schedule(
+        self,
+        targets: Sequence[str],
+        device: Any,
+        config: RoutineConfig,
+        backend: SchedulerBackend,
+        sweeps: Mapping[str, Sweep],
+    ) -> Any:
+        """The EF fringe on every target at once, each on its own detuned ``.12`` clock."""
+        delays = self._delays(config)
+        detuning = float(config.get("artificial_detuning", 1e6))
+        halves = {}
+        for target in targets:
+            element = device.get_element(target)
+            sweeps[target]["delays"] = delays
+            sweeps[target]["detuning"] = detuning
+            # Half the pi amplitude is half the rotation, at fixed duration.
+            sweeps[target]["half"] = _required_ef_amplitude(element, target) / 2.0
+            sweeps[target]["duration"] = ef_duration(element, config)
+            # The clock this run corrects, read before the acquisition rather than after.
+            sweeps[target]["current_f12"] = float(read_path(element, "clock_freqs.f12"))
+            halves[target] = (
+                sweeps[target]["half"],
+                sweeps[target]["duration"],
+            )
 
         schedule = backend.new_schedule(
             self.name, repetitions=int(config.get("shots", 1024))
         )
-        measure = open_three_state_readout(schedule, backend, target, element)
-        # The clock is detuned rather than the second pulse phase-advanced, which is
-        # the opposite of what `ramsey` does one rung down and is not a preference.
-        # A phase advance is a `ShiftClockPhase`, and on the ``.12`` clock it produced
-        # no fringe at all: the fitted detuning came back at minus the artificial one
-        # whatever the device's f12 was set to, so the sweep was measuring nothing.
-        # Detuning the clock does work — the fringe tracks the offset — and it is what
-        # the routine's own frame offset is built from.
-        current = float(read_path(element, "clock_freqs.f12"))
-        schedule.add(
-            backend.SetClockFrequency(
-                clock=f"{target}.12", clock_freq_new=current + self._detuning
+        measure = {
+            target: open_three_state_readout(
+                schedule, backend, target, device.get_element(target)
             )
-        )
-        for index, delay in enumerate(self._delays):
-            schedule.add(backend.Reset(target))
-            schedule.add(backend.X(target))
-            add_ef_pulse(schedule, backend, target, self._half, self._duration)
-            backend.idle(schedule, delay)
-            add_ef_pulse(schedule, backend, target, self._half, self._duration)
-            schedule.add(
-                backend.Measure(
-                    target,
-                    acq_index=index,
-                    bin_mode=backend.BinMode.AVERAGE,
-                    **measure,
+            for target in targets
+        }
+        # The clock is detuned rather than the second pulse phase-advanced, which is the
+        # opposite of what `ramsey` does one rung down and is not a preference. A phase
+        # advance is a `ShiftClockPhase`, and on the ``.12`` clock it produced no fringe at
+        # all: the fitted detuning came back at minus the artificial one whatever the
+        # device's f12 was set to, so the sweep was measuring nothing. Detuning the clock
+        # does work, and it is what the routine's own frame offset is built from.
+        add_together(
+            schedule,
+            [
+                backend.SetClockFrequency(
+                    clock=f"{target}.12",
+                    clock_freq_new=sweeps[target]["current_f12"] + detuning,
                 )
+                for target in targets
+            ],
+        )
+        for index, delay in enumerate(delays):
+            add_together(schedule, [backend.Reset(t) for t in targets])
+            add_together(schedule, [backend.X(t) for t in targets])
+            add_ef_pulses(schedule, backend, targets, halves)
+            backend.idle(schedule, delay)
+            anchor = add_ef_pulses(schedule, backend, targets, halves)
+            add_after(
+                schedule,
+                [
+                    backend.Measure(
+                        target,
+                        acq_channel=channel,
+                        acq_index=index,
+                        bin_mode=backend.BinMode.AVERAGE,
+                        **measure[target],
+                    )
+                    for channel, target in enumerate(targets)
+                ],
+                anchor,
             )
         return schedule
 
     def analyse(
-        self, dataset: xr.Dataset, target: str, device: Any, config: RoutineConfig
+        self,
+        dataset: xr.Dataset,
+        target: str,
+        device: Any,
+        config: RoutineConfig,
+        sweep: Sweep,
     ) -> dict[str, Any]:
         fitted = fit_ramsey(
-            np.asarray(self._delays), signal_of(dataset), self._detuning
+            np.asarray(sweep["delays"]), signal_of(dataset), sweep["detuning"]
         )
-        fitted["clock_freq_12"] = self._current_f12 - fitted["detuning"]
+        fitted["clock_freq_12"] = sweep["current_f12"] - fitted["detuning"]
         return fitted
 
     def apply(self, device: Any, target: str, params: dict[str, Any]) -> None:
@@ -1194,6 +1508,7 @@ class Drag12(CalibrationRoutine):
         device: Any,
         config: RoutineConfig,
         backend: SchedulerBackend,
+        sweep: Sweep,
         bias: Any = None,
         timeout_s: float = DEFAULT_ROUTINE_TIMEOUT_S,
     ) -> dict[str, Any]:
@@ -1204,69 +1519,115 @@ class Drag12(CalibrationRoutine):
         came out at 0.298 against a range of +/-0.2, so the node refused a fit that had
         found its answer.
         """
-        return self.escalating(target, device, config, backend, timeout_s)
+        return self.escalating(target, device, config, backend, timeout_s, sweep)
+
+    def measure_group(
+        self,
+        targets: Sequence[str],
+        device: Any,
+        config: RoutineConfig,
+        backend: SchedulerBackend,
+        sweeps: Mapping[str, Sweep],
+        bias: Any = None,
+        timeout_s: float = DEFAULT_ROUTINE_TIMEOUT_S,
+    ) -> dict[str, dict[str, Any] | Exception]:
+        """The same widening, for the targets whose optimum fell outside the sweep."""
+        return self.escalating_group(
+            targets, device, config, backend, timeout_s, sweeps
+        )
 
     def build_schedule(
-        self, target: str, device: Any, config: RoutineConfig, backend: SchedulerBackend
+        self,
+        target: str,
+        device: Any,
+        config: RoutineConfig,
+        backend: SchedulerBackend,
+        sweep: Sweep,
     ) -> Any:
-        element = device.get_element(target)
-        amplitude = _required_ef_amplitude(element, target)
-        duration = ef_duration(element, config)
-        # In the backend's own units, for the reason `drag` gives: a span sized for
-        # quantify's ratio is nine orders out for qblox's seconds.
-        self._drags = setpoints_of(
+        return self.build_group_schedule(
+            [target], device, config, backend, {target: sweep}
+        )
+
+    def build_group_schedule(
+        self,
+        targets: Sequence[str],
+        device: Any,
+        config: RoutineConfig,
+        backend: SchedulerBackend,
+        sweeps: Mapping[str, Sweep],
+    ) -> Any:
+        """Both sequences on every target at once, two acquisitions per setpoint.
+
+        The DRAG span is the backend's own, so it is one grid for the group and it never
+        splits. The pulse amplitude and duration are per target; the phase and the DRAG
+        coefficient are the swept axis, so they are shared.
+        """
+        drags = setpoints_of(
             config, "drags", linear_setpoints(-backend.drag_span, backend.drag_span, 31)
         )
+        pulses = {}
+        for target in targets:
+            element = device.get_element(target)
+            sweeps[target]["drags"] = drags
+            pulses[target] = (
+                _required_ef_amplitude(element, target),
+                ef_duration(element, config),
+            )
 
         schedule = backend.new_schedule(
             self.name, repetitions=int(config.get("shots", 1024))
         )
-        measure = open_three_state_readout(schedule, backend, target, element)
-        for index, drag in enumerate(self._drags):
+        measure = {
+            target: open_three_state_readout(
+                schedule, backend, target, device.get_element(target)
+            )
+            for target in targets
+        }
+        halves = {t: (amp / 2.0, dur) for t, (amp, dur) in pulses.items()}
+        for index, drag in enumerate(drags):
             for offset, (first, second) in enumerate(((0.0, 90.0), (90.0, 0.0))):
-                schedule.add(backend.Reset(target))
-                schedule.add(backend.X(target))
-                add_ef_pulse(
-                    schedule,
-                    backend,
-                    target,
-                    amplitude / 2.0,
-                    duration,
-                    phase_deg=first,
-                    drag=drag,
+                add_together(schedule, [backend.Reset(t) for t in targets])
+                add_together(schedule, [backend.X(t) for t in targets])
+                add_ef_pulses(
+                    schedule, backend, targets, halves, phase_deg=first, drag=drag
                 )
-                add_ef_pulse(
-                    schedule,
-                    backend,
-                    target,
-                    amplitude,
-                    duration,
-                    phase_deg=second,
-                    drag=drag,
+                anchor = add_ef_pulses(
+                    schedule, backend, targets, pulses, phase_deg=second, drag=drag
                 )
-                schedule.add(
-                    backend.Measure(
-                        target,
-                        acq_index=2 * index + offset,
-                        bin_mode=backend.BinMode.AVERAGE,
-                        **measure,
-                    )
+                add_after(
+                    schedule,
+                    [
+                        backend.Measure(
+                            target,
+                            acq_channel=channel,
+                            acq_index=2 * index + offset,
+                            bin_mode=backend.BinMode.AVERAGE,
+                            **measure[target],
+                        )
+                        for channel, target in enumerate(targets)
+                    ],
+                    anchor,
                 )
         return schedule
 
     def analyse(
-        self, dataset: xr.Dataset, target: str, device: Any, config: RoutineConfig
+        self,
+        dataset: xr.Dataset,
+        target: str,
+        device: Any,
+        config: RoutineConfig,
+        sweep: Sweep,
     ) -> dict[str, Any]:
         signal = signal_of(dataset)
-        if signal.size < 2 * len(self._drags):
+        if signal.size < 2 * len(sweep["drags"]):
             raise RoutineError(
-                f"drag_12 expected {2 * len(self._drags)} acquisitions, got {signal.size}"
+                f"drag_12 expected {2 * len(sweep['drags'])} acquisitions, got {signal.size}"
             )
-        paired = signal[: 2 * len(self._drags)].reshape(-1, 2)
+        paired = signal[: 2 * len(sweep["drags"])].reshape(-1, 2)
         element = device.get_element(target)
         path = ef_path(element, "ef_motzoi")
         fitted = fit_drag(
-            np.asarray(self._drags),
+            np.asarray(sweep["drags"]),
             paired[:, 0] - paired[:, 1],
             axis="drags",
             current=float(read_path(element, path)) if path else 0.0,
@@ -1315,36 +1676,80 @@ class ThreeStateDiscrimination(CalibrationRoutine):
         return has_three_state_readout(device, target)
 
     def build_schedule(
-        self, target: str, device: Any, config: RoutineConfig, backend: SchedulerBackend
+        self,
+        target: str,
+        device: Any,
+        config: RoutineConfig,
+        backend: SchedulerBackend,
+        sweep: Sweep,
     ) -> Any:
-        element = device.get_element(target)
-        amplitude = _required_ef_amplitude(element, target)
-        duration = ef_duration(element, config)
+        return self.build_group_schedule(
+            [target], device, config, backend, {target: sweep}
+        )
 
+    def build_group_schedule(
+        self,
+        targets: Sequence[str],
+        device: Any,
+        config: RoutineConfig,
+        backend: SchedulerBackend,
+        sweeps: Mapping[str, Sweep],
+    ) -> Any:
+        """The three prepared states on every target at once.
+
+        Three acquisitions per target and no sweep, so the group never splits: what is
+        being counted is how often each prepared level is misread, and the levels are the
+        same three on every chip.
+        """
+        ef = {}
         schedule = backend.new_schedule(
             self.name, repetitions=int(config.get("shots", 2000))
         )
-        # At the three-state point, not the two-state one: there |1> and |2> collapse
-        # together and there is nothing to classify.
-        measure_kwargs = open_three_state_readout(schedule, backend, target, element)
+        measure_kwargs = {}
+        for target in targets:
+            element = device.get_element(target)
+            ef[target] = (
+                _required_ef_amplitude(element, target),
+                ef_duration(element, config),
+            )
+            # At the three-state point, not the two-state one: there |1> and |2> collapse
+            # together and there is nothing to classify.
+            measure_kwargs[target] = open_three_state_readout(
+                schedule, backend, target, element
+            )
         for index, level in enumerate(self.STATES):
-            schedule.add(backend.Reset(target))
+            anchor = add_together(
+                schedule, [backend.Reset(target) for target in targets]
+            )
             if level >= 1:
-                schedule.add(backend.X(target))
-            if level >= 2:
-                add_ef_pulse(schedule, backend, target, amplitude, duration)
-            schedule.add(
-                backend.Measure(
-                    target,
-                    acq_index=index,
-                    bin_mode=backend.BinMode.APPEND,
-                    **measure_kwargs,
+                anchor = add_together(
+                    schedule, [backend.X(target) for target in targets]
                 )
+            if level >= 2:
+                anchor = add_ef_pulses(schedule, backend, targets, ef)
+            add_after(
+                schedule,
+                [
+                    backend.Measure(
+                        target,
+                        acq_channel=channel,
+                        acq_index=index,
+                        bin_mode=backend.BinMode.APPEND,
+                        **measure_kwargs[target],
+                    )
+                    for channel, target in enumerate(targets)
+                ],
+                anchor,
             )
         return schedule
 
     def analyse(
-        self, dataset: xr.Dataset, target: str, device: Any, config: RoutineConfig
+        self,
+        dataset: xr.Dataset,
+        target: str,
+        device: Any,
+        config: RoutineConfig,
+        sweep: Sweep,
     ) -> dict[str, Any]:
         return fit_three_state_discrimination(
             _prepared_clouds(dataset, len(self.STATES))

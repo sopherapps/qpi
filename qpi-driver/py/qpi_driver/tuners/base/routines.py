@@ -12,6 +12,7 @@ the same routine runs under quantify-scheduler and qblox-scheduler alike.
 
 import logging
 from abc import ABC, abstractmethod
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal
 
@@ -20,6 +21,8 @@ import xarray as xr
 
 from qpi_driver.tuners.base.backend import SchedulerBackend
 from qpi_driver.tuners.base.config import DEFAULT_ROUTINE_TIMEOUT_S, RoutineConfig
+from qpi_driver.tuners.base.fusion import channels_of
+from qpi_driver.tuners.base.sweep import Sweep
 from qpi_driver.tuners.fitting.core import (
     MIN_LINE_REACH,
     CarriesFit,
@@ -151,13 +154,77 @@ class CalibrationRoutine(ABC):
 
     @abstractmethod
     def build_schedule(
-        self, target: str, device: Any, config: RoutineConfig, backend: SchedulerBackend
+        self,
+        target: str,
+        device: Any,
+        config: RoutineConfig,
+        backend: SchedulerBackend,
+        sweep: Sweep,
     ) -> Any:
         """Compose the schedule for this experiment over *target*."""
 
+    def build_group_schedule(
+        self,
+        targets: Sequence[str],
+        device: Any,
+        config: RoutineConfig,
+        backend: SchedulerBackend,
+        sweeps: Mapping[str, Sweep],
+    ) -> Any:
+        """This experiment over every target in *targets*, in one schedule (RFC 0009 §6.1).
+
+        A fusable routine implements this and lets :meth:`build_schedule` delegate to it
+        with a single target; the default here goes the other way, so a routine not yet
+        converted keeps working and declines a group. :attr:`fusable` is how the walk
+        tells which it has.
+
+        An implementation owes two things `build_schedule` does not. Every target's
+        operations must start together, which `fusion.add_together` does — appending
+        them would make the schedule as long as the sequential run it replaces. And each
+        target's `Measure` must name its own ``acq_channel``, its position in *targets*,
+        because an element's own channel defaults to zero on all of them and the walk
+        slices the result back apart by position.
+        """
+        if len(targets) == 1:
+            return self.build_schedule(
+                targets[0], device, config, backend, sweeps[targets[0]]
+            )
+        raise RoutineError(
+            f"{self.name} cannot measure {len(targets)} targets in one schedule"
+        )
+
+    def compatible_groups(
+        self, targets: Sequence[str], device: Any, config: RoutineConfig
+    ) -> list[list[str]]:
+        """*targets* split into subgroups one schedule can hold (RFC 0009 D7).
+
+        The default is a single group, which is right for a routine whose sweep is the
+        same on every target — a fixed gate sequence, or a grid the config states outright.
+
+        A routine whose grid is derived per target overrides this. `t2_echo` is the case it
+        exists for: its delay window is scaled from each qubit's measured T1, so two
+        targets can want different windows, and an idle is dead time on every port at once
+        — there is no per-target time axis to sweep. Fusing them anyway would sweep one
+        qubit over the other's window and fit the result.
+        """
+        return [list(targets)]
+
+    @property
+    def fusable(self) -> bool:
+        """Whether this routine overrides :meth:`build_group_schedule`."""
+        return (
+            type(self).build_group_schedule
+            is not CalibrationRoutine.build_group_schedule
+        )
+
     @abstractmethod
     def analyse(
-        self, dataset: xr.Dataset, target: str, device: Any, config: RoutineConfig
+        self,
+        dataset: xr.Dataset,
+        target: str,
+        device: Any,
+        config: RoutineConfig,
+        sweep: Sweep,
     ) -> dict[str, Any]:
         """Fit *dataset* and return the extracted parameters.
 
@@ -166,7 +233,7 @@ class CalibrationRoutine(ABC):
                 the range that produced it.
         """
 
-    def uncorrected(self, device: Any, target: str) -> dict[str, Any]:
+    def uncorrected(self, device: Any, target: str, sweep: Sweep) -> dict[str, Any]:
         """This node's parameters with no correction applied — the prior, reported as such.
 
         For a refining node whose sweep could not be described by its own model. The value
@@ -188,7 +255,12 @@ class CalibrationRoutine(ABC):
         """
 
     def build_check_schedule(
-        self, target: str, device: Any, config: RoutineConfig, backend: SchedulerBackend
+        self,
+        target: str,
+        device: Any,
+        config: RoutineConfig,
+        backend: SchedulerBackend,
+        sweep: Sweep,
     ) -> Any:
         """A short schedule testing whether this routine's parameters still hold.
 
@@ -208,7 +280,12 @@ class CalibrationRoutine(ABC):
         return None
 
     def analyse_check(
-        self, dataset: xr.Dataset, target: str, device: Any, config: RoutineConfig
+        self,
+        dataset: xr.Dataset,
+        target: str,
+        device: Any,
+        config: RoutineConfig,
+        sweep: Sweep,
     ) -> CheckOutcome:
         """Whether the parameters still hold, from the check schedule's data.
 
@@ -227,6 +304,7 @@ class CalibrationRoutine(ABC):
         device: Any,
         config: Any,
         backend: Any,
+        sweep: Sweep,
         bias: Any = None,
         timeout_s: float = DEFAULT_ROUTINE_TIMEOUT_S,
     ) -> dict[str, Any]:
@@ -277,6 +355,7 @@ class CalibrationRoutine(ABC):
         config: RoutineConfig,
         backend: SchedulerBackend,
         timeout_s: float,
+        sweep: Sweep,
     ) -> Any:
         """Build this routine's schedule, run it, and return the dataset.
 
@@ -289,7 +368,7 @@ class CalibrationRoutine(ABC):
         The default is exactly what both call sites did before this existed, so a routine
         that does not override it behaves identically.
         """
-        schedule = self.build_schedule(target, device, config, backend)
+        schedule = self.build_schedule(target, device, config, backend, sweep)
         return backend.run(schedule, timeout_s=timeout_s)
 
     def acquire_in_row_chunks(
@@ -299,6 +378,7 @@ class CalibrationRoutine(ABC):
         config: RoutineConfig,
         backend: SchedulerBackend,
         timeout_s: float,
+        sweep: Sweep,
         *,
         rows_axis: str,
         columns_axis: str = "frequencies",
@@ -325,9 +405,9 @@ class CalibrationRoutine(ABC):
         there is nothing at its edges to lose. `analyse` reshapes the result exactly as it
         would one schedule's, because the rows arrive in the order it expects.
         """
-        schedule = self.build_schedule(target, device, config, backend)
-        rows = list(getattr(self, f"_{rows_axis}", ()) or ())
-        columns = len(getattr(self, f"_{columns_axis}", ()) or ())
+        schedule = self.build_schedule(target, device, config, backend, sweep)
+        rows = list(sweep.get(rows_axis, ()) or ())
+        columns = len(sweep.get(columns_axis, ()) or ())
         per_schedule = max(1, MAX_SWEEP_POINTS // max(columns, 1))
         if len(rows) <= per_schedule:
             return backend.run(schedule, timeout_s=timeout_s)
@@ -356,14 +436,98 @@ class CalibrationRoutine(ABC):
             chunk = RoutineConfig(
                 enabled=config.enabled, params={**config.params, rows_axis: list(group)}
             )
-            piece = self.build_schedule(target, device, chunk, backend)
+            piece = self.build_schedule(target, device, chunk, backend, sweep)
             dataset = backend.run(piece, timeout_s=timeout_s)
             gathered.append(np.asarray(signal_of(dataset), dtype=float))
 
         # The full grid restored, so `analyse` reshapes against what was actually swept
         # rather than against the last chunk.
-        setattr(self, f"_{rows_axis}", rows)
+        sweep[rows_axis] = rows
         return xr.Dataset({"y0": ("acq_index", np.concatenate(gathered))})
+
+    def acquire_group_in_row_chunks(
+        self,
+        targets: Sequence[str],
+        device: Any,
+        config: RoutineConfig,
+        backend: SchedulerBackend,
+        timeout_s: float,
+        sweeps: Mapping[str, Sweep],
+        *,
+        rows_axis: str,
+        columns_axis: str = "frequencies",
+    ) -> Any:
+        """A group's 2-D sweep as one schedule per band of rows, stitched back together.
+
+        The group counterpart of :meth:`acquire_in_row_chunks`, and chunked on the same
+        budget: the ceiling is a *sequencer's* instruction count, and a fused schedule gives
+        each target its own sequencer running its own copy of the sweep, so the number of
+        rows one program holds is the same whether it carries one target or five.
+
+        Each chunk is demultiplexed and each target's rows concatenated, so `analyse`
+        reshapes against the whole grid exactly as it would one schedule's.
+        """
+
+        # Built and run here rather than through `self.acquire_group`, which is the method
+        # that called this one: re-dispatching would come straight back and recurse until
+        # the stack gave out. `acquire_in_row_chunks` has always run the unchunked case
+        # directly for the same reason.
+        def one_pass(single: RoutineConfig) -> Any:
+            schedule = self.build_group_schedule(
+                targets, device, single, backend, sweeps
+            )
+            return backend.run(schedule, timeout_s=timeout_s)
+
+        rows = list(sweeps[targets[0]].get(rows_axis, ()) or ())
+        columns = len(sweeps[targets[0]].get(columns_axis, ()) or ())
+        per_schedule = max(1, MAX_SWEEP_POINTS // max(columns, 1))
+        if not rows or len(rows) <= per_schedule:
+            return one_pass(config)
+
+        groups = [
+            rows[start : start + per_schedule]
+            for start in range(0, len(rows), per_schedule)
+        ]
+        log.info(
+            "%s on %s: %d %s x %d %s is %d acquisitions, past the %d one schedule holds — "
+            "running %d schedules of at most %d rows",
+            self.name,
+            ", ".join(targets),
+            len(rows),
+            rows_axis,
+            columns,
+            columns_axis,
+            len(rows) * columns,
+            MAX_SWEEP_POINTS,
+            len(groups),
+            per_schedule,
+        )
+
+        gathered: dict[str, list[Any]] = {target: [] for target in targets}
+        for band in groups:
+            chunk = RoutineConfig(
+                enabled=config.enabled, params={**config.params, rows_axis: list(band)}
+            )
+            dataset = one_pass(chunk)
+            sliced = channels_of(dataset, targets)
+            for target in targets:
+                piece = sliced.get(target)
+                if piece is None:
+                    raise RoutineError(
+                        f"the fused acquisition carried no channel for {target}"
+                    )
+                gathered[target].append(np.asarray(signal_of(piece), dtype=float))
+
+        # The full grid restored on every target, so each `analyse` reshapes against what
+        # was actually swept rather than against the last chunk.
+        for target in targets:
+            sweeps[target][rows_axis] = rows
+        return xr.Dataset(
+            {
+                channel: ("acq_index", np.concatenate(gathered[target]))
+                for channel, target in enumerate(targets)
+            }
+        )
 
     def escalating(
         self,
@@ -372,6 +536,7 @@ class CalibrationRoutine(ABC):
         config: RoutineConfig,
         backend: SchedulerBackend,
         timeout_s: float,
+        sweep: Sweep,
     ) -> dict[str, Any]:
         """Build, run and analyse, widening the sweep if the fit says the window was wrong.
 
@@ -393,13 +558,15 @@ class CalibrationRoutine(ABC):
         attempted: list[str] = []
         for attempt in range(self.MAX_ESCALATIONS + 1):
             try:
-                dataset = self.acquire(target, device, config, backend, timeout_s)
-                return self.analyse(dataset, target, device, config)
+                dataset = self.acquire(
+                    target, device, config, backend, timeout_s, sweep
+                )
+                return self.analyse(dataset, target, device, config, sweep)
             except OutOfRange as refusal:
                 attempted.append(f"{refusal.axis} x{refusal.factor**attempt:g}")
                 if attempt == self.MAX_ESCALATIONS or refusal.axis in operator_set:
                     raise
-                widened = _widened(self, config, refusal)
+                widened = _widened(self, config, refusal, sweep)
                 if widened is config:
                     raise
                 config = widened
@@ -416,6 +583,195 @@ class CalibrationRoutine(ABC):
         raise RoutineError(  # pragma: no cover - the loop above always returns or raises
             f"{self.name} exhausted its escalations on {target}: {', '.join(attempted)}"
         )
+
+    def escalating_group(
+        self,
+        targets: Sequence[str],
+        device: Any,
+        config: RoutineConfig,
+        backend: SchedulerBackend,
+        timeout_s: float,
+        sweeps: Mapping[str, Sweep],
+    ) -> dict[str, dict[str, Any] | Exception]:
+        """`escalating` over a group: one acquisition for all, re-fused for the refused.
+
+        The saving is that the common case — nothing refuses — is a single acquisition for
+        the whole group. What makes it more than a loop is what happens when one target
+        does refuse: widening for the group would re-sweep the satisfied targets over a
+        range chosen for a different qubit, and `Rabi` documents why that is not free.
+        So only the refused subset is widened, and only it is measured again.
+
+        A widening therefore splits the group, since a config belongs to the targets that
+        asked for it and a fused schedule needs one grid (RFC 0009 D7). Subsequent
+        attempts fuse whatever targets are still on the same config, which on a chip where
+        two qubits refuse the same axis is still one acquisition rather than two.
+
+        Bounded exactly as `escalating` is, per subset: `MAX_ESCALATIONS` attempts, an axis
+        the operator named is left alone, and a widening that cannot move re-raises. Each
+        target's outcome is its own — fitted parameters, or the exception that refused it,
+        so one bad qubit does not cost the group its results (RFC 0009 D8).
+        """
+        # Captured once, before any widening puts its own setpoints into a config: asking
+        # afterwards would find this method's own work and read it as an instruction.
+        operator_set = frozenset(config.params)
+        results: dict[str, dict[str, Any] | Exception] = {}
+        pending: list[tuple[RoutineConfig, list[str]]] = [(config, list(targets))]
+
+        for attempt in range(self.MAX_ESCALATIONS + 1):
+            if not pending:
+                break
+            widened_next: dict[str, tuple[RoutineConfig, list[str]]] = {}
+            for shared, subgroup in pending:
+                fitted, refused = self._fused_pass(
+                    subgroup, device, shared, backend, timeout_s, sweeps
+                )
+                results.update(fitted)
+                for target, refusal in refused.items():
+                    wider = (
+                        None
+                        if attempt == self.MAX_ESCALATIONS
+                        or not isinstance(refusal, OutOfRange)
+                        or refusal.axis in operator_set
+                        else _widened(self, shared, refusal, sweeps[target])
+                    )
+                    if wider is None or wider is shared:
+                        results[target] = refusal
+                        continue
+                    log.info(
+                        "%s on %s: %s — widening %s by %gx and trying again (%d of %d)",
+                        self.name,
+                        target,
+                        refusal,
+                        refusal.axis,
+                        refusal.factor,
+                        attempt + 1,
+                        self.MAX_ESCALATIONS,
+                    )
+                    # Keyed on the config's *contents*, not its identity: `_widened`
+                    # returns a fresh object per call, so two targets refusing the same
+                    # axis by the same factor would otherwise be measured one after the
+                    # other despite asking for exactly the same sweep.
+                    slot = widened_next.setdefault(_axes_key(wider), (wider, []))
+                    slot[1].append(target)
+            pending = list(widened_next.values())
+
+        return results
+
+    def acquire_group(
+        self,
+        targets: Sequence[str],
+        device: Any,
+        config: RoutineConfig,
+        backend: SchedulerBackend,
+        timeout_s: float,
+        sweeps: Mapping[str, Sweep],
+    ) -> Any:
+        """Build this group's schedule, run it, and return the dataset.
+
+        The group counterpart of :meth:`acquire`, and it exists for the same reason: a
+        routine whose sweep does not fit in one program chunks it across several, and the
+        fused path has to go through the same seam or the chunking is simply skipped.
+
+        That is not hypothetical. `rb` chunks by default — ten circuits over the shipped
+        depths is 1270 Cliffords against the 1000 one schedule holds — so a fused RB that
+        bypassed this would build a program too long to assemble, which is the failure the
+        chunking exists to prevent.
+        """
+        schedule = self.build_group_schedule(targets, device, config, backend, sweeps)
+        return backend.run(schedule, timeout_s=timeout_s)
+
+    @property
+    def chunks_acquisition(self) -> bool:
+        """Whether this routine overrides :meth:`acquire` but not :meth:`acquire_group`.
+
+        Such a routine must not be fused: its chunking lives in `acquire`, and the group
+        path would go straight past it. The same argument as `measures_itself` against
+        `measure_group`, one seam down.
+        """
+        return (
+            type(self).acquire is not CalibrationRoutine.acquire
+            and type(self).acquire_group is CalibrationRoutine.acquire_group
+        )
+
+    def _fused_pass(
+        self,
+        targets: Sequence[str],
+        device: Any,
+        config: RoutineConfig,
+        backend: SchedulerBackend,
+        timeout_s: float,
+        sweeps: Mapping[str, Sweep],
+    ) -> tuple[dict[str, dict[str, Any]], dict[str, Exception]]:
+        """One fused acquisition, analysed per target. Returns what fitted and what did not.
+
+        A failure of the *acquisition* is every target's, since they shared it; a failure
+        of a fit is only that target's.
+        """
+        try:
+            dataset = self.acquire_group(
+                targets, device, config, backend, timeout_s, sweeps
+            )
+        except Exception as exc:  # noqa: BLE001 - recorded against every target below
+            return {}, {target: exc for target in targets}
+
+        fitted: dict[str, dict[str, Any]] = {}
+        refused: dict[str, Exception] = {}
+        sliced = channels_of(dataset, targets)
+        for target in targets:
+            acquisition = sliced.get(target)
+            if acquisition is None:
+                refused[target] = RoutineError(
+                    "the fused acquisition carried no channel for it"
+                )
+                continue
+            try:
+                fitted[target] = self.analyse(
+                    acquisition, target, device, config, sweeps[target]
+                )
+            except Exception as exc:  # noqa: BLE001 - one target's refusal, not the group's
+                refused[target] = exc
+        return fitted, refused
+
+    def measure_group(
+        self,
+        targets: Sequence[str],
+        device: Any,
+        config: RoutineConfig,
+        backend: SchedulerBackend,
+        sweeps: Mapping[str, Sweep],
+        bias: Any = None,
+        timeout_s: float = DEFAULT_ROUTINE_TIMEOUT_S,
+    ) -> dict[str, dict[str, Any] | Exception]:
+        """This routine's own measurement loop over a group (RFC 0009 §6.5).
+
+        The counterpart of `build_group_schedule` for a routine that overrides `measure`.
+        The default declines a group and delegates a group of one, so a routine that has
+        not opted in behaves exactly as it did.
+        """
+        if len(targets) == 1:
+            target = targets[0]
+            try:
+                return {
+                    target: self.measure(
+                        target,
+                        device,
+                        config,
+                        backend,
+                        sweeps[target],
+                        bias,
+                        timeout_s=timeout_s,
+                    )
+                }
+            except Exception as exc:  # noqa: BLE001 - the walk records it per target
+                return {target: exc}
+        raise RoutineError(
+            f"{self.name} cannot measure {len(targets)} targets in one loop"
+        )
+
+    @property
+    def measures_group(self) -> bool:
+        """Whether this routine overrides :meth:`measure_group`."""
+        return type(self).measure_group is not CalibrationRoutine.measure_group
 
     @property
     def measures_itself(self) -> bool:
@@ -617,22 +973,34 @@ def _unresolved(message: str, *, axis: str | None, direction: str) -> Exception:
     return OutOfRange(message, axis=axis, direction=direction, factor=2.0)
 
 
+def _axes_key(config: RoutineConfig) -> str:
+    """A config's sweep parameters as a comparable key, for grouping equal sweeps.
+
+    ``repr`` rather than a frozenset because the values are setpoint *lists*, which are
+    unhashable — and equal lists must produce equal keys, which is the whole point.
+    """
+    return repr(sorted((axis, repr(value)) for axis, value in config.params.items()))
+
+
 def _widened(
-    routine: CalibrationRoutine, config: RoutineConfig, refusal: OutOfRange
+    routine: CalibrationRoutine,
+    config: RoutineConfig,
+    refusal: OutOfRange,
+    sweep: Sweep,
 ) -> RoutineConfig:
     """*config* with the axis *refusal* named stretched by its factor.
 
     The setpoints come from what the routine actually built rather than from the config,
     because the default case is the one that matters: a config with no ``delays`` in it is
     exactly the config whose sweep needs widening, and reading only the config would find
-    nothing to stretch. Every routine keeps its setpoints as ``_<axis>`` for `analyse` to
-    fit against, which is what makes this readable from outside.
+    nothing to stretch. A routine records its setpoints under the axis's own name on the
+    target's `Sweep`, which is what makes them readable from here.
 
     That name is load-bearing and was not being checked. Four routines stored their
     setpoints under a name of their own — `drag` as ``_betas`` against an axis of
     ``motzois``, and three more — so this found nothing, returned *config* unchanged, and
     `escalating` re-raised. The refusal named the range it had already swept, which reads
-    exactly like a chip that has no answer in it: on the August 2026 B chip `drag` failed
+    exactly like a chip that has no answer in it: in an August 2026 bring-up `drag` failed
     with an optimum of -0.614 against a swept +/-0.2 and never widened once.
     `test_every_swept_axis_is_readable_from_outside` now holds the convention.
 
@@ -650,9 +1018,7 @@ def _widened(
     instead leaves centring, resolution and the band clamp where they already live.
     """
     if refusal.axis in AVERAGING_AXES:
-        current = int(
-            config.get(refusal.axis, getattr(routine, f"_{refusal.axis}", 0)) or 0
-        )
+        current = int(config.get(refusal.axis, sweep.get(refusal.axis, 0)) or 0)
         # Two ceilings, because they bound different things and only one of them was
         # here. `MAX_CIRCUITS_PER_DEPTH` is about runtime — five times a node that
         # already takes half a minute. `_<axis>_ceiling` is about the *assembler*, and
@@ -662,7 +1028,7 @@ def _widened(
         # qcodes returned the whole 2.4 MB program in the message — which then blew the
         # report past what the server would store, so the calibration was never
         # reported at all. A sweep that cannot assemble is not a bigger sweep.
-        ceiling = getattr(routine, f"_{refusal.axis}_ceiling", None)
+        ceiling = sweep.get(f"{refusal.axis}_ceiling", None)
         wanted = min(int(current * refusal.factor), MAX_CIRCUITS_PER_DEPTH)
         if ceiling is not None:
             wanted = min(wanted, int(ceiling))
@@ -681,17 +1047,15 @@ def _widened(
         # catches.
         return config
 
-    scalar = _scalar_axis(routine, config, refusal)
+    scalar = _scalar_axis(routine, config, refusal, sweep)
     if scalar is not None:
         return scalar
 
-    current = list(
-        config.get(refusal.axis) or getattr(routine, f"_{refusal.axis}", ()) or ()
-    )
+    current = list(config.get(refusal.axis) or sweep.get(refusal.axis, ()) or ())
     if not current:
         return config
     low, high = min(current), max(current)
-    ceiling = getattr(routine, f"_{refusal.axis}_ceiling", None)
+    ceiling = sweep.get(f"{refusal.axis}_ceiling", None)
     if refusal.direction == "finer":
         # The same window, sampled harder. An aliased fringe needs resolution, not reach —
         # and lengthening the sweep would make the aliasing worse while costing more.
@@ -735,7 +1099,10 @@ def _widened(
 
 
 def _scalar_axis(
-    routine: CalibrationRoutine, config: RoutineConfig, refusal: OutOfRange
+    routine: CalibrationRoutine,
+    config: RoutineConfig,
+    refusal: OutOfRange,
+    sweep: Sweep,
 ) -> RoutineConfig | None:
     """*config* with a scalar *refusal* axis multiplied out, or ``None`` if it is a list.
 
@@ -749,7 +1116,7 @@ def _scalar_axis(
         return None
     # The same fallback the list branch uses, and for the same reason: the default case
     # is a config with no `span` in it, which is exactly the one needing widened.
-    current = config.get(refusal.axis, getattr(routine, f"_{refusal.axis}", None))
+    current = config.get(refusal.axis, sweep.get(refusal.axis, None))
     if current is None:
         return None
 

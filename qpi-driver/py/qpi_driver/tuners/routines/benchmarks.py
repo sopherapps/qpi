@@ -7,6 +7,7 @@ it has no fidelity for the drift check to read. What a benchmark returns is a
 """
 
 import logging
+from collections.abc import Mapping, Sequence
 import random
 from typing import Any
 
@@ -14,12 +15,19 @@ import numpy as np
 import xarray as xr
 
 from qpi_driver.tuners.base.backend import SchedulerBackend
+from qpi_driver.tuners.base.fusion import (
+    add_after,
+    add_together,
+    channels_of,
+    readouts,
+)
 from qpi_driver.tuners.base.config import RoutineConfig
 from qpi_driver.tuners.base.routines import (
     DEFAULT_ROUTINE_TIMEOUT_S,
     CalibrationRoutine,
     RoutineError,
 )
+from qpi_driver.tuners.base.sweep import Sweep
 from qpi_driver.tuners.fitting import fit_rb_decay, signal_of
 from qpi_driver.tuners.routines.single_qubit import (
     ALLXY_IDEAL,
@@ -98,6 +106,7 @@ class RandomizedBenchmarking(CalibrationRoutine):
         device: Any,
         config: RoutineConfig,
         backend: SchedulerBackend,
+        sweep: Sweep,
         bias: Any = None,
         timeout_s: float = DEFAULT_ROUTINE_TIMEOUT_S,
     ) -> dict[str, Any]:
@@ -110,7 +119,22 @@ class RandomizedBenchmarking(CalibrationRoutine):
         untouched — which matters here, because RB's depths are a statement about what the
         operator wants benchmarked.
         """
-        return self.escalating(target, device, config, backend, timeout_s)
+        return self.escalating(target, device, config, backend, timeout_s, sweep)
+
+    def measure_group(
+        self,
+        targets: Sequence[str],
+        device: Any,
+        config: RoutineConfig,
+        backend: SchedulerBackend,
+        sweeps: Mapping[str, Sweep],
+        bias: Any = None,
+        timeout_s: float = DEFAULT_ROUTINE_TIMEOUT_S,
+    ) -> dict[str, dict[str, Any] | Exception]:
+        """Average harder only for the targets whose decay was lost in their own scatter."""
+        return self.escalating_group(
+            targets, device, config, backend, timeout_s, sweeps
+        )
 
     def acquire(
         self,
@@ -119,6 +143,7 @@ class RandomizedBenchmarking(CalibrationRoutine):
         config: RoutineConfig,
         backend: SchedulerBackend,
         timeout_s: float,
+        sweep: Sweep,
     ) -> Any:
         """Run this sweep as however many schedules it takes, and combine them.
 
@@ -138,7 +163,7 @@ class RandomizedBenchmarking(CalibrationRoutine):
         wanted = int(config.get("circuits_per_depth", DEFAULT_RB_CIRCUITS))
         per_schedule = max(1, MAX_RB_CLIFFORDS // max(sum(depths), 1))
         if wanted <= per_schedule or not depths:
-            return super().acquire(target, device, config, backend, timeout_s)
+            return super().acquire(target, device, config, backend, timeout_s, sweep)
 
         seed = int(config.get("seed", DEFAULT_RB_SEED))
         sizes = [per_schedule] * (wanted // per_schedule)
@@ -170,7 +195,7 @@ class RandomizedBenchmarking(CalibrationRoutine):
                     "seed": seed + index,
                 },
             )
-            dataset = super().acquire(target, device, chunk, backend, timeout_s)
+            dataset = super().acquire(target, device, chunk, backend, timeout_s, sweep)
             signal = np.asarray(signal_of(dataset), dtype=float)
             taken = len(depths) * size
             expected = taken + REFERENCE_ACQUISITIONS
@@ -189,8 +214,8 @@ class RandomizedBenchmarking(CalibrationRoutine):
         # Each depth's circuits from every chunk, side by side, so `analyse` reshapes it
         # exactly as it would one schedule's worth, references included.
         combined = np.hstack(rows)
-        self._depths = depths
-        self._circuits = self._circuits_per_depth = int(combined.shape[1])
+        sweep["depths"] = depths
+        sweep["circuits"] = sweep["circuits_per_depth"] = int(combined.shape[1])
         return xr.Dataset(
             {
                 "y0": (
@@ -201,32 +226,143 @@ class RandomizedBenchmarking(CalibrationRoutine):
         )
 
     def build_schedule(
-        self, target: str, device: Any, config: RoutineConfig, backend: SchedulerBackend
+        self,
+        target: str,
+        device: Any,
+        config: RoutineConfig,
+        backend: SchedulerBackend,
+        sweep: Sweep,
     ) -> Any:
-        self._depths = [int(d) for d in config.get("depths", DEFAULT_RB_DEPTHS)]
-        # Named `_circuits_per_depth` as well, because escalation reads the setpoints a
-        # routine actually used off `_<axis>` — see `_widened`.
-        self._circuits = self._circuits_per_depth = int(
-            config.get("circuits_per_depth", DEFAULT_RB_CIRCUITS)
+        return self.build_group_schedule(
+            [target], device, config, backend, {target: sweep}
         )
-        if not self._depths or self._circuits < 1:
+
+    def acquire_group(
+        self,
+        targets: Sequence[str],
+        device: Any,
+        config: RoutineConfig,
+        backend: SchedulerBackend,
+        timeout_s: float,
+        sweeps: Mapping[str, Sweep],
+    ) -> Any:
+        """The circuit split of :meth:`acquire`, over a group.
+
+        Chunked on the same budget and for the same reason: the ceiling is a sequencer's
+        instruction count, and a fused schedule gives each target its own sequencer running
+        its own copy of the sweep, so how many circuits one program holds does not depend on
+        how many targets are in it. Without this the fused path would skip the split — and
+        it is active on the shipped defaults, so every grouped RB would have built a program
+        too long to assemble.
+
+        Each chunk is seeded apart, or they would be copies of the same circuits and average
+        to nothing.
+        """
+        depths = [int(d) for d in config.get("depths", DEFAULT_RB_DEPTHS)]
+        wanted = int(config.get("circuits_per_depth", DEFAULT_RB_CIRCUITS))
+        per_schedule = max(1, MAX_RB_CLIFFORDS // max(sum(depths), 1))
+        if wanted <= per_schedule or not depths:
+            return super().acquire_group(
+                targets, device, config, backend, timeout_s, sweeps
+            )
+
+        seed = int(config.get("seed", DEFAULT_RB_SEED))
+        sizes = [per_schedule] * (wanted // per_schedule)
+        if wanted % per_schedule:
+            sizes.append(wanted % per_schedule)
+        log.info(
+            "%s on %s: %d circuits over depths summing %d is %d Cliffords, past the %d "
+            "one schedule holds — running %d schedules of %s",
+            self.name,
+            ", ".join(targets),
+            wanted,
+            sum(depths),
+            wanted * sum(depths),
+            MAX_RB_CLIFFORDS,
+            len(sizes),
+            sizes,
+        )
+
+        gathered: dict[str, list[Any]] = {target: [] for target in targets}
+        references: dict[str, Any] = {}
+        for index, size in enumerate(sizes):
+            chunk = RoutineConfig(
+                enabled=config.enabled,
+                params={
+                    **config.params,
+                    "depths": depths,
+                    "circuits_per_depth": size,
+                    # Apart, or every chunk benchmarks the same circuits.
+                    "seed": seed + index,
+                },
+            )
+            dataset = super().acquire_group(
+                targets, device, chunk, backend, timeout_s, sweeps
+            )
+            sliced = channels_of(dataset, targets)
+            for target in targets:
+                piece = sliced.get(target)
+                if piece is None:
+                    raise RoutineError(
+                        f"the fused acquisition carried no channel for {target}"
+                    )
+                signal = np.asarray(signal_of(piece), dtype=float)
+                expected = len(depths) * size + REFERENCE_ACQUISITIONS
+                if signal.size < expected:
+                    raise RoutineError(
+                        f"{target} returned {signal.size} acquisitions, expected "
+                        f"{expected} for {size} circuits over {len(depths)} depths"
+                    )
+                # The |0> and X|0> references lead every chunk; one copy is what `analyse`
+                # reads, and the rest are the same two points measured again.
+                references.setdefault(target, signal[:REFERENCE_ACQUISITIONS])
+                gathered[target].append(signal[REFERENCE_ACQUISITIONS:expected])
+
+        # Restored so each `analyse` reshapes against the whole sweep rather than a chunk.
+        for target in targets:
+            sweeps[target]["circuits"] = sweeps[target]["circuits_per_depth"] = wanted
+        return xr.Dataset(
+            {
+                channel: (
+                    "acq_index",
+                    np.concatenate([references[target], *gathered[target]]),
+                )
+                for channel, target in enumerate(targets)
+            }
+        )
+
+    def build_group_schedule(
+        self,
+        targets: Sequence[str],
+        device: Any,
+        config: RoutineConfig,
+        backend: SchedulerBackend,
+        sweeps: Mapping[str, Sweep],
+    ) -> Any:
+        """The same Clifford sequences on every target at once — simultaneous RB.
+
+        The depths and the circuit count come from the config, so they are one grid for the
+        group and it never splits. One seed too: a fused run benchmarks every target
+        against the *same* circuits, which is what makes the per-target fidelities
+        comparable with each other and with an isolated run.
+        """
+        depths = [int(d) for d in config.get("depths", DEFAULT_RB_DEPTHS)]
+        circuits = int(config.get("circuits_per_depth", DEFAULT_RB_CIRCUITS))
+        if not depths or circuits < 1:
             raise RoutineError("RB needs at least one depth and one circuit per depth")
+        for target in targets:
+            sweep = sweeps[target]
+            sweep["depths"] = depths
+            # Named `circuits_per_depth` as well, because escalation reads the setpoints a
+            # routine actually used off the axis's own name — see `_widened`.
+            sweep["circuits"] = sweep["circuits_per_depth"] = circuits
+            # How deep escalation may go — see `MAX_RB_CLIFFORDS`. Independent of the
+            # circuit count, which is the point of chunking: only one circuit's worth of
+            # every depth has to fit in a program.
+            sweep["depths_ceiling"] = 2.0 * MAX_RB_CLIFFORDS / len(depths) - 1.0
 
-        # How deep escalation may go — see `MAX_RB_CLIFFORDS`. Independent of the circuit
-        # count, which is the whole point of chunking: circuits are split across schedules
-        # by `acquire`, so only *one circuit's worth of every depth* has to fit in a
-        # program. Widening builds `linear_setpoints(1, top, n)`, whose sum is
-        # `n*(1+top)/2`, so the budget inverts to a bound on `top`. Read by `_widened` off
-        # `_<axis>_ceiling`; when it bites the config comes back unchanged and the refusal
-        # is re-raised rather than the same sweep re-run.
-        #
-        # This one is a real ceiling and cannot become a chunk size. A single sequence of
-        # depth m is m Cliffords in one program and there is nowhere to cut it: a Clifford
-        # sequence is only an RB sequence closed by its own recovery gate.
-        self._depths_ceiling = 2.0 * MAX_RB_CLIFFORDS / len(self._depths) - 1.0
-
-        # Seeded so a rerun benchmarks the same circuits: an unseeded RB would
-        # move under the drift check it exists to detect.
+        # Seeded so a rerun benchmarks the same circuits: an unseeded RB would move under
+        # the drift check it exists to detect.
         rng = random.Random(int(config.get("seed", DEFAULT_RB_SEED)))
         schedule = backend.new_schedule(
             self.name, repetitions=int(config.get("shots", 1024))
@@ -235,28 +371,22 @@ class RandomizedBenchmarking(CalibrationRoutine):
         # |0> and X|0> first, so the decay is read as a survival probability rather than
         # scaled against its own extremes — see :meth:`analyse`.
         for index, prepare in enumerate((0, 1)):
-            schedule.add(backend.Reset(target))
+            anchor = add_together(schedule, [backend.Reset(t) for t in targets])
             if prepare:
-                schedule.add(backend.X(target))
-            schedule.add(
-                backend.Measure(
-                    target, acq_index=index, bin_mode=backend.BinMode.AVERAGE
-                )
-            )
+                anchor = add_together(schedule, [backend.X(t) for t in targets])
+            add_after(schedule, readouts(backend, targets, index), anchor)
 
         index = REFERENCE_ACQUISITIONS
-        for depth in self._depths:
-            for _ in range(self._circuits):
+        for depth in depths:
+            for _ in range(circuits):
                 sequence = sequence_with_recovery(
                     generate_clifford_sequence(depth, rng)
                 )
-                schedule.add(backend.Reset(target))
-                self._add_sequence(schedule, target, sequence, backend)
-                schedule.add(
-                    backend.Measure(
-                        target, acq_index=index, bin_mode=backend.BinMode.AVERAGE
-                    )
+                add_together(schedule, [backend.Reset(t) for t in targets])
+                anchor = self._add_group_sequence(
+                    schedule, targets, sequence, backend, sweeps
                 )
+                add_after(schedule, readouts(backend, targets, index), anchor)
                 index += 1
         return schedule
 
@@ -266,6 +396,7 @@ class RandomizedBenchmarking(CalibrationRoutine):
         target: str,
         sequence: list[int],
         backend: SchedulerBackend,
+        sweep: Sweep,
     ) -> None:
         """Play *sequence* as native rotations, interleaving where asked."""
         for position, clifford in enumerate(sequence):
@@ -273,18 +404,65 @@ class RandomizedBenchmarking(CalibrationRoutine):
                 schedule.add(backend.Rxy(theta=theta, phi=phi, qubit=target))
             # The recovery Clifford closes the sequence, so nothing follows it.
             if self.interleaved and position < len(sequence) - 1:
-                self._add_interleaved(schedule, target, backend)
+                self._add_interleaved(schedule, target, backend, sweep)
+
+    def _add_group_sequence(
+        self,
+        schedule: Any,
+        targets: Sequence[str],
+        sequence: list[int],
+        backend: SchedulerBackend,
+        sweeps: Mapping[str, Sweep],
+    ) -> Any:
+        """*sequence* played on every target at once, returning the last anchor.
+
+        The same Cliffords on each, which is what makes a fused RB the *simultaneous* RB
+        of Gambetta et al. rather than several independent ones: the point of running them
+        together is that each qubit is driven while its neighbours are, so comparing this
+        against the isolated fidelity is what measures the addressability (RFC 0009 §5.6).
+        """
+        anchor = None
+        for position, clifford in enumerate(sequence):
+            for theta, phi in clifford_to_gates(clifford):
+                anchor = add_together(
+                    schedule,
+                    [backend.Rxy(theta=theta, phi=phi, qubit=t) for t in targets],
+                )
+            # The recovery Clifford closes the sequence, so nothing follows it.
+            if self.interleaved and position < len(sequence) - 1:
+                interleaved = self._group_interleaved(targets, backend, sweeps)
+                if interleaved:
+                    anchor = add_together(schedule, interleaved)
+        return anchor
+
+    def _group_interleaved(
+        self,
+        targets: Sequence[str],
+        backend: SchedulerBackend,
+        sweeps: Mapping[str, Sweep],
+    ) -> list[Any]:
+        """The operation to interleave on each target. None for standard RB.
+
+        The group counterpart of :meth:`_add_interleaved`, returning the operations rather
+        than adding them so they can be placed at one start time.
+        """
+        return []
 
     def _add_interleaved(
-        self, schedule: Any, target: str, backend: SchedulerBackend
+        self, schedule: Any, target: str, backend: SchedulerBackend, sweep: Sweep
     ) -> None:  # pragma: no cover - overridden where it matters
         raise NotImplementedError
 
     def analyse(
-        self, dataset: xr.Dataset, target: str, device: Any, config: RoutineConfig
+        self,
+        dataset: xr.Dataset,
+        target: str,
+        device: Any,
+        config: RoutineConfig,
+        sweep: Sweep,
     ) -> dict[str, Any]:
         signal = signal_of(dataset)
-        circuits = len(self._depths) * self._circuits
+        circuits = len(sweep["depths"]) * sweep["circuits"]
         expected = circuits + REFERENCE_ACQUISITIONS
         if signal.size < expected:
             raise RoutineError(
@@ -303,7 +481,7 @@ class RandomizedBenchmarking(CalibrationRoutine):
         # Average the circuits at each depth; the decay is over depth, and the
         # spread within a depth is what averaging is for.
         survival = signal[REFERENCE_ACQUISITIONS:expected].reshape(
-            len(self._depths), self._circuits
+            len(sweep["depths"]), sweep["circuits"]
         )
         mean = survival.mean(axis=1)
 
@@ -316,9 +494,9 @@ class RandomizedBenchmarking(CalibrationRoutine):
         # could have changed either — the endpoints were arithmetic, not measurement.
         normalised = (mean - excited) / contrast
 
-        fitted = fit_rb_decay(np.asarray(self._depths, dtype=float), normalised)
-        fitted["depths"] = list(self._depths)
-        fitted["circuits_per_depth"] = self._circuits
+        fitted = fit_rb_decay(np.asarray(sweep["depths"], dtype=float), normalised)
+        fitted["depths"] = list(sweep["depths"])
+        fitted["circuits_per_depth"] = sweep["circuits"]
         return fitted
 
 
@@ -338,20 +516,68 @@ class InterleavedRB(RandomizedBenchmarking):
     interleaved = "CZ"
 
     def build_schedule(
-        self, target: str, device: Any, config: RoutineConfig, backend: SchedulerBackend
+        self,
+        target: str,
+        device: Any,
+        config: RoutineConfig,
+        backend: SchedulerBackend,
+        sweep: Sweep,
     ) -> Any:
-        self._control, self._spectator = qubits_of(target)
-        return super().build_schedule(self._control, device, config, backend)
+        return self.build_group_schedule(
+            [target], device, config, backend, {target: sweep}
+        )
+
+    def build_group_schedule(
+        self,
+        targets: Sequence[str],
+        device: Any,
+        config: RoutineConfig,
+        backend: SchedulerBackend,
+        sweeps: Mapping[str, Sweep],
+    ) -> Any:
+        """The endpoints resolved per edge first, since the CZ and the readout need them.
+
+        The Cliffords are played on each edge's *control*, so the acquisition channel is
+        the edge's position in the group and the qubit measured is its control — which is
+        what `analyse` reads back.
+        """
+        for target in targets:
+            sweeps[target]["control"], sweeps[target]["spectator"] = qubits_of(target)
+        controls = [sweeps[target]["control"] for target in targets]
+        return super().build_group_schedule(
+            controls,
+            device,
+            config,
+            backend,
+            {c: sweeps[t] for c, t in zip(controls, targets)},
+        )
 
     def _add_interleaved(
-        self, schedule: Any, target: str, backend: SchedulerBackend
+        self, schedule: Any, target: str, backend: SchedulerBackend, sweep: Sweep
     ) -> None:
-        schedule.add(backend.CZ(self._control, self._spectator))
+        schedule.add(backend.CZ(sweep["control"], sweep["spectator"]))
+
+    def _group_interleaved(
+        self,
+        targets: Sequence[str],
+        backend: SchedulerBackend,
+        sweeps: Mapping[str, Sweep],
+    ) -> list[Any]:
+        """One CZ per edge, all at the same start — the gate being isolated."""
+        return [
+            backend.CZ(sweeps[target]["control"], sweeps[target]["spectator"])
+            for target in targets
+        ]
 
     def analyse(
-        self, dataset: xr.Dataset, target: str, device: Any, config: RoutineConfig
+        self,
+        dataset: xr.Dataset,
+        target: str,
+        device: Any,
+        config: RoutineConfig,
+        sweep: Sweep,
     ) -> dict[str, Any]:
-        fitted = super().analyse(dataset, self._control, device, config)
+        fitted = super().analyse(dataset, sweep["control"], device, config, sweep)
         fitted["interleaved_gate"] = "CZ"
         return fitted
 
@@ -370,26 +596,61 @@ class AllXYCheck(CalibrationRoutine):
     reads = ("clock_freqs.f01", "rxy.amp180")
     benchmark = True
 
-    def build_schedule(
-        self, target: str, device: Any, config: RoutineConfig, backend: SchedulerBackend
+    def build_group_schedule(
+        self,
+        targets: Sequence[str],
+        device: Any,
+        config: RoutineConfig,
+        backend: SchedulerBackend,
+        sweeps: Mapping[str, Sweep],
     ) -> Any:
+        """The 21 pairs on every target at once — the sequence is the same on each."""
         schedule = backend.new_schedule(
             self.name, repetitions=int(config.get("shots", 512))
         )
         for index, (first, second) in enumerate(ALLXY_PAIRS):
-            schedule.add(backend.Reset(target))
+            anchor = add_together(schedule, [backend.Reset(t) for t in targets])
             for theta, phi in (first, second):
                 if theta:
-                    schedule.add(backend.Rxy(theta=theta, phi=phi, qubit=target))
-            schedule.add(
-                backend.Measure(
-                    target, acq_index=index, bin_mode=backend.BinMode.AVERAGE
-                )
+                    anchor = add_after(
+                        schedule,
+                        [backend.Rxy(theta=theta, phi=phi, qubit=t) for t in targets],
+                        anchor,
+                    )
+            add_after(
+                schedule,
+                [
+                    backend.Measure(
+                        target,
+                        acq_channel=channel,
+                        acq_index=index,
+                        bin_mode=backend.BinMode.AVERAGE,
+                    )
+                    for channel, target in enumerate(targets)
+                ],
+                anchor,
             )
         return schedule
 
+    def build_schedule(
+        self,
+        target: str,
+        device: Any,
+        config: RoutineConfig,
+        backend: SchedulerBackend,
+        sweep: Sweep,
+    ) -> Any:
+        return self.build_group_schedule(
+            [target], device, config, backend, {target: sweep}
+        )
+
     def analyse(
-        self, dataset: xr.Dataset, target: str, device: Any, config: RoutineConfig
+        self,
+        dataset: xr.Dataset,
+        target: str,
+        device: Any,
+        config: RoutineConfig,
+        sweep: Sweep,
     ) -> dict[str, Any]:
         signal = signal_of(dataset)
         if signal.size < len(ALLXY_PAIRS):

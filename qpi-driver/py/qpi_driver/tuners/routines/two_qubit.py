@@ -4,6 +4,7 @@ These target edges rather than qubits. An edge is named ``<parent>_<child>``,
 which is how the two qubits it acts on are recovered.
 """
 
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 import numpy as np
@@ -11,6 +12,13 @@ import xarray as xr
 
 from qpi_driver.tuners.base.backend import SchedulerBackend
 from qpi_driver.tuners.base.config import DEFAULT_ROUTINE_TIMEOUT_S, RoutineConfig
+from qpi_driver.tuners.base.fusion import (
+    add_after,
+    add_together,
+    channels_of,
+    grouped_by_grid,
+    grouped_by_size,
+)
 from qpi_driver.tuners.base.device import (
     has_flux_port,
     phase_correction_names,
@@ -24,6 +32,7 @@ from qpi_driver.tuners.base.routines import (
     linear_setpoints,
     setpoints_of,
 )
+from qpi_driver.tuners.base.sweep import Sweep
 from qpi_driver.tuners.fitting import (
     FitError,
     fit_chevron,
@@ -32,6 +41,39 @@ from qpi_driver.tuners.fitting import (
     fit_resonator_spectroscopy,
     signal_of,
 )
+
+
+def prepare_11(schedule: Any, backend: SchedulerBackend, edges: Sequence[str]) -> Any:
+    """Reset and excite both qubits of every edge, returning the anchor.
+
+    ``|11>`` is the state that exchanges with ``|02>``, so both qubits are excited before
+    the pulse brings them into resonance. Shared because all four CZ sweeps open this way,
+    and a fused group needs two edges' four resets and four X pulses to coincide rather
+    than to queue.
+    """
+    pairs = [qubits_of(edge) for edge in edges]
+    add_together(schedule, [backend.Reset(q) for pair in pairs for q in pair])
+    return add_together(schedule, [backend.X(q) for pair in pairs for q in pair])
+
+
+def measure_parents(
+    backend: SchedulerBackend, edges: Sequence[str], index: int
+) -> list[Any]:
+    """One measurement per edge, on its parent and on the edge's own channel.
+
+    The parent is the qubit the exchange leaves population in, so it is the one every CZ
+    sweep reads. The channel is the edge's position in the group, which is what
+    `channels_of` slices the result apart by.
+    """
+    return [
+        backend.Measure(
+            qubits_of(edge)[0],
+            acq_channel=channel,
+            acq_index=index,
+            bin_mode=backend.BinMode.AVERAGE,
+        )
+        for channel, edge in enumerate(edges)
+    ]
 
 
 def qubits_of(edge: str) -> tuple[str, str]:
@@ -117,7 +159,12 @@ class CouplerAnticrossing(CalibrationRoutine):
         return bias is not None and hasattr(bias, "parking_current")
 
     def build_schedule(
-        self, target: str, device: Any, config: RoutineConfig, backend: SchedulerBackend
+        self,
+        target: str,
+        device: Any,
+        config: RoutineConfig,
+        backend: SchedulerBackend,
+        sweep: Sweep,
     ) -> Any:
         """There is no single schedule. See :meth:`measure`.
 
@@ -131,7 +178,12 @@ class CouplerAnticrossing(CalibrationRoutine):
         )
 
     def analyse(
-        self, dataset: Any, target: str, device: Any, config: RoutineConfig
+        self,
+        dataset: Any,
+        target: str,
+        device: Any,
+        config: RoutineConfig,
+        sweep: Sweep,
     ) -> dict[str, Any]:
         """Likewise: the fitting happens inside :meth:`measure`, per bias point."""
         raise RoutineError(
@@ -144,6 +196,7 @@ class CouplerAnticrossing(CalibrationRoutine):
         device: Any,
         config: RoutineConfig,
         backend: SchedulerBackend,
+        sweep: Sweep,
         bias: Any = None,
         timeout_s: float = DEFAULT_ROUTINE_TIMEOUT_S,
     ) -> dict[str, Any]:
@@ -195,6 +248,163 @@ class CouplerAnticrossing(CalibrationRoutine):
             bias.apply(target, original, settings)
 
         return self._locate(found, base, config)
+
+    def compatible_groups(
+        self, targets: Sequence[str], device: Any, config: RoutineConfig
+    ) -> list[list[str]]:
+        """By probe size: each band is centred on that edge's own parent's f01."""
+        return grouped_by_size(targets, lambda t: self._probe_band(device, t, config))
+
+    def _probe_band(
+        self, device: Any, target: str, config: RoutineConfig
+    ) -> list[float]:
+        """Where to look for this edge's parent, around where it currently sits."""
+        parent, _child = qubits_of(target)
+        base = float(read_path(device.get_element(parent), "clock_freqs.f01"))
+        span = float(config.get("span", 200e6))
+        points = int(config.get("points", 11))
+        return list(linear_setpoints(base - span / 2, base + span / 2, points))
+
+    def measure_group(
+        self,
+        targets: Sequence[str],
+        device: Any,
+        config: RoutineConfig,
+        backend: SchedulerBackend,
+        sweeps: Mapping[str, Sweep],
+        bias: Any = None,
+        timeout_s: float = DEFAULT_ROUTINE_TIMEOUT_S,
+    ) -> dict[str, dict[str, Any] | Exception]:
+        """Sweep every coupler's parking current at once, one probe per setpoint.
+
+        A rack is shared; its *channels* are not. Each edge names its own S4g output or its
+        own baseband output — `bias.spi_module`/`bias.spi_output`, or the `qcm` pair — so
+        setting a group's currents is one quick write per edge over the same serial port and
+        then a *single* acquisition, not one per edge. What is sequential here is within one
+        coupler, across its own current setpoints, exactly as everywhere else in this graph.
+
+        The parents are distinct within a group because `edge_spacing` will not put two
+        edges sharing a qubit in one, and that is what lets a single probe read all of them.
+        """
+        if bias is None or not getattr(bias, "holds_current", False):
+            return {target: self._no_bias_source(target) for target in targets}
+        from qpi_driver.executors.utils.coupler_bias import bias_settings
+
+        settings = {t: bias_settings(device.get_edge(t)) for t in targets}
+        originals = {
+            t: float(read_path(device.get_edge(t), "bias.parking_current"))
+            for t in targets
+        }
+        bands = {t: self._probe_band(device, t, config) for t in targets}
+        parents = {t: qubits_of(t)[0] for t in targets}
+        bases = {
+            t: float(read_path(device.get_element(parents[t]), "clock_freqs.f01"))
+            for t in targets
+        }
+        currents = setpoints_of(config, "currents", linear_setpoints(0.0, 3.0e-3, 13))
+        for target in targets:
+            sweeps[target]["currents"] = currents
+
+        found: dict[str, list[tuple[float, float]]] = {t: [] for t in targets}
+        try:
+            for current in currents:
+                for target in targets:
+                    bias.apply(target, float(current), settings[target])
+                schedule = self._probe_group(targets, parents, bands, config, backend)
+                sliced = channels_of(
+                    backend.run(schedule, timeout_s=timeout_s), list(targets)
+                )
+                for target in targets:
+                    acquisition = sliced.get(target)
+                    if acquisition is None:
+                        continue
+                    try:
+                        fitted = fit_resonator_spectroscopy(
+                            bands[target], signal_of(acquisition)
+                        )
+                    except FitError:
+                        continue
+                    found[target].append(
+                        (float(current), float(fitted["readout_frequency"]))
+                    )
+        finally:
+            # Every coupler back where it was, whatever happened — an abandoned sweep
+            # must not leave the chip parked at the last current it happened to try.
+            for target in targets:
+                bias.apply(target, originals[target], settings[target])
+
+        results: dict[str, dict[str, Any] | Exception] = {}
+        for target in targets:
+            try:
+                results[target] = self._locate(found[target], bases[target], config)
+            except RoutineError as exc:
+                results[target] = exc
+        return results
+
+    def _probe_group(
+        self,
+        targets: Sequence[str],
+        parents: Mapping[str, str],
+        bands: Mapping[str, list[float]],
+        config: RoutineConfig,
+        backend: SchedulerBackend,
+    ) -> Any:
+        """One short spectroscopy per edge, on its parent and its own channel."""
+        amplitude = float(config.get("drive_amp", 0.10))
+        schedule = backend.new_schedule(
+            self.name, repetitions=int(config.get("shots", 512))
+        )
+        for index in range(len(bands[targets[0]])):
+            anchor = add_together(
+                schedule, [backend.Reset(parents[t]) for t in targets]
+            )
+            add_together(
+                schedule,
+                [
+                    backend.SetClockFrequency(
+                        clock=f"{parents[t]}.01", clock_freq_new=bands[t][index]
+                    )
+                    for t in targets
+                ],
+            )
+            anchor = add_after(
+                schedule,
+                [
+                    backend.Rxy(theta=180, phi=0, qubit=parents[t], amp180=amplitude)
+                    for t in targets
+                ],
+                anchor,
+            )
+            add_after(
+                schedule,
+                [
+                    backend.Measure(
+                        parents[target],
+                        acq_channel=channel,
+                        acq_index=index,
+                        bin_mode=backend.BinMode.AVERAGE,
+                    )
+                    for channel, target in enumerate(targets)
+                ],
+                anchor,
+            )
+        return schedule
+
+    def _no_bias_source(self, target: str) -> RoutineError:
+        """The refusal both paths give, worded once.
+
+        A recorder counts as nothing here, and that distinction is the point. Against one,
+        every bias point returns the same qubit frequency, the sweep is flat, and the fit
+        reports a crossing with total confidence — a number written to the device that no
+        instrument ever produced. It is the exact failure this node exists to prevent.
+        """
+        return RoutineError(
+            f"{target} has no source that can actually hold a parking current, so "
+            f"its coupler's crossing cannot be swept — the bias is delivered out "
+            f"of band, and a recorder would make this measure nothing at all. On "
+            f"hardware: check `bias.source` on the edge, and pass "
+            f"-o spi_rack_address=<port> if it says `spi`"
+        )
 
     def _probe(
         self,
@@ -286,76 +496,123 @@ class CZSpectroscopy(CalibrationRoutine):
         return parametric_edge(device, target) is not None
 
     def build_schedule(
-        self, target: str, device: Any, config: RoutineConfig, backend: SchedulerBackend
+        self,
+        target: str,
+        device: Any,
+        config: RoutineConfig,
+        backend: SchedulerBackend,
+        sweep: Sweep,
     ) -> Any:
+        return self.build_group_schedule(
+            [target], device, config, backend, {target: sweep}
+        )
+
+    def compatible_groups(
+        self, targets: Sequence[str], device: Any, config: RoutineConfig
+    ) -> list[list[str]]:
+        """Edges whose sweeps have the same *number* of points, not the same points.
+
+        Each edge drives its own clock on its own port, so at setpoint *i* every edge can
+        sit at its own frequency — which it must, since the band is centred on that edge's
+        own CZ clock. Only the point count has to agree, because the acquisition index is
+        shared. See `grouped_by_size`.
+        """
+        return grouped_by_size(targets, lambda t: self._band(device, t, config))
+
+    def _band(self, device: Any, target: str, config: RoutineConfig) -> list[float]:
+        """This edge's drive-frequency sweep, centred on its own CZ clock."""
         element = parametric_edge(device, target)
         if element is None:
             raise RoutineError(
                 f"edge {target!r} drives its CZ with a baseband flux pulse, so it has "
                 f"no drive frequency to find — see `cz_chevron` for its amplitude"
             )
-        parent, child = qubits_of(target)
         centre = config.get("centre_frequency")
         if centre is None:
             configured = float(read_path(element, "clock_freqs.cz"))
-            # An uncalibrated edge carries zero, which is not a frequency to scan
-            # around. The default centre is a plausible coupler sideband rather than
-            # a measurement, and a chip that knows better says so in its config.
+            # An uncalibrated edge carries zero, which is not a frequency to scan around.
+            # The default centre is a plausible coupler sideband rather than a measurement,
+            # and a chip that knows better says so in its config.
             centre = configured or float(config.get("prior", 4.0e9))
         span = float(config.get("span", 400e6))
         points = int(config.get("points", 81))
-        self._frequencies = setpoints_of(
+        return setpoints_of(
             config,
             "frequencies",
             linear_setpoints(centre - span / 2, centre + span / 2, points),
         )
-        amplitude = float(
-            config.get("amplitude", read_path(element, "cz.square_amp") or 0.5)
-        )
-        # Long enough that a resonant drive moves most of the population, short
-        # enough that it has not come back: a quarter of a round trip at the
-        # nominal rate. Off resonance the length makes no difference, which is the
-        # asymmetry the sweep reads.
+
+    def build_group_schedule(
+        self,
+        targets: Sequence[str],
+        device: Any,
+        config: RoutineConfig,
+        backend: SchedulerBackend,
+        sweeps: Mapping[str, Sweep],
+    ) -> Any:
+        """Every edge's drive swept at once, each over its own band on its own clock."""
+        bands = {}
+        amplitudes = {}
+        for target in targets:
+            element = parametric_edge(device, target)
+            bands[target] = self._band(device, target, config)
+            sweeps[target]["frequencies"] = bands[target]
+            amplitudes[target] = float(
+                config.get("amplitude", read_path(element, "cz.square_amp") or 0.5)
+            )
+        # Long enough that a resonant drive moves most of the population, short enough that
+        # it has not come back: a quarter of a round trip at the nominal rate. Off resonance
+        # the length makes no difference, which is the asymmetry the sweep reads.
         duration = grid_duration(float(config.get("duration", 100e-9)))
 
         schedule = backend.new_schedule(
             self.name, repetitions=int(config.get("shots", 512))
         )
-        # The edge's CZ clock is declared inside the CZ gate's own subschedule, not
-        # by the device, so a raw pulse on it has nothing to reference. Every other
-        # spectroscopy sweeps a clock the element already owns; this one brings its
-        # own, then retunes it point by point like the rest.
-        clock = f"{target}.cz"
-        schedule.add_resource(
-            backend.ClockResource(name=clock, freq=self._frequencies[0])
-        )
-        for index, frequency in enumerate(self._frequencies):
-            schedule.add(backend.Reset(parent))
-            schedule.add(backend.Reset(child))
-            schedule.add(backend.X(parent))
-            schedule.add(backend.X(child))
-            schedule.add(
-                backend.SetClockFrequency(clock=clock, clock_freq_new=frequency)
+        # An edge's CZ clock is declared inside the CZ gate's own subschedule, not by the
+        # device, so a raw pulse on it has nothing to reference. Every other spectroscopy
+        # sweeps a clock the element already owns; these bring their own, one per edge, then
+        # retune them point by point like the rest.
+        clocks = {target: f"{target}.cz" for target in targets}
+        for target in targets:
+            schedule.add_resource(
+                backend.ClockResource(name=clocks[target], freq=bands[target][0])
             )
-            schedule.add(
-                backend.SquarePulse(
-                    amp=amplitude,
-                    duration=duration,
-                    port=f"{target}:fl",
-                    clock=clock,
-                )
+        for index in range(len(bands[targets[0]])):
+            anchor = prepare_11(schedule, backend, targets)
+            add_together(
+                schedule,
+                [
+                    backend.SetClockFrequency(
+                        clock=clocks[target], clock_freq_new=bands[target][index]
+                    )
+                    for target in targets
+                ],
             )
-            schedule.add(
-                backend.Measure(
-                    parent, acq_index=index, bin_mode=backend.BinMode.AVERAGE
-                )
+            anchor = add_after(
+                schedule,
+                [
+                    backend.SquarePulse(
+                        amp=amplitudes[target],
+                        duration=duration,
+                        port=f"{target}:fl",
+                        clock=clocks[target],
+                    )
+                    for target in targets
+                ],
+                anchor,
             )
+            add_after(schedule, measure_parents(backend, targets, index), anchor)
         return schedule
 
     def analyse(
-        self, dataset: xr.Dataset, target: str, device: Any, config: RoutineConfig
+        self,
+        dataset: xr.Dataset,
+        target: str,
+        device: Any,
+        config: RoutineConfig,
+        sweep: Sweep,
     ) -> dict[str, Any]:
-        fitted = fit_resonator_spectroscopy(self._frequencies, signal_of(dataset))
+        fitted = fit_resonator_spectroscopy(sweep["frequencies"], signal_of(dataset))
         return {"clock_freq_cz": fitted["readout_frequency"], **fitted}
 
     def apply(self, device: Any, target: str, params: dict[str, Any]) -> None:
@@ -398,55 +655,106 @@ class CZParametrization(CalibrationRoutine):
         return parametric_edge(device, target) is not None
 
     def build_schedule(
-        self, target: str, device: Any, config: RoutineConfig, backend: SchedulerBackend
+        self,
+        target: str,
+        device: Any,
+        config: RoutineConfig,
+        backend: SchedulerBackend,
+        sweep: Sweep,
     ) -> Any:
-        element = parametric_edge(device, target)
-        if element is None:
-            raise RoutineError(
-                f"edge {target!r} drives its CZ with a baseband flux pulse — see "
-                f"`cz_chevron`, which sweeps the amplitude its resonance lives in"
-            )
-        parent, child = qubits_of(target)
-        self._amplitude = float(
-            config.get("amplitude", read_path(element, "cz.square_amp") or 0.5)
+        return self.build_group_schedule(
+            [target], device, config, backend, {target: sweep}
         )
-        self._durations = [
+
+    def compatible_groups(
+        self, targets: Sequence[str], device: Any, config: RoutineConfig
+    ) -> list[list[str]]:
+        """Edges whose durations agree exactly, since a pulse length is shared time.
+
+        Unlike `cz_spectroscopy`'s frequency axis, this one is the timeline itself: a 300 ns
+        pulse occupies 300 ns of the schedule for every edge in it. `grouped_by_grid`, not
+        `grouped_by_size`. In practice they always agree — the durations come from the
+        config, not from the chip.
+        """
+        return grouped_by_grid(targets, lambda _target: self._durations(config))
+
+    def _durations(self, config: RoutineConfig) -> list[float]:
+        """The pulse lengths swept, on the instrument's nanosecond grid."""
+        return [
             grid_duration(duration)
             for duration in setpoints_of(
                 config, "durations", linear_setpoints(20e-9, 400e-9, 39)
             )
         ]
-        frequency = float(read_path(element, "clock_freqs.cz"))
+
+    def build_group_schedule(
+        self,
+        targets: Sequence[str],
+        device: Any,
+        config: RoutineConfig,
+        backend: SchedulerBackend,
+        sweeps: Mapping[str, Sweep],
+    ) -> Any:
+        """Every edge's coupler driven for the same lengths, each at its own operating point.
+
+        The durations are one axis for the group; the drive frequency and amplitude are read
+        per edge, since each has its own calibrated point and its own clock.
+        """
+        durations = self._durations(config)
+        clocks = {}
+        amplitudes = {}
+        for target in targets:
+            element = parametric_edge(device, target)
+            if element is None:
+                raise RoutineError(
+                    f"edge {target!r} drives its CZ with a baseband flux pulse — see "
+                    f"`cz_chevron`, which sweeps the amplitude its resonance lives in"
+                )
+            sweeps[target]["durations"] = durations
+            sweeps[target]["amplitude"] = amplitudes[target] = float(
+                config.get("amplitude", read_path(element, "cz.square_amp") or 0.5)
+            )
+            clocks[target] = f"{target}.cz"
 
         schedule = backend.new_schedule(
             self.name, repetitions=int(config.get("shots", 512))
         )
-        clock = f"{target}.cz"
-        schedule.add_resource(backend.ClockResource(name=clock, freq=frequency))
-        for index, duration in enumerate(self._durations):
-            schedule.add(backend.Reset(parent))
-            schedule.add(backend.Reset(child))
-            schedule.add(backend.X(parent))
-            schedule.add(backend.X(child))
-            schedule.add(
-                backend.SquarePulse(
-                    amp=self._amplitude,
-                    duration=duration,
-                    port=f"{target}:fl",
-                    clock=clock,
+        for target in targets:
+            schedule.add_resource(
+                backend.ClockResource(
+                    name=clocks[target],
+                    freq=float(
+                        read_path(parametric_edge(device, target), "clock_freqs.cz")
+                    ),
                 )
             )
-            schedule.add(
-                backend.Measure(
-                    parent, acq_index=index, bin_mode=backend.BinMode.AVERAGE
-                )
+        for index, duration in enumerate(durations):
+            anchor = prepare_11(schedule, backend, targets)
+            anchor = add_after(
+                schedule,
+                [
+                    backend.SquarePulse(
+                        amp=amplitudes[target],
+                        duration=duration,
+                        port=f"{target}:fl",
+                        clock=clocks[target],
+                    )
+                    for target in targets
+                ],
+                anchor,
             )
+            add_after(schedule, measure_parents(backend, targets, index), anchor)
         return schedule
 
     def analyse(
-        self, dataset: xr.Dataset, target: str, device: Any, config: RoutineConfig
+        self,
+        dataset: xr.Dataset,
+        target: str,
+        device: Any,
+        config: RoutineConfig,
+        sweep: Sweep,
     ) -> dict[str, Any]:
-        durations = np.asarray(self._durations, dtype=float)
+        durations = np.asarray(sweep["durations"], dtype=float)
         # `fit_rabi` fits a cosine and reports where the *half* period falls. Its axis
         # is normally a drive amplitude and here it is a duration, which changes
         # nothing about the arithmetic: a cosine is a cosine.
@@ -455,12 +763,12 @@ class CZParametrization(CalibrationRoutine):
         if half <= 0:
             raise RoutineError(
                 f"the parametric exchange did not oscillate over {durations[-1] * 1e9:.0f} "
-                f"ns at amplitude {self._amplitude:.4g} — the drive may be off the "
+                f"ns at amplitude {sweep['amplitude']:.4g} — the drive may be off the "
                 f"transition, which is `cz_spectroscopy`'s job to place"
             )
         round_trip = 2.0 * half
         return {
-            "cz_amplitude": self._amplitude,
+            "cz_amplitude": sweep["amplitude"],
             "cz_duration": grid_duration(round_trip),
             # Per unit amplitude, which is the parametrization. The factor is four
             # rather than two and that is a convention rather than an accident: the
@@ -470,7 +778,7 @@ class CZParametrization(CalibrationRoutine):
             # is the constant this routine exists to replace — a chip calibrated in
             # some other convention would differ by exactly this factor, which is why
             # it is written down rather than folded in.
-            "exchange_rate_hz_per_unit": 1.0 / (4.0 * half * self._amplitude),
+            "exchange_rate_hz_per_unit": 1.0 / (4.0 * half * sweep["amplitude"]),
             "half_period": half,
         }
 
@@ -506,52 +814,84 @@ class CZChevron(CalibrationRoutine):
         )
 
     def build_schedule(
-        self, target: str, device: Any, config: RoutineConfig, backend: SchedulerBackend
+        self,
+        target: str,
+        device: Any,
+        config: RoutineConfig,
+        backend: SchedulerBackend,
+        sweep: Sweep,
     ) -> Any:
-        control, _child = qubits_of(target)
-        self._amplitudes = setpoints_of(
-            config, "amplitudes", linear_setpoints(0.1, 0.6, 11)
+        return self.build_group_schedule(
+            [target], device, config, backend, {target: sweep}
         )
-        self._durations = setpoints_of(
-            config, "durations", linear_setpoints(20e-9, 200e-9, 11)
+
+    def compatible_groups(
+        self, targets: Sequence[str], device: Any, config: RoutineConfig
+    ) -> list[list[str]]:
+        """Both axes come from the config, so every edge's grid is the same one."""
+        return grouped_by_grid(targets, lambda _target: self._grid(config)[0])
+
+    def _grid(self, config: RoutineConfig) -> tuple[list[float], list[float]]:
+        """The chevron's amplitude and duration axes."""
+        return (
+            setpoints_of(config, "amplitudes", linear_setpoints(0.1, 0.6, 11)),
+            setpoints_of(config, "durations", linear_setpoints(20e-9, 200e-9, 11)),
         )
-        port = f"{control}:fl"
+
+    def build_group_schedule(
+        self,
+        targets: Sequence[str],
+        device: Any,
+        config: RoutineConfig,
+        backend: SchedulerBackend,
+        sweeps: Mapping[str, Sweep],
+    ) -> Any:
+        """One chevron per edge, each pulse on its own control's flux port.
+
+        The amplitude axis is per-edge hardware — a baseband pulse on ``q<n>:fl`` — so the
+        edges can share a grid without their pulses interfering. That holds only because
+        `edge_spacing` will not put two edges sharing a qubit in one group.
+        """
+        amplitudes, durations = self._grid(config)
+        for target in targets:
+            sweeps[target]["amplitudes"] = amplitudes
+            sweeps[target]["durations"] = durations
         schedule = backend.new_schedule(
             self.name, repetitions=int(config.get("shots", 512))
         )
 
         index = 0
-        for amplitude in self._amplitudes:
-            for duration in self._durations:
-                parent, child = qubits_of(target)
-                schedule.add(backend.Reset(parent))
-                schedule.add(backend.Reset(child))
-                # |11> is the state that exchanges with |02>, so both qubits are
-                # excited before the flux pulse brings them into resonance.
-                schedule.add(backend.X(parent))
-                schedule.add(backend.X(child))
-                schedule.add(
-                    backend.SquarePulse(
-                        amp=amplitude,
-                        duration=duration,
-                        port=port,
-                        clock="cl0.baseband",
-                    )
+        for amplitude in amplitudes:
+            for duration in durations:
+                anchor = prepare_11(schedule, backend, targets)
+                anchor = add_after(
+                    schedule,
+                    [
+                        backend.SquarePulse(
+                            amp=amplitude,
+                            duration=duration,
+                            port=f"{qubits_of(edge)[0]}:fl",
+                            clock="cl0.baseband",
+                        )
+                        for edge in targets
+                    ],
+                    anchor,
                 )
-                schedule.add(
-                    backend.Measure(
-                        parent, acq_index=index, bin_mode=backend.BinMode.AVERAGE
-                    )
-                )
+                add_after(schedule, measure_parents(backend, targets, index), anchor)
                 index += 1
         return schedule
 
     def analyse(
-        self, dataset: xr.Dataset, target: str, device: Any, config: RoutineConfig
+        self,
+        dataset: xr.Dataset,
+        target: str,
+        device: Any,
+        config: RoutineConfig,
+        sweep: Sweep,
     ) -> dict[str, Any]:
         return fit_chevron(
-            np.asarray(self._amplitudes),
-            np.asarray(self._durations),
+            np.asarray(sweep["amplitudes"]),
+            np.asarray(sweep["durations"]),
             signal_of(dataset),
         )
 
@@ -581,53 +921,112 @@ class ConditionalPhase(CalibrationRoutine):
     reads = ("clock_freqs.f01", "rxy.amp180")
 
     def build_schedule(
-        self, target: str, device: Any, config: RoutineConfig, backend: SchedulerBackend
+        self,
+        target: str,
+        device: Any,
+        config: RoutineConfig,
+        backend: SchedulerBackend,
+        sweep: Sweep,
     ) -> Any:
-        parent, child = qubits_of(target)
-        self._phases = setpoints_of(config, "phases", linear_setpoints(0.0, 360.0, 25))
+        return self.build_group_schedule(
+            [target], device, config, backend, {target: sweep}
+        )
+
+    def build_group_schedule(
+        self,
+        targets: Sequence[str],
+        device: Any,
+        config: RoutineConfig,
+        backend: SchedulerBackend,
+        sweeps: Mapping[str, Sweep],
+    ) -> Any:
+        """The four fringes on every edge at once, each read on the edge's own channel.
+
+        The phase axis is a virtual-Z on the qubit being measured, so it is per-edge
+        hardware and the grid can be shared. The group never splits: the phases come from
+        the config or from a full turn in 25 steps.
+        """
+        phases = setpoints_of(config, "phases", linear_setpoints(0.0, 360.0, 25))
+        for target in targets:
+            sweeps[target]["phases"] = phases
         schedule = backend.new_schedule(
             self.name, repetitions=int(config.get("shots", 512))
         )
 
-        # Four fringes, not two. A Ramsey on one qubit with the other down and
-        # then up gives the conditional phase from the offset between them, and
-        # the *ground* fringe's own phase gives that qubit's single-qubit phase
-        # over the CZ. Both qubits are needed because each carries its own, and
-        # the edge has a separate correction for each — measuring one and
-        # assuming the other is how a CZ ends up building the wrong Bell state
-        # while every reported number looks right.
+        # Four fringes, not two. A Ramsey on one qubit with the other down and then up
+        # gives the conditional phase from the offset between them, and the *ground*
+        # fringe's own phase gives that qubit's single-qubit phase over the CZ. Both qubits
+        # are needed because each carries its own, and the edge has a separate correction
+        # for each — measuring one and assuming the other is how a CZ ends up building the
+        # wrong Bell state while every reported number looks right.
         index = 0
-        for measured, spectator in ((parent, child), (child, parent)):
+        for role in (0, 1):
+            # Which qubit of each edge this pass reads, and which merely sits excited.
+            roles = {
+                edge: (qubits_of(edge)[role], qubits_of(edge)[1 - role])
+                for edge in targets
+            }
             for spectator_excited in (False, True):
-                for phase in self._phases:
-                    schedule.add(backend.Reset(measured))
-                    schedule.add(backend.Reset(spectator))
+                for phase in phases:
+                    add_together(
+                        schedule,
+                        [backend.Reset(q) for edge in targets for q in qubits_of(edge)],
+                    )
                     if spectator_excited:
-                        schedule.add(backend.X(spectator))
-                    schedule.add(backend.Rxy(theta=90, phi=0, qubit=measured))
-                    schedule.add(backend.CZ(parent, child))
-                    schedule.add(backend.Rxy(theta=90, phi=phase, qubit=measured))
-                    schedule.add(
-                        backend.Measure(
-                            measured,
-                            acq_index=index,
-                            bin_mode=backend.BinMode.AVERAGE,
+                        add_together(
+                            schedule,
+                            [backend.X(roles[edge][1]) for edge in targets],
                         )
+                    add_together(
+                        schedule,
+                        [
+                            backend.Rxy(theta=90, phi=0, qubit=roles[edge][0])
+                            for edge in targets
+                        ],
+                    )
+                    add_together(
+                        schedule,
+                        [backend.CZ(*qubits_of(edge)) for edge in targets],
+                    )
+                    anchor = add_together(
+                        schedule,
+                        [
+                            backend.Rxy(theta=90, phi=phase, qubit=roles[edge][0])
+                            for edge in targets
+                        ],
+                    )
+                    add_after(
+                        schedule,
+                        [
+                            backend.Measure(
+                                roles[edge][0],
+                                acq_channel=channel,
+                                acq_index=index,
+                                bin_mode=backend.BinMode.AVERAGE,
+                            )
+                            for channel, edge in enumerate(targets)
+                        ],
+                        anchor,
                     )
                     index += 1
         return schedule
 
     def analyse(
-        self, dataset: xr.Dataset, target: str, device: Any, config: RoutineConfig
+        self,
+        dataset: xr.Dataset,
+        target: str,
+        device: Any,
+        config: RoutineConfig,
+        sweep: Sweep,
     ) -> dict[str, Any]:
         signal = signal_of(dataset)
-        count = len(self._phases)
+        count = len(sweep["phases"])
         if signal.size < 4 * count:
             raise RoutineError(
                 f"conditional phase expected {4 * count} acquisitions, got {signal.size}"
             )
 
-        phases = np.asarray(self._phases)
+        phases = np.asarray(sweep["phases"])
         # Both fringes of a pair, not their difference: the measured qubit's
         # dynamical phase over the flux pulse cancels between them and does not
         # cancel within either.
