@@ -1,3 +1,3 @@
 module github.com/sopherapps/qpi/qpi-client/go
 
-go 1.21
+go 1.27.3

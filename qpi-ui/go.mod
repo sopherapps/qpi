@@ -1,6 +1,6 @@
 module qpi
 
-go 1.26.3
+go 1.27.3
 
 require (
 	github.com/go-playground/validator/v10 v10.30.3

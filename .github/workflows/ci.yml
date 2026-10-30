@@ -24,7 +24,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '1.26.x'
+        go-version: '1.27.x'
         cache-dependency-path: 'qpi-ui/go.sum'
 
     - name: Set up uv
@@ -69,7 +69,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '1.26.x'
+        go-version: '1.27.x'
         cache-dependency-path: 'qpi-ui/go.sum'
 
     - name: Set up uv
@@ -137,7 +137,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '1.26.x'
+        go-version: '1.27.x'
         cache-dependency-path: 'qpi-client/go/go.sum'
         
 
@@ -209,7 +209,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        go-version: ['1.26.x']
+        go-version: ['1.27.x']
 
     steps:
     - name: Checkout Code
@@ -265,7 +265,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '1.26.x'
+        go-version: '1.27.x'
         cache-dependency-path: 'qpi-ui/go.sum'
 
     - name: Set up uv
@@ -315,7 +315,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '1.26.x'
+        go-version: '1.27.x'
         cache-dependency-path: 'qpi-driver/go/go.sum'
 
     - name: Set up uv
@@ -496,7 +496,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '1.26.x'
+        go-version: '1.27.x'
 
     - name: Set up Node.js
       uses: actions/setup-node@v4
@@ -552,7 +552,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '1.26.x'
+        go-version: '1.27.x'
 
     - name: Set up Node.js
       uses: actions/setup-node@v4

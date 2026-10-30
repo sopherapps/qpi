@@ -1,6 +1,6 @@
 module smoke
 
-go 1.21
+go 1.27.3
 
 replace github.com/sopherapps/qpi/qpi-client/go => ../qpi-client/go
 
