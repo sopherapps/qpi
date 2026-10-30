@@ -23,6 +23,9 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
   do. `--prerelease allow`, there for the qblox extra, applied to every package and pulled in a
   pynng beta whose wheel wants a `libatomic` stock Ubuntu has not got — so the driver it
   installed died on `import pynng` before it could start.
+- `qpi-ui`: pocketbase moves to 0.40.6. Built with Go 1.27, which turns `encoding/json/v2`
+  on, 0.39.2's `Collection.UnmarshalJSON` recursed into itself, so the server died of a stack
+  overflow on the first collection it decoded and every request after that was refused.
 
 ## [0.4.2] - 2026-08-16
 
