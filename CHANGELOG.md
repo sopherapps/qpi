@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project follows versions of format `{year}.{month}.{patch_number}`.
 
+## [Unreleased]
+
+### Changed
+
+- `go`: every Go module requires Go 1.27.3 and CI builds on 1.27.x, so nothing is built with
+  a toolchain that still trusts the compromised eMudhra intermediate CAs (CVE-2026-111943,
+  fixed in Go 1.27.3 and 1.26.10). A binary built before this keeps trusting certificates
+  issued from the leaked keys until it is rebuilt.
+
 ## [0.4.2] - 2026-08-16
 
 ### Added
