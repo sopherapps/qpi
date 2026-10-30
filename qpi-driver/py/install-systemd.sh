@@ -124,7 +124,10 @@ else
     else
         VERSION_SUFFIX="==$QPI_DRIVER_VERSION"
     fi
-    sudo -u "$REAL_USER" "$UV_PATH" tool install --python 3.12 --prerelease allow "qpi-driver[cli,${DEVICE}]${VERSION_SUFFIX}"
+    # `if-necessary`, not `allow`: the qblox extra needs prereleases, but `allow`
+    # applies to every package, and it reached for a pynng beta whose wheel wants a
+    # libatomic the base image has not got. A prerelease only where no release will do.
+    sudo -u "$REAL_USER" "$UV_PATH" tool install --python 3.12 --prerelease if-necessary "qpi-driver[cli,${DEVICE}]${VERSION_SUFFIX}"
 
     QPI_DRIVER_BIN="${QPI_DRIVER_BIN:-$REAL_HOME/.local/bin/qpi-driver}"
 fi
