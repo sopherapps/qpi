@@ -17,6 +17,13 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
   four eMudhra roots — `emSign ECC Root CA - G3` among them. The pinned 2026.5.20 bundle
   still trusted them, and Go's denylist covers only Go.
 
+### Fixed
+
+- `qpi-driver/py`: `install-systemd.sh` lets uv take a prerelease only where no release will
+  do. `--prerelease allow`, there for the qblox extra, applied to every package and pulled in a
+  pynng beta whose wheel wants a `libatomic` stock Ubuntu has not got — so the driver it
+  installed died on `import pynng` before it could start.
+
 ## [0.4.2] - 2026-08-16
 
 ### Added
