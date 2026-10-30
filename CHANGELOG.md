@@ -13,6 +13,9 @@ and this project follows versions of format `{year}.{month}.{patch_number}`.
   a toolchain that still trusts the compromised eMudhra intermediate CAs (CVE-2026-111943,
   fixed in Go 1.27.3 and 1.26.10). A binary built before this keeps trusting certificates
   issued from the leaked keys until it is rebuilt.
+- `qpi-client/py`, `qpi-driver/py`: certifi moves to 2026.10.23, which drops three of the
+  four eMudhra roots — `emSign ECC Root CA - G3` among them. The pinned 2026.5.20 bundle
+  still trusted them, and Go's denylist covers only Go.
 
 ## [0.4.2] - 2026-08-16
 
